@@ -100,8 +100,8 @@ const views = {
 function openModal(m) { if (!S.modal) history.pushState({ m: 1 }, ""); S.modal = m; drawModal(); }
 function closeModal(back = true) { S.modal = null; $("#modal")?.remove(); if (back && history.state?.m) history.back(); }
 window.addEventListener("popstate", () => { if (S.modal) { S.modal = null; $("#modal")?.remove(); } });
-function subscribe(rank, postId) {
-  const ret = { rank, post: postId || null }; localStorage.miaReturn = JSON.stringify(ret);
+function subscribe(rank, postId, o = {}) {
+  S.stay = o.stay || null; const ret = { rank, post: postId || null }; localStorage.miaReturn = JSON.stringify(ret);
   openModal(S.user ? { t: "pay", ...ret } : { t: "signup", ...ret });
 }
 function drawModal() {
@@ -151,6 +151,8 @@ async function enterCode(e) {
   const r = await fn("unlock", { code });
   if (r.status == 200) { if (r.data.token) { S.token = r.data.token; localStorage.miaToken = r.data.token; } S.rank = Math.max(S.rank, r.data.rank);
     ce.className = "okm"; ce.textContent = "✔ " + T("code_ok"); toast(T("code_ok")); const ret = JSON.parse(localStorage.miaReturn || "{}"); localStorage.removeItem("miaReturn");
+    const stay = S.stay; S.stay = null; render();
+    if (stay && window.MiaViewer?.isOpen()) return setTimeout(() => { closeModal(); stay(); }, 700);
     setTimeout(() => { closeModal(false); location.hash = ret.post ? `#/post/${ret.post}` : "#/feed"; render(); }, 700); }
   else ce.textContent = r.status == 429 ? T("rate_limited") : r.status == 0 ? T("offline") : T("code_bad");
 }
