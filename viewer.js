@@ -16,7 +16,9 @@ function build() {
   <div class="pstrip" id="v-ps"></div><div class="vbz" id="v-bz"></div>`;
   document.body.append(V);
   el("x").onclick = close; el("skip").onclick = finish; // боковые зоны больше не листают: тап открывает нижнюю плашку с артами (как тап внизу)
-  el("nx").onclick = el("pv").onclick = e => { e.stopPropagation(); bar(0); };
+  // кнопка ‹ › — листает (без перескока через край); остальная боковая зона — открывает плашку
+  const side = d => e => { e.stopPropagation(); if (e.target.closest("span")) { const n = st.imgs?.length || 0, k = Math.max(0, Math.min(n - 1, st.i + d)); if (k != st.i) show(k); wake(); } else bar(0); };
+  el("nx").onclick = side(1); el("pv").onclick = side(-1);
   el("fs").onclick = () => document.fullscreenElement ? document.exitFullscreen() : V.requestFullscreen?.();
   el("mu").onclick = () => toggleMute();
   el("lk").onclick = async () => { await window.Mia.toggleLike(st.post.id); drawBot(); };
@@ -67,10 +69,15 @@ function goPack(p) {
   wake();
 }
 // закрытый пак: остаёмся в кинорежиме, в центре карточка с постером и кнопкой «Купить пак»
+// размер квадрата закрытого пака считаем в px (без cq/vw/translate — на Android они давали сдвиг)
+function lkSize() { if (!V || !V.classList.contains("lkd")) return; const vb = Math.max(0, Math.round(el("stage").getBoundingClientRect().bottom - V.querySelector(".vchrome.bot").getBoundingClientRect().top)); V.style.setProperty("--vb", vb + "px");
+  const c = el("lc"), cs = getComputedStyle(c), w = c.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), h = c.clientHeight - parseFloat(cs.paddingTop) - vb;
+  V.style.setProperty("--fs", Math.max(120, Math.floor(Math.min(w, h))) + "px"); }
+addEventListener("resize", () => lkSize());
 function lockCard(p) {
   const M = window.Mia, n = p.image_count || 0; st.post = p; st.imgs = null; st.i = 0; st.pending = null;
   title(p); drawBot(); drawPacks(); el("cnt").textContent = ""; st.front.classList.remove("show"); st.back.classList.remove("show"); el("load").classList.remove("on");
-  V.classList.add("lkd"); V.style.setProperty("--vb", Math.max(0, V.querySelector(".vchrome.bot").offsetHeight - 8) + "px"); V.style.setProperty("--lkbg", `url('${M.pub(p.cover_path)}')`);
+  V.classList.add("lkd"); lkSize(); V.style.setProperty("--lkbg", `url('${M.pub(p.cover_path)}')`);
   el("strip").innerHTML = Array.from({ length: Math.min(n, 12) }, () => `<div class="lk fz" style="background-image:url('${M.pub(p.cover_path)}')"></div>`).join(""); el("strip").classList.add("on");
   el("lc").innerHTML = `<div class="lfull"><img src="${M.pub(p.cover_path)}" alt=""><i class="lfz"></i><h3>${M.esc(p.title)}</h3><span class="lcnt">${n} ${M.plural(n, "арт", "арта", "артов")}</span>
     <div class="frost lpan"><span class="mu">${M.esc(M.T("locked_label"))}</span><b>${M.esc(p.tier_name || "")}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><button class="ob" id="v-buy">🔒 ${M.esc(M.T("btn_subscribe"))}</button></div></div>`;

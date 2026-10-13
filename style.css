@@ -260,4 +260,14 @@ html.v-open #modal{z-index:95}
 .viewer{overflow:clip}
 /* закрытый пак: квадрат заканчивается над названием/полосой артов; нижняя плашка поверх */
 .viewer.lkd .vlc{padding-bottom:var(--vb,0px)}.viewer.lkd .vchrome.bot{z-index:6}
-.viewer .vnav span{display:none}
+/* v13: квадрат закрытого пака — размер в px из JS, панель без translateX */
+.viewer.lkd .vlc{container-type:normal;justify-content:center;align-items:center}
+.lfull{width:var(--fs,300px);height:var(--fs,300px);max-width:100%;margin:0 auto}
+.viewer .lpan,body.dark .viewer .lpan{left:12px;right:12px;transform:none;width:auto;max-width:340px;margin:0 auto}
+/* v13: телефон — открытый арт на весь экран, плашки поверх */
+@media (max-width:600px),(orientation:portrait) and (max-width:900px){
+  .viewer .vstage{top:0;left:0;right:0;bottom:0}
+  .viewer .art{inset:0;background-size:cover;filter:none}
+  .viewer.lkd .vlc{padding-top:60px;padding-left:8px;padding-right:8px}
+}
+.viewer .vnav span{display:block}
