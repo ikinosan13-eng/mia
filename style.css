@@ -250,3 +250,13 @@ html.v-open #modal{z-index:95}
 /* v3: постер пака чёткий, сверху мягкое затемнение под название */
 .lfull img{filter:none;transform:none}
 .lfz{background:linear-gradient(to bottom,rgba(0,0,0,.75) 0%,rgba(0,0,0,.4) 12%,rgba(0,0,0,0) 32%);opacity:1}
+/* v10: обложки закрытых постов в ленте и на странице поста — чёткие, чёрный градиент сверху, без стекла */
+.cov.lk:after{backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none;background:linear-gradient(to bottom,rgba(0,0,0,.75) 0%,rgba(0,0,0,.4) 12%,rgba(0,0,0,0) 32%);background-size:auto}
+/* десктоп: кадр закрытого пака квадратный по высоте, по центру; на телефоне как раньше */
+.viewer.lkd .vlc{padding:0;container-type:size}
+.lfull{flex:none;width:min(100cqw,100cqh);height:min(100cqw,100cqh);aspect-ratio:1/1}
+.viewer .lpan{left:50%;right:auto;transform:translateX(-50%);width:min(calc(100% - 24px),340px);bottom:12px;padding:12px 14px;gap:4px}
+.viewer .lpan .ob{padding:9px 26px}
+.viewer{overflow:clip}
+/* закрытый пак: квадрат заканчивается над названием/полосой артов; нижняя плашка поверх */
+.viewer.lkd .vlc{padding-bottom:var(--vb,0px)}.viewer.lkd .vchrome.bot{z-index:6}

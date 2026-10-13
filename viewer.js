@@ -45,10 +45,12 @@ let hideT = null, over = 0, barT = null;
 function bar(ms) { if (!V) return; V.classList.add("bar"); clearTimeout(barT); barT = setTimeout(() => { if (!document.querySelector(".cs")) V.classList.remove("bar"); else bar(ms); }, RM ? ms : ms); }
 function wake() { if (!V) return; V.classList.remove("idle"); clearTimeout(hideT); if (!V.classList.contains("ui")) return; hideT = setTimeout(() => { if (!over && !document.querySelector(".cs")) V.classList.add("idle"); }, 2000); }
 const locked = p => p.tier_rank > window.Mia.S.rank;
+// прокрутка полосы к элементу без сдвига самого кинорежима (scrollIntoView двигал и предков)
+function center(box, c, behavior) { if (!c) return; const b = box.getBoundingClientRect(), r = c.getBoundingClientRect(); box.scrollTo({ left: box.scrollLeft + r.left - b.left - (b.width - r.width) / 2, behavior: behavior || "auto" }); }
 function drawPacks() {
   const M = window.Mia, ps = el("ps");
   ps.innerHTML = M.S.posts.map(p => `<div data-p="${p.id}" class="p${p.id == st.post.id ? " cur" : ""}${locked(p) ? " lk" : ""}" title="${M.esc(p.title)}" style="background-image:url('${M.pub(p.cover_path)}')"></div>`).join("");
-  ps.querySelector(".cur")?.scrollIntoView({ inline: "center", block: "nearest" });
+  center(ps, ps.querySelector(".cur"));
 }
 function pack(d) { const P = window.Mia.S.posts, n = P.length; let k = P.findIndex(p => p.id == st.post.id); for (let j = 0; j < n; j++) { k = (k + d + n) % n; if (!locked(P[k])) return goPack(P[k]); } }
 // смена пака внутри просмотра: без длинного приветствия и без перезапуска музыки
@@ -66,7 +68,7 @@ function goPack(p) {
 function lockCard(p) {
   const M = window.Mia, n = p.image_count || 0; st.post = p; st.imgs = null; st.i = 0; st.pending = null;
   title(p); drawBot(); drawPacks(); el("cnt").textContent = ""; st.front.classList.remove("show"); st.back.classList.remove("show"); el("load").classList.remove("on");
-  V.classList.add("lkd"); V.style.setProperty("--lkbg", `url('${M.pub(p.cover_path)}')`);
+  V.classList.add("lkd"); V.style.setProperty("--vb", Math.max(0, V.querySelector(".vchrome.bot").offsetHeight - 8) + "px"); V.style.setProperty("--lkbg", `url('${M.pub(p.cover_path)}')`);
   el("strip").innerHTML = Array.from({ length: Math.min(n, 12) }, () => `<div class="lk fz" style="background-image:url('${M.pub(p.cover_path)}')"></div>`).join(""); el("strip").classList.add("on");
   el("lc").innerHTML = `<div class="lfull"><img src="${M.pub(p.cover_path)}" alt=""><i class="lfz"></i><h3>${M.esc(p.title)}</h3><span class="lcnt">${n} ${M.plural(n, "арт", "арта", "артов")}</span>
     <div class="frost lpan"><span class="mu">${M.esc(M.T("locked_label"))}</span><b>${M.esc(p.tier_name || "")}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><button class="ob" id="v-buy">🔒 ${M.esc(M.T("btn_subscribe"))}</button></div></div>`;
@@ -116,7 +118,7 @@ function show(k, slow) {
   f.classList.remove("show"); void f.offsetWidth; f.classList.add("show"); st.back.classList.remove("show");
   el("cnt").textContent = `${st.i + 1} / ${n}`;
   [...el("strip").children].forEach((d, m) => d.classList.toggle("cur", m == st.i));
-  el("strip").children[st.i]?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+  center(el("strip"), el("strip").children[st.i], "smooth");
 }
 function finish() {
   timers.forEach(clearTimeout); timers = []; el("intro").classList.add("out");
