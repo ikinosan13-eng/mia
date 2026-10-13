@@ -257,3 +257,4 @@ html.v-open #modal{z-index:95}
 .lfull{flex:none;width:min(100cqw,100cqh);height:min(100cqw,100cqh);aspect-ratio:1/1}
 .viewer .lpan{left:50%;right:auto;transform:translateX(-50%);width:min(calc(100% - 24px),340px);bottom:12px;padding:12px 14px;gap:4px}
 .viewer .lpan .ob{padding:9px 26px}
+.viewer{overflow:clip}
