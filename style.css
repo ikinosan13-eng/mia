@@ -273,3 +273,18 @@ html.v-open #modal{z-index:95}
 .viewer .vnav span{display:block}
 /* v14: в закрытом паке сцена (z5) перекрывала верхнюю панель (z3) — ✕ не нажимался */
 .viewer.lkd .vchrome.top{z-index:7}
+/* v16: навигация кинорежима */
+.viewer.lkd .pstrip{z-index:8}.viewer.lkd .vchrome.bot{z-index:8}
+.viewer.lkd .vbz{height:calc(var(--ps) + 170px)}
+.viewer.lkd .vnav{display:flex;z-index:4}.viewer.lkd .vnav span{display:none}
+.lfull{cursor:pointer}
+.llock{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);z-index:2;width:64px;height:64px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:rgba(20,20,24,.45) var(--lock-svg) center/26px no-repeat;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.4);animation:llp 2.4s ease-in-out infinite}
+@keyframes llp{50%{box-shadow:0 0 0 8px rgba(255,143,184,.18),0 6px 20px rgba(0,0,0,.4)}}
+.vstrip .tzt{background-color:#2a2a30;cursor:pointer}
+.vtz{position:absolute;inset:0;z-index:9;display:none;align-items:center;justify-content:center;background:rgba(5,5,7,.55);opacity:0;transition:opacity .3s;cursor:pointer}
+.vtz.on{display:flex;opacity:1}
+.tzw{position:relative;width:var(--fs,300px);height:var(--fs,300px);max-width:92vw;max-height:80vh;border-radius:16px;overflow:hidden;background:#111;box-shadow:0 20px 40px rgba(0,0,0,.6)}
+.tzw .im{position:absolute;inset:-24px;background:center/cover;filter:blur(18px) saturate(.85);opacity:0;transition:opacity .45s ease}
+.tzw .im.on{opacity:1}
+.tzw .wm{position:absolute;left:0;right:0;top:58%;text-align:center;font-size:44px;font-weight:800;letter-spacing:.08em;color:rgba(255,255,255,.35);transform:rotate(-14deg);text-shadow:0 2px 10px rgba(0,0,0,.3);pointer-events:none}
+.tzl{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:rgba(20,20,24,.45) var(--lock-svg) center/26px no-repeat}
