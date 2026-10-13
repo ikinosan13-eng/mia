@@ -115,7 +115,7 @@ function lkSize() { if (!V || !V.classList.contains("lkd")) return; const vb = M
 addEventListener("resize", () => lkSize());
 function lockCard(p) {
   const M = window.Mia, n = p.image_count || 0; st.post = p; st.imgs = null; st.i = 0; st.pending = null;
-  title(p); drawBot(); drawPacks(); el("cnt").textContent = ""; st.front.classList.remove("show"); st.back.classList.remove("show"); el("load").classList.remove("on");
+  loadTok++; title(p); drawBot(); drawPacks(); el("cnt").textContent = ""; st.front.classList.remove("show"); st.back.classList.remove("show"); el("load").classList.remove("on", "err");
   V.classList.add("lkd"); lkSize(); V.style.setProperty("--lkbg", `url('${M.pub(p.cover_path)}')`);
   const pv = packPv(p);
   el("strip").innerHTML = Array.from({ length: Math.min(n, 12) }, (_, k) => `<div class="tzt"><i${pv[k] ? ` style="background-image:url('${M.pub(pv[k].preview_path)}')"` : ""}></i></div>`).join(""); el("strip").classList.add("on");
@@ -163,14 +163,24 @@ function toggleMute() {
   else if (!st.muted) startMusic({ ...st.cfg, music_on: true }, st.post);
 }
 // ---- slides ----
+// смена арта: плашка «Загрузка…» висит, пока картинка не загружена и не декодирована; анимация появления — только после
+let loadTok = 0;
 function show(k, slow) {
   if (!st.imgs?.length) return; const n = st.imgs.length; st.i = (k + n) % n;
-  [st.front, st.back] = [st.back, st.front]; const f = st.front;
-  f.classList.toggle("slow", !!slow); f.style.backgroundImage = `url("${st.imgs[st.i]}")`;
-  f.classList.remove("show"); void f.offsetWidth; f.classList.add("show"); st.back.classList.remove("show");
-  el("cnt").textContent = `${st.i + 1} / ${n}`;
-  [...el("strip").children].forEach((d, m) => d.classList.toggle("cur", m == st.i));
-  center(el("strip"), el("strip").children[st.i], "smooth");
+  const i = st.i, url = st.imgs[i], tok = ++loadTok, post = st.post;
+  el("cnt").textContent = `${i + 1} / ${n}`;
+  [...el("strip").children].forEach((d, m) => d.classList.toggle("cur", m == i));
+  center(el("strip"), el("strip").children[i], "smooth");
+  const im = new Image(); im.src = url;
+  const ready = () => { if (tok != loadTok || st.post !== post) return; el("load").classList.remove("on", "err");
+    [st.front, st.back] = [st.back, st.front]; const f = st.front;
+    f.classList.toggle("slow", !!slow); f.style.backgroundImage = `url("${url}")`;
+    f.classList.remove("show"); void f.offsetWidth; f.classList.add("show"); st.back.classList.remove("show"); };
+  const fail = () => { if (tok != loadTok || st.post !== post) return; st.front.classList.remove("show"); st.back.classList.remove("show");
+    el("load").textContent = "Не удалось загрузить арт"; el("load").classList.add("on", "err"); };
+  if (im.complete && im.naturalWidth) return ready();
+  el("load").textContent = "Загрузка…"; el("load").classList.remove("err"); el("load").classList.add("on");
+  im.onload = () => (im.decode ? im.decode().catch(() => {}) : Promise.resolve()).then(ready); im.onerror = fail;
 }
 function finish() {
   timers.forEach(clearTimeout); timers = []; el("intro").classList.add("out");

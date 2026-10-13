@@ -100,6 +100,8 @@ const views = {
 function openModal(m) { if (!S.modal) history.pushState({ m: 1 }, ""); S.modal = m; drawModal(); }
 function closeModal(back = true) { S.modal = null; $("#modal")?.remove(); if (back && history.state?.m) history.back(); }
 window.addEventListener("popstate", () => { if (S.modal) { S.modal = null; $("#modal")?.remove(); } });
+// автофокус полей (и клавиатура) — только на компьютере с мышью; на тач-экранах — по тапу в поле
+const fineP = () => matchMedia("(pointer: fine)").matches && !matchMedia("(pointer: coarse)").matches;
 function subscribe(rank, postId, o = {}) {
   S.stay = o.stay || null; const ret = { rank, post: postId || null }; localStorage.miaReturn = JSON.stringify(ret);
   openModal(S.user ? { t: "pay", ...ret } : { t: "signup", ...ret });
@@ -119,7 +121,7 @@ function drawModal() {
   d.innerHTML = `<div class="sheet"><a class="x" data-close>✕</a>${h}</div>`; document.body.append(d);
   d.onclick = e => { if (e.target == d || e.target.dataset.close != null) closeModal(); const sw = e.target.dataset.sw; if (sw) { S.modal = { ...m, t: sw }; drawModal(); } };
   $("#af")?.addEventListener("submit", signup); $("#lf")?.addEventListener("submit", login); $("#cf")?.addEventListener("submit", enterCode);
-  setTimeout(() => d.querySelector("input")?.focus(), 50);
+  if (fineP()) setTimeout(() => d.querySelector("input")?.focus(), 50); // на телефоне клавиатура только по тапу в поле
 }
 async function signin(username, password) {
   const r = await fn("login", { username, password });
@@ -223,7 +225,7 @@ async function openComments(id, onChange) {
       const { error } = await sb.rpc("add_comment", { p_post: id, p_body: t, p_parent: par ? +par : null });
       if (error) return d.querySelector("#cme").textContent = CERR[error.message] || error.message;
       p.comment_count++; await draw(); updCount(); const l = d.querySelector(".cs-list"); l.scrollTop = l.scrollHeight; };
-    d.querySelectorAll("[data-rep]").forEach(a => a.onclick = () => { d.querySelector("#cpar").value = a.dataset.rep; ta.placeholder = "Ответ для " + a.dataset.nm + "…"; ta.focus(); });
+    d.querySelectorAll("[data-rep]").forEach(a => a.onclick = () => { d.querySelector("#cpar").value = a.dataset.rep; ta.placeholder = "Ответ для " + a.dataset.nm + "…"; fineP() ? ta.focus() : ta.scrollIntoView({ block: "nearest" }); });
     d.querySelectorAll("[data-cdel]").forEach(a => a.onclick = async () => { if (!confirm("Удалить комментарий?")) return; await sb.rpc("delete_my_comment", { p_id: +a.dataset.cdel }); p.comment_count--; await draw(); updCount(); });
     d.querySelectorAll("[data-crep]").forEach(a => a.onclick = async () => { await sb.rpc("report_comment", { p_id: +a.dataset.crep }); toast("Жалоба отправлена"); });
   };
@@ -326,7 +328,7 @@ async function render() {
   if ($("#cmf")) { $("#cmf").onsubmit = async e => { e.preventDefault(); const b = $("#cmt").value.trim(); if (!b) return;
       const { error } = await sb.rpc("add_comment", { p_post: id, p_body: b, p_parent: $("#cpar").value ? +$("#cpar").value : null });
       if (error) return $("#cme").textContent = CERR[error.message] || error.message; const p = S.posts.find(x => x.id == id); if (p) p.comment_count++; render(); }; }
-  $$("[data-rep]").forEach(a => a.onclick = () => { $("#cpar").value = a.dataset.rep; $("#cmt").placeholder = "Ответ для " + a.dataset.nm + "…"; $("#cmt").focus(); });
+  $$("[data-rep]").forEach(a => a.onclick = () => { $("#cpar").value = a.dataset.rep; $("#cmt").placeholder = "Ответ для " + a.dataset.nm + "…"; fineP() ? $("#cmt").focus() : $("#cmt").scrollIntoView({ block: "nearest" }); });
   $$("[data-cdel]").forEach(a => a.onclick = async () => { if (!confirm("Удалить комментарий?")) return; await sb.rpc("delete_my_comment", { p_id: +a.dataset.cdel }); const p = S.posts.find(x => x.id == id); if (p) p.comment_count--; render(); });
   $$("[data-crep]").forEach(a => a.onclick = async () => { await sb.rpc("report_comment", { p_id: +a.dataset.crep }); toast("Жалоба отправлена"); });
   if (v == "me") bindMe();
