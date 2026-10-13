@@ -187,10 +187,18 @@ async function enterPick(e) {
 // потратить кредит на пак (кнопка блокируется — двойной тап не тратит дважды; сервер тоже защищён)
 let picking = false;
 async function usePick(id) {
-  if (picking) return; picking = true; const b = $("#pkyes"); if (b) b.disabled = true;
-  const r = await sb.rpc("use_pack_credit", { p_post: id }).catch(() => ({ error: 1 })); picking = false;
-  if (!r.error && r.data?.ok) { S.pick.credit = false; S.pick.unlocked.add(id); render(); S.modal = { t: "picks", post: id }; drawModal(); return; }
-  if (b) b.disabled = false; const e = $("#pke"); if (e) e.textContent = r.data?.error == "credit_used" ? "Мур, твой выбор уже потрачен на другой пак 🐾" : T("offline");
+  if (picking) return; picking = true; const b = $("#pkyes"), e = $("#pke"); if (b) b.disabled = true; if (e) { e.className = "mu"; e.textContent = "Мур, открываю пак… 🐾"; }
+  let ok = false;
+  try {
+    const r = await rpcT("use_pack_credit", { p_post: id });
+    let er = r.timeout ? "slow" : r.error ? "offline" : r.data?.ok ? null : (r.data?.error || "offline");
+    if (r.error && !r.timeout) console.error("use_pack_credit", r.error);
+    if (er) { await loadPick(); if (S.pick.unlocked.has(id)) er = null; } // ответ потерялся, а пак уже открыт — значит всё получилось
+    if (!er) { ok = true; S.pick.credit = false; S.pick.unlocked.add(id); loadPick().then(() => window.MiaViewer?.refresh?.()); render(); S.modal = { t: "picks", post: id }; drawModal(); return; }
+    const m = { slow: "Мяу, сервер долго молчит 🐾 Проверь интернет и нажми ещё раз — пак не пропадёт", credit_used: "Мур, твой выбор уже потрачен на другой пак 🐾", no_credit: "Мяу, у этого аккаунта нет «1 пака на выбор» — сначала введи код 🐾", no_post: "Мур, этот пак сейчас нельзя выбрать — выбери другой 🐾", login: "Сначала войди в аккаунт, мур 🐾" }[er] || "Мяу, что-то пошло не так 🐾 Попробуй ещё раз — кредит не потратится";
+    const e2 = $("#pke"); if (e2) { e2.className = "err"; e2.textContent = m; } else toast(m);
+  } catch (x) { console.error(x); const e2 = $("#pke"); if (e2) { e2.className = "err"; e2.textContent = "Мяу, что-то пошло не так 🐾 Попробуй ещё раз"; } }
+  finally { picking = false; if (!ok) { const b2 = $("#pkyes"); if (b2) b2.disabled = false; } }
 }
 function pickOpen(id) { if (!S.user) return openModal({ t: "signup" }); if (!S.pick.credit) return openModal({ t: "pick" }); openModal({ t: "pickc", post: id }); }
 document.addEventListener("click", e => { const t = e.target.closest("[data-pick],[data-pickcode]"); if (!t) return; e.preventDefault(); e.stopPropagation();
