@@ -29,7 +29,7 @@ button{font-family:inherit;cursor:pointer}
 .cov{position:relative;display:block;background:#333;overflow:hidden}
 .cov img{display:block;width:100%;height:auto}
 .cov.lk{min-height:380px}.cov.lk img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.cov.lk:after{content:"";position:absolute;inset:0;background:rgba(0,0,0,.35);pointer-events:none}
+
 .cov>h3,.cov>.cnt,.cov>.frost{z-index:2}
 .cov h3{position:absolute;left:14px;right:14px;top:12px;color:#fff;font-size:20px;text-shadow:0 1px 6px #0009}
 .cnt{position:absolute;left:14px;bottom:12px;background:#000a;color:#fff;font-size:12px;padding:3px 9px;border-radius:9px}
@@ -211,3 +211,27 @@ body.dark .lki{filter:none}
 .viewer .vnav span{width:34px;height:34px;border-radius:999px;background:rgba(20,20,24,.4);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.18);color:#fff;font-size:22px;line-height:30px;text-align:center;transition:transform .15s,background .15s}
 .viewer .vnav:active span{transform:scale(.9);background:rgba(255,255,255,.18)}
 .viewer.ui .vnav{opacity:.75}.viewer.closing .vnav{opacity:0}
+
+/* матовое стекло на закрытых плитках (вместо запечённого блюра в превью) */
+:root{--frost:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.6' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),linear-gradient(rgba(240,238,248,.34),rgba(225,222,238,.30))}
+.grid a.lk,.mgrid a.lk,.pstrip .p.lk,.fz{position:relative;overflow:hidden;isolation:isolate}
+.grid a.lk:before,.mgrid a.lk:before,.pstrip .p.lk:before,.fz:before,.cov.lk:after{content:"";position:absolute;inset:0;border-radius:inherit;z-index:1;pointer-events:none;backdrop-filter:blur(14px) saturate(.75) brightness(1.05);-webkit-backdrop-filter:blur(14px) saturate(.75) brightness(1.05);background:var(--frost);background-size:160px,cover;box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+.grid a.lk:after,.mgrid a.lk:after,.pstrip .p.lk:after,.vstrip .lk:after{z-index:2}
+.cov.lk:after{z-index:1}
+/* кинорежим: карточка закрытого пака */
+.vlc{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:0 24px;z-index:3}
+.viewer.lkd .vlc{display:flex}.viewer.lkd .vnav{display:none}
+.viewer.lkd .vstage:before{content:"";position:absolute;inset:-64px 0 0;background:var(--lkbg) center/cover;opacity:.55}
+.viewer.lkd .vstage:after{content:"";position:absolute;inset:-64px 0 0;backdrop-filter:blur(14px) saturate(.75);-webkit-backdrop-filter:blur(14px) saturate(.75);background:var(--frost);background-size:160px,cover}
+.lcard{position:relative;width:100%;max-width:340px;max-height:100%;display:flex;flex-direction:column;border-radius:18px;overflow:hidden;background:#1d1d21;border:1px solid #2a2a2e;box-shadow:0 20px 50px rgba(0,0,0,.8);color:#f3efe9}
+.lcv{flex:1 1 auto;min-height:120px;aspect-ratio:1}.lcv img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.lcv .cnt{position:absolute;right:10px;bottom:10px;z-index:2;padding:5px 10px;border-radius:999px;background:rgba(20,20,24,.45);border:1px solid rgba(255,255,255,.18);font-size:12px;font-weight:600;color:#fff}
+.lcb{padding:14px 16px 16px}.lcb h3{font-size:20px}.lcb .mu{color:#9a9aa3;font-size:13px;margin:4px 0 12px}
+.lneed{background:#26262b;border-radius:12px;padding:10px 12px;font-size:13px;margin-bottom:12px}.lneed .lki{filter:none}
+.vstrip .lk{position:relative;filter:none!important}
+.vstrip .lk:after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:999px;background:rgba(20,20,24,.45) var(--lock-svg) center/12px no-repeat;border:1px solid rgba(255,255,255,.18);box-sizing:border-box}
+html.v-open #modal{z-index:95}
+.viewer.lkd .vstage{z-index:7}.viewer.lkd .vstage:before,.viewer.lkd .vstage:after{pointer-events:none}
+.vlc{pointer-events:none}.lcard{pointer-events:auto}
+.lcv .cnt{left:auto;top:auto;display:inline-flex;align-items:center;gap:6px;line-height:1;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.lcv{max-height:46vh;aspect-ratio:auto;height:46vh}

@@ -10,7 +10,7 @@ function build() {
   V.innerHTML = `<div class="curtain"></div><div class="intro" id="v-intro"><div class="mia" id="v-mia"></div><div class="hello" id="v-hello"></div></div>
   <div class="vchrome top"><div class="vtop"><button id="v-x" class="ib" title="Закрыть">✕</button><div class="vcnt" id="v-cnt"></div><div class="r"><button id="v-mu" class="ib" title="Музыка">🎵</button><button id="v-fs" class="ib" title="Во весь экран">⛶</button></div></div></div>
   <button id="v-skip" class="vskip">Пропустить ›</button><div class="vload" id="v-load">Загрузка…</div>
-  <div class="vstage" id="v-stage"><div class="art" id="v-a1"></div><div class="art" id="v-a2"></div><button class="vnav l" id="v-pv" title="Предыдущий арт"><span>‹</span></button><button class="vnav rr" id="v-nx" title="Следующий арт"><span>›</span></button></div>
+  <div class="vstage" id="v-stage"><div class="art" id="v-a1"></div><div class="art" id="v-a2"></div><div class="vlc" id="v-lc"></div><button class="vnav l" id="v-pv" title="Предыдущий арт"><span>‹</span></button><button class="vnav rr" id="v-nx" title="Следующий арт"><span>›</span></button></div>
   <div class="vchrome bot"><div class="vttl" id="v-ttl"><div class="row"><button class="parr" id="v-pp" title="Предыдущий пак">‹</button><h2></h2><button class="parr" id="v-pn" title="Следующий пак">›</button></div><p></p></div><div class="vstrip" id="v-strip"></div>
   <div class="vbot"><button class="vpill" id="v-lk"></button><button class="vpill" id="v-cm"></button><div class="eq"><i></i><i></i><i></i><i></i></div></div></div>
   <div class="pstrip" id="v-ps"></div><div class="vbz" id="v-bz"></div>`;
@@ -21,7 +21,7 @@ function build() {
   el("lk").onclick = async () => { await window.Mia.toggleLike(st.post.id); drawBot(); };
   el("cm").onclick = () => window.Mia.openComments(st.post.id, drawBot);
   el("pp").onclick = () => pack(-1); el("pn").onclick = () => pack(1);
-  addEventListener("keydown", e => { if (!V.classList.contains("on") || document.querySelector(".cs")) return;
+  addEventListener("keydown", e => { if (!V.classList.contains("on") || document.querySelector(".cs,#modal")) return;
     if (e.key == "ArrowRight" || e.key == "ArrowLeft") { const d = e.key == "ArrowRight" ? 1 : -1; e.shiftKey ? pack(d) : show(st.i + d); wake(); }
     if (e.key == "Escape") close(); });
   // арт: свайп листает; нижнюю плашку не трогает
@@ -53,12 +53,25 @@ function drawPacks() {
 function pack(d) { const P = window.Mia.S.posts, n = P.length; let k = P.findIndex(p => p.id == st.post.id); for (let j = 0; j < n; j++) { k = (k + d + n) % n; if (!locked(P[k])) return goPack(P[k]); } }
 // смена пака внутри просмотра: без длинного приветствия и без перезапуска музыки
 function goPack(p) {
-  if (p.id == st.post.id) return;
-  if (locked(p)) { close(); window.Mia.subscribe(p.tier_rank, p.id); return; }
+  if (p.id == st.post.id && !V.classList.contains("lkd")) return;
+  if (locked(p)) return lockCard(p);
+  V.classList.remove("lkd"); el("lc").innerHTML = "";
   st.post = p; st.imgs = null; st.i = 0; st.start = 0; title(p); drawBot(); drawPacks();
   el("cnt").textContent = ""; el("strip").innerHTML = ""; st.front.classList.remove("show"); st.back.classList.remove("show"); el("load").textContent = "Загрузка…";
   fill(p, window.Mia.loadImgs(p.id), () => { el("load").classList.remove("on"); show(0); el("strip").classList.add("on"); });
   if (!st.imgs) el("load").classList.add("on");
+  wake();
+}
+// закрытый пак: остаёмся в кинорежиме, в центре карточка с постером и кнопкой «Купить пак»
+function lockCard(p) {
+  const M = window.Mia, n = p.image_count || 0; st.post = p; st.imgs = null; st.i = 0; st.pending = null;
+  title(p); drawBot(); drawPacks(); el("cnt").textContent = ""; st.front.classList.remove("show"); st.back.classList.remove("show"); el("load").classList.remove("on");
+  V.classList.add("lkd"); V.style.setProperty("--lkbg", `url('${M.pub(p.cover_path)}')`);
+  el("strip").innerHTML = Array.from({ length: Math.min(n, 12) }, () => `<div class="lk fz" style="background-image:url('${M.pub(p.cover_path)}')"></div>`).join(""); el("strip").classList.add("on");
+  el("lc").innerHTML = `<div class="lcard"><div class="lcv fz"><img src="${M.pub(p.cover_path)}" alt=""><span class="cnt">${n} ${M.plural(n, "арт", "арта", "артов")}</span></div>
+    <div class="lcb"><h3>${M.esc(p.title)}</h3><div class="mu">Закрытый пак · ${n} ${M.plural(n, "арт", "арта", "артов")}</div>
+    <div class="lneed"><i class="lki"></i>Нужен уровень ${M.esc(p.tier_name || "")}${p.price_rub ? ` · <b>${p.price_rub} ₽/мес</b>` : ""}</div><button class="ob full" id="v-buy">Купить пак</button></div></div>`;
+  el("buy").onclick = e => { e.stopPropagation(); M.subscribe(p.tier_rank, p.id, { stay: () => { if (st.post !== p || locked(p)) return; goPack(p); } }); };
   wake();
 }
 function title(post) { el("ttl").querySelector("h2").textContent = post.title; el("ttl").querySelector("p").textContent = `пак · ${post.image_count} ${window.Mia.plural(post.image_count, "арт", "арта", "артов")}${post.tier_rank > 0 ? " · " + post.tier_name : ""}`; }
