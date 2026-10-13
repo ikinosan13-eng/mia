@@ -10,12 +10,12 @@ function build() {
   V.innerHTML = `<div class="curtain"></div><div class="intro" id="v-intro"><div class="mia" id="v-mia"></div><div class="hello" id="v-hello"></div></div>
   <div class="vchrome top"><div class="vtop"><button id="v-x" class="ib" title="Закрыть">✕</button><div class="vcnt" id="v-cnt"></div><div class="r"><button id="v-mu" class="ib" title="Музыка">🎵</button><button id="v-fs" class="ib" title="Во весь экран">⛶</button></div></div></div>
   <button id="v-skip" class="vskip">Пропустить ›</button><div class="vload" id="v-load">Загрузка…</div>
-  <div class="vstage" id="v-stage"><div class="art" id="v-a1"></div><div class="art" id="v-a2"></div><button class="vnav l" id="v-pv">‹</button><button class="vnav rr" id="v-nx">›</button></div>
+  <div class="vstage" id="v-stage"><div class="art" id="v-a1"></div><div class="art" id="v-a2"></div><button class="vnav l" id="v-pv" title="Предыдущий арт"><span>‹</span></button><button class="vnav rr" id="v-nx" title="Следующий арт"><span>›</span></button></div>
   <div class="vchrome bot"><div class="vttl" id="v-ttl"><div class="row"><button class="parr" id="v-pp" title="Предыдущий пак">‹</button><h2></h2><button class="parr" id="v-pn" title="Следующий пак">›</button></div><p></p></div><div class="vstrip" id="v-strip"></div>
   <div class="vbot"><button class="vpill" id="v-lk"></button><button class="vpill" id="v-cm"></button><div class="eq"><i></i><i></i><i></i><i></i></div></div></div>
-  <div class="pstrip" id="v-ps"></div>`;
+  <div class="pstrip" id="v-ps"></div><div class="vbz" id="v-bz"></div>`;
   document.body.append(V);
-  el("x").onclick = close; el("skip").onclick = finish; el("nx").onclick = () => show(st.i + 1); el("pv").onclick = () => show(st.i - 1);
+  el("x").onclick = close; el("skip").onclick = finish; el("nx").onclick = e => { e.stopPropagation(); show(st.i + 1); }; el("pv").onclick = e => { e.stopPropagation(); show(st.i - 1); };
   el("fs").onclick = () => document.fullscreenElement ? document.exitFullscreen() : V.requestFullscreen?.();
   el("mu").onclick = () => toggleMute();
   el("lk").onclick = async () => { await window.Mia.toggleLike(st.post.id); drawBot(); };
@@ -24,12 +24,16 @@ function build() {
   addEventListener("keydown", e => { if (!V.classList.contains("on") || document.querySelector(".cs")) return;
     if (e.key == "ArrowRight" || e.key == "ArrowLeft") { const d = e.key == "ArrowRight" ? 1 : -1; e.shiftKey ? pack(d) : show(st.i + d); wake(); }
     if (e.key == "Escape") close(); });
-  // арт: свайп листает, тап при скрытых панелях только возвращает их
+  // арт: свайп листает; нижнюю плашку не трогает
   let sx = null; el("stage").addEventListener("pointerdown", e => sx = e.clientX);
   el("stage").addEventListener("pointerup", e => { if (sx === null) return; const d = e.clientX - sx; sx = null; if (Math.abs(d) > 40) show(st.i + (d < 0 ? 1 : -1)); wake(); });
-  // панели прячутся через 2 с без касаний, остаются пока курсор/палец на них
-  V.querySelectorAll(".vchrome,.pstrip").forEach(c => { c.addEventListener("pointerenter", () => { over = 1; clearTimeout(hideT); }); c.addEventListener("pointerleave", () => { over = 0; wake(); }); c.addEventListener("pointerdown", wake); });
+  // верхняя панель (✕) прячется через 2 с без касаний
+  V.querySelector(".vchrome.top").addEventListener("pointerenter", () => { over = 1; clearTimeout(hideT); });
+  V.querySelector(".vchrome.top").addEventListener("pointerleave", () => { over = 0; wake(); });
   V.addEventListener("mousemove", wake);
+  // нижняя плашка: появляется только по тапу в её зоне, пока с ней работают — держится, потом быстро гаснет
+  el("bz").addEventListener("pointerup", e => { e.preventDefault(); bar(1500); });
+  V.querySelectorAll(".vchrome.bot,.pstrip").forEach(c => { c.addEventListener("pointerdown", () => { if (V.classList.contains("bar")) bar(1500); }); c.addEventListener("scroll", () => { if (V.classList.contains("bar")) bar(1500); }, true); });
   // полоса паков: перетаскивание мышью, тап выбирает
   const ps = el("ps"); let x0 = null, sl = 0, moved = 0;
   ps.addEventListener("pointerdown", e => { moved = 0; if (e.pointerType != "mouse") return; x0 = e.clientX; sl = ps.scrollLeft; });
@@ -37,7 +41,8 @@ function build() {
   addEventListener("pointerup", () => x0 = null);
   ps.addEventListener("click", e => { if (moved) return; const t = e.target.closest("[data-p]"); if (!t) return; const p = window.Mia.S.posts.find(x => x.id == t.dataset.p); if (p) goPack(p); });
 }
-let hideT = null, over = 0;
+let hideT = null, over = 0, barT = null;
+function bar(ms) { if (!V) return; V.classList.add("bar"); clearTimeout(barT); barT = setTimeout(() => { if (!document.querySelector(".cs")) V.classList.remove("bar"); else bar(ms); }, RM ? ms : ms); }
 function wake() { if (!V) return; V.classList.remove("idle"); clearTimeout(hideT); if (!V.classList.contains("ui")) return; hideT = setTimeout(() => { if (!over && !document.querySelector(".cs")) V.classList.add("idle"); }, 2000); }
 const locked = p => p.tier_rank > window.Mia.S.rank;
 function drawPacks() {
@@ -103,7 +108,7 @@ function show(k, slow) {
 }
 function finish() {
   timers.forEach(clearTimeout); timers = []; el("intro").classList.add("out");
-  const go = () => { el("load").classList.remove("on"); if (!st.front.classList.contains("show")) show(st.start || 0, true); V.classList.add("ui"); el("strip").classList.add("on"); el("ttl").classList.add("on"); wake(); };
+  const go = () => { el("load").classList.remove("on"); if (!st.front.classList.contains("show")) show(st.start || 0, true); V.classList.add("ui"); el("strip").classList.add("on"); el("ttl").classList.add("on"); wake(); bar(1000); };
   if (st.imgs) go(); else { el("load").classList.add("on"); st.pending = go; }
 }
 function isShort(c) { if (c.full == "always") return false; const d = new Date().toDateString(), r = localStorage.miaIntro == d; localStorage.miaIntro = d; return r; }
@@ -131,7 +136,7 @@ function open(post, imgsP, o = {}) {
   T(finish, D * 1.4);
 }
 function close() {
-  if (!V) return; timers.forEach(clearTimeout); timers = []; stopMusic(); clearTimeout(hideT); window.Mia.closeComments?.(true); V.classList.add("closing"); V.classList.remove("ui", "idle");
+  if (!V) return; timers.forEach(clearTimeout); timers = []; stopMusic(); clearTimeout(hideT); clearTimeout(barT); window.Mia.closeComments?.(true); V.classList.add("closing"); V.classList.remove("ui", "idle", "bar");
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   setTimeout(() => { V.className = "viewer"; V.setAttribute("aria-hidden", "true"); document.documentElement.classList.remove("v-open"); st.post = null; }, 900);
 }

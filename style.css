@@ -184,7 +184,7 @@ input[type=range]{padding:0!important;border:0!important;background:none!importa
 .vchrome.bot .vttl,.vchrome.bot .vstrip,.vchrome.bot .vbot{position:static}.vchrome.bot .vbot{margin-top:6px;justify-content:center}
 .vttl .row{display:flex;align-items:center;justify-content:center;gap:10px}.vttl .row h2{min-width:0}
 .parr{width:34px;height:34px;flex:none;border-radius:50%;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.35);color:#fff;font-size:20px}
-.viewer.idle .vchrome,.viewer.idle .vnav{opacity:0!important;pointer-events:none}
+.viewer.idle .vchrome.top{opacity:0!important;pointer-events:none}
 .pstrip{position:absolute;left:0;right:0;bottom:0;height:var(--ps);background:#050507;z-index:4;display:flex;gap:10px;overflow-x:auto;padding:8px 14px calc(8px + env(safe-area-inset-bottom));scrollbar-width:none;cursor:grab;justify-content:safe center;align-items:center;opacity:0;transition:opacity .6s}
 .viewer.ui .pstrip{opacity:1}.pstrip::-webkit-scrollbar{display:none}
 .pstrip .p{position:relative;flex:0 0 auto;height:100%;aspect-ratio:1;border-radius:12px;background:#222 center/cover;border:1px solid rgba(255,255,255,.1);cursor:pointer}
@@ -200,3 +200,14 @@ input[type=range]{padding:0!important;border:0!important;background:none!importa
 .pstrip .p.lk:after{inset:50% auto auto 50%;transform:translate(-50%,-50%)}
 .lki{display:inline-block;width:11px;height:11px;margin-right:4px;vertical-align:-1px;background:var(--lock-svg) center/contain no-repeat;filter:brightness(.35)}
 body.dark .lki{filter:none}
+
+/* кинорежим: нижняя плашка по тапу, боковые зоны листания */
+.viewer .vchrome.bot,.viewer .pstrip{transition:opacity .45s ease}
+.viewer:not(.bar) .vchrome.bot,.viewer:not(.bar) .pstrip{opacity:0!important;pointer-events:none}
+.vbz{position:absolute;left:0;right:0;bottom:0;height:calc(var(--ps) + 170px);z-index:6;display:none}
+.viewer.ui:not(.bar):not(.closing) .vbz{display:block}
+.viewer .vnav{top:12%;bottom:170px;height:auto;margin:0;width:22%;max-width:110px;border-radius:0;background:none;display:flex;align-items:center;padding:0;opacity:0;font-size:0;-webkit-tap-highlight-color:transparent;cursor:pointer;z-index:2}
+.viewer .vnav.l{left:0;justify-content:flex-start;padding-left:6px}.viewer .vnav.rr{right:0;justify-content:flex-end;padding-right:6px}
+.viewer .vnav span{width:34px;height:34px;border-radius:999px;background:rgba(20,20,24,.4);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.18);color:#fff;font-size:22px;line-height:30px;text-align:center;transition:transform .15s,background .15s}
+.viewer .vnav:active span{transform:scale(.9);background:rgba(255,255,255,.18)}
+.viewer.ui .vnav{opacity:.75}.viewer.closing .vnav{opacity:0}
