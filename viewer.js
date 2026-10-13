@@ -13,11 +13,12 @@ function build() {
   <div class="vstage" id="v-stage"><div class="art" id="v-a1"></div><div class="art" id="v-a2"></div><div class="vlc" id="v-lc"></div><button class="vnav l" id="v-pv" title="Предыдущий арт"><span>‹</span></button><button class="vnav rr" id="v-nx" title="Следующий арт"><span>›</span></button></div>
   <div class="vchrome bot"><div class="vttl" id="v-ttl"><div class="row"><button class="parr" id="v-pp" title="Предыдущий пак">‹</button><h2></h2><button class="parr" id="v-pn" title="Следующий пак">›</button></div><p></p></div><div class="vstrip" id="v-strip"></div>
   <div class="vbot"><button class="vpill" id="v-lk"></button><button class="vpill" id="v-cm"></button><div class="eq"><i></i><i></i><i></i><i></i></div></div></div>
-  <div class="pstrip" id="v-ps"></div><div class="vbz" id="v-bz"></div>`;
+  <div class="pstrip" id="v-ps"></div><div class="vbz" id="v-bz"></div><div class="vtz" id="v-tz"></div>`;
   document.body.append(V);
   el("x").onclick = close; el("skip").onclick = finish; // боковые зоны больше не листают: тап открывает нижнюю плашку с артами (как тап внизу)
   // кнопка ‹ › — листает (без перескока через край); остальная боковая зона — открывает плашку
-  const side = d => e => { e.stopPropagation(); if (e.target.closest("span")) { const n = st.imgs?.length || 0, k = Math.max(0, Math.min(n - 1, st.i + d)); if (k != st.i) show(k); wake(); } else bar(0); };
+  // ‹ › — листают по кругу (как свайп и стрелки клавиатуры); остальная боковая зона — открывает плашку
+  const side = d => e => { e.stopPropagation(); if (e.target.closest("span") && !V.classList.contains("lkd")) { step(d); wake(); } else bar(0); };
   el("nx").onclick = side(1); el("pv").onclick = side(-1);
   el("fs").onclick = () => document.fullscreenElement ? document.exitFullscreen() : V.requestFullscreen?.();
   el("mu").onclick = () => toggleMute();
@@ -25,27 +26,32 @@ function build() {
   el("cm").onclick = () => window.Mia.openComments(st.post.id, drawBot);
   el("pp").onclick = () => pack(-1); el("pn").onclick = () => pack(1);
   addEventListener("keydown", e => { if (!V.classList.contains("on") || document.querySelector(".cs,#modal")) return;
-    if (e.key == "ArrowRight" || e.key == "ArrowLeft") { const d = e.key == "ArrowRight" ? 1 : -1; e.shiftKey ? pack(d) : show(st.i + d); wake(); }
+    if (e.key == "ArrowRight" || e.key == "ArrowLeft") { const d = e.key == "ArrowRight" ? 1 : -1; e.shiftKey ? pack(d) : step(d); wake(); }
     if (e.key == "Escape") close(); });
   // арт: свайп листает; нижнюю плашку не трогает
   let sx = null; el("stage").addEventListener("pointerdown", e => sx = e.clientX);
-  el("stage").addEventListener("pointerup", e => { if (sx === null) return; const d = e.clientX - sx; sx = null; if (Math.abs(d) > 40) show(st.i + (d < 0 ? 1 : -1));
+  el("stage").addEventListener("pointerup", e => { if (sx === null) return; const d = e.clientX - sx; sx = null; if (Math.abs(d) > 40) step(d < 0 ? 1 : -1);
     // тап по центру арта (не боковые зоны/кнопки, не панель закрытого пака) закрывает открытую нижнюю плашку
-    else if (Math.abs(d) < 10 && V.classList.contains("bar") && !e.target.closest(".vnav,.lpan,button")) { barStay = 0; clearTimeout(barT); V.classList.remove("bar"); }
+    else if (Math.abs(d) < 10 && V.classList.contains("bar") && !e.target.closest(".vnav,.lfull,button")) { barStay = 0; clearTimeout(barT); V.classList.remove("bar"); }
     wake(); });
   // верхняя панель (✕) прячется через 2 с без касаний
   V.querySelector(".vchrome.top").addEventListener("pointerenter", () => { over = 1; clearTimeout(hideT); });
   V.querySelector(".vchrome.top").addEventListener("pointerleave", () => { over = 0; wake(); });
   V.addEventListener("mousemove", wake);
   // нижняя плашка: появляется только по тапу в её зоне, пока с ней работают — держится, потом быстро гаснет
-  el("bz").addEventListener("pointerup", e => { e.preventDefault(); bar(0); });
+  el("bz").addEventListener("pointerup", e => { e.preventDefault();
+    // в закрытом паке кнопка «Подписаться» может оказаться под нижней зоной — нажимаем её
+    const b = V.classList.contains("lkd") && el("buy"), r = b && b.getBoundingClientRect();
+    if (r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) return b.click();
+    bar(0); });
+  el("tz").addEventListener("click", e => { e.stopPropagation(); if (tz) tz.done(); });
   V.querySelectorAll(".vchrome.bot,.pstrip").forEach(c => { c.addEventListener("pointerdown", () => { if (V.classList.contains("bar") && !barStay) bar(1500); }); c.addEventListener("scroll", () => { if (V.classList.contains("bar") && !barStay) bar(1500); }, true); });
   // полоса паков: перетаскивание мышью, тап выбирает
   const ps = el("ps"); let x0 = null, sl = 0, moved = 0;
   ps.addEventListener("pointerdown", e => { moved = 0; if (e.pointerType != "mouse") return; x0 = e.clientX; sl = ps.scrollLeft; });
   addEventListener("pointermove", e => { if (x0 === null) return; const d = e.clientX - x0; if (Math.abs(d) > 4) moved = 1; ps.scrollLeft = sl - d; });
   addEventListener("pointerup", () => x0 = null);
-  ps.addEventListener("click", e => { if (moved) return; const t = e.target.closest("[data-p]"); if (!t) return; const p = window.Mia.S.posts.find(x => x.id == t.dataset.p); if (p) goPack(p); });
+  ps.addEventListener("click", e => { if (moved) return; const t = e.target.closest("[data-p]"); if (!t) return; const p = window.Mia.S.posts.find(x => x.id == t.dataset.p); if (!p) return; if (locked(p)) { if (p.id != st.post.id || !V.classList.contains("lkd")) goPack(p); teaser(p); } else goPack(p); });
 }
 let hideT = null, over = 0, barT = null, barStay = 0;
 // bar(0): плашка остаётся, пока не выберут другой арт в полосе
@@ -59,12 +65,35 @@ function drawPacks() {
   ps.innerHTML = M.S.posts.map(p => `<div data-p="${p.id}" class="p${p.id == st.post.id ? " cur" : ""}${locked(p) ? " lk" : ""}" title="${M.esc(p.title)}" style="background-image:url('${M.pub(p.cover_path)}')"></div>`).join("");
   center(ps, ps.querySelector(".cur"));
 }
-function pack(d) { const P = window.Mia.S.posts, n = P.length; let k = P.findIndex(p => p.id == st.post.id); for (let j = 0; j < n; j++) { k = (k + d + n) % n; if (!locked(P[k])) return goPack(P[k]); } }
+// стрелки паков: по кругу, закрытые паки не пропускаем — показываем карточку с замком
+function pack(d) { const P = window.Mia.S.posts, n = P.length; if (!n) return; const k = P.findIndex(p => p.id == st.post.id); goPack(P[(k + d + n) % n]); }
+// листание артов: одна функция для ‹ ›, свайпа и клавиатуры, по кругу
+function step(d) { if (st.imgs?.length) show(st.i + d); }
+// подписка на закрытый пак (окно с кодом внутри кинорежима)
+function sub(p) { window.Mia.subscribe(p.tier_rank, p.id, { stay: () => { if (st.post !== p || locked(p)) return; goPack(p); } }); }
+// превью закрытого пака: 1–2 размытые миниатюры с водяным знаком и замком, затем «Подписаться».
+// Только миниатюры из бакета previews (размытие всегда через CSS) — настоящие арты не показываем.
+let tz = null;
+function teaser(p) {
+  if (tz) return tz.done();
+  const M = window.Mia, list = M.S.media.filter(m => m.post_id == p.id && m.preview_path).slice(0, 2).map(m => M.pub(m.preview_path));
+  if (!list.length || RM) return sub(p);
+  const box = el("tz"), ts = [];
+  box.innerHTML = `<div class="tzw">${list.map(u => `<div class="im" style="background-image:url('${u}')"></div>`).join("")}<b class="wm">Мия</b><i class="tzl"></i></div>`;
+  const ims = [...box.querySelectorAll(".im")];
+  const lf = el("lc").querySelector(".lfull"), w = box.firstChild;
+  if (lf) { const r = lf.getBoundingClientRect(); Object.assign(w.style, { position: "fixed", left: r.left + "px", top: r.top + "px", width: r.width + "px", height: r.height + "px", maxWidth: "none", maxHeight: "none" }); }
+  box.classList.add("on");
+  ims.forEach((d, k) => ts.push(setTimeout(() => { ims.forEach(x => x.classList.toggle("on", x === d)); }, 30 + k * 1200)));
+  tz = { done: () => { ts.forEach(clearTimeout); tz = null; box.classList.remove("on"); setTimeout(() => { if (!tz) box.innerHTML = ""; }, 350); if (st.post === p && V.classList.contains("on")) sub(p); } };
+  ts.push(setTimeout(() => tz && tz.done(), list.length * 1200 + 30));
+}
+function stopTeaser() { if (!tz) return; const t = tz; tz = null; t.done = () => {}; el("tz").classList.remove("on"); el("tz").innerHTML = ""; }
 // смена пака внутри просмотра: без длинного приветствия и без перезапуска музыки
 function goPack(p) {
   if (p.id == st.post.id && !V.classList.contains("lkd")) return;
   if (locked(p)) return lockCard(p);
-  V.classList.remove("lkd"); el("lc").innerHTML = "";
+  stopTeaser(); V.classList.remove("lkd"); el("lc").innerHTML = "";
   st.post = p; st.imgs = null; st.i = 0; st.start = 0; title(p); drawBot(); drawPacks();
   el("cnt").textContent = ""; el("strip").innerHTML = ""; st.front.classList.remove("show"); st.back.classList.remove("show"); el("load").textContent = "Загрузка…";
   fill(p, window.Mia.loadImgs(p.id), () => { el("load").classList.remove("on"); show(0); el("strip").classList.add("on"); });
@@ -81,10 +110,14 @@ function lockCard(p) {
   const M = window.Mia, n = p.image_count || 0; st.post = p; st.imgs = null; st.i = 0; st.pending = null;
   title(p); drawBot(); drawPacks(); el("cnt").textContent = ""; st.front.classList.remove("show"); st.back.classList.remove("show"); el("load").classList.remove("on");
   V.classList.add("lkd"); lkSize(); V.style.setProperty("--lkbg", `url('${M.pub(p.cover_path)}')`);
-  el("strip").innerHTML = Array.from({ length: Math.min(n, 12) }, () => `<div class="lk fz" style="background-image:url('${M.pub(p.cover_path)}')"></div>`).join(""); el("strip").classList.add("on");
-  el("lc").innerHTML = `<div class="lfull"><img src="${M.pub(p.cover_path)}" alt=""><i class="lfz"></i><h3>${M.esc(p.title)}</h3><span class="lcnt">${n} ${M.plural(n, "арт", "арта", "артов")}</span>
+  const pv = M.S.media.filter(m => m.post_id == p.id && m.preview_path);
+  el("strip").innerHTML = Array.from({ length: Math.min(n, 12) }, (_, k) => `<div class="lk fz tzt"${pv[k] ? ` style="background-image:url('${M.pub(pv[k].preview_path)}')"` : ""}></div>`).join(""); el("strip").classList.add("on");
+  el("strip").querySelectorAll(".tzt").forEach(d => d.onclick = e => { e.stopPropagation(); teaser(p); });
+  el("lc").innerHTML = `<div class="lfull"><img src="${M.pub(p.cover_path)}" alt=""><i class="lfz"></i><button class="llock" id="v-llk" title="${M.esc(M.T("btn_subscribe"))}"></button><h3>${M.esc(p.title)}</h3><span class="lcnt">${n} ${M.plural(n, "арт", "арта", "артов")}</span>
     <div class="frost lpan"><span class="mu">${M.esc(M.T("locked_label"))}</span><b>${M.esc(p.tier_name || "")}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><button class="ob" id="v-buy">🔒 ${M.esc(M.T("btn_subscribe"))}</button></div></div>`;
-  el("buy").onclick = e => { e.stopPropagation(); M.subscribe(p.tier_rank, p.id, { stay: () => { if (st.post !== p || locked(p)) return; goPack(p); } }); };
+  el("buy").onclick = e => { e.stopPropagation(); sub(p); };
+  // тап по замку / обложке → превью → «Подписаться»; плашку не закрывает
+  el("lc").querySelector(".lfull").onclick = e => { e.stopPropagation(); if (e.target.closest(".lpan") && !e.target.closest("#v-llk")) return; teaser(p); };
   wake();
 }
 function title(post) { el("ttl").querySelector("h2").textContent = post.title; el("ttl").querySelector("p").textContent = `пак · ${post.image_count} ${window.Mia.plural(post.image_count, "арт", "арта", "артов")}${post.tier_rank > 0 ? " · " + post.tier_name : ""}`; }
@@ -146,6 +179,8 @@ function open(post, imgsP, o = {}) {
   const style = !c.enabled ? "none" : c.style, short = o.quick || style != "curtain" || isShort(c) || RM;
   V.className = "viewer on" + (short ? " short" : "") + (style == "none" ? " none" : "") + (style == "develop" ? " dev-only" : "") + (c.music_on && !st.muted ? " music" : "");
   V.setAttribute("aria-hidden", "false"); document.documentElement.classList.add("v-open");
+  // авто-полный экран (в жесте тапа); где не поддерживается (iPhone Safari) — молча пропускаем
+  try { if (!document.fullscreenElement && V.requestFullscreen) V.requestFullscreen().catch(() => {}); } catch {}
   for (const a of [el("a1"), el("a2")]) { a.classList.toggle("dev", style != "none"); a.classList.remove("show"); a.style.backgroundImage = ""; }
   el("intro").classList.remove("out"); el("hello").innerHTML = ""; el("mia").classList.remove("on"); el("skip").classList.toggle("hide", !c.skip); el("strip").classList.remove("on"); el("ttl").classList.remove("on");
   el("mia").style.backgroundImage = c.art ? `url("${window.Mia.pub(c.art, "media")}")` : ""; el("mia").classList.toggle("noart", !c.art);
@@ -162,7 +197,7 @@ function open(post, imgsP, o = {}) {
   T(finish, D * 1.4);
 }
 function close() {
-  if (!V) return; timers.forEach(clearTimeout); timers = []; stopMusic(); clearTimeout(hideT); clearTimeout(barT); window.Mia.closeComments?.(true); V.classList.add("closing"); V.classList.remove("ui", "idle", "bar");
+  if (!V) return; stopTeaser(); timers.forEach(clearTimeout); timers = []; stopMusic(); clearTimeout(hideT); clearTimeout(barT); window.Mia.closeComments?.(true); V.classList.add("closing"); V.classList.remove("ui", "idle", "bar");
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   setTimeout(() => { V.className = "viewer"; V.setAttribute("aria-hidden", "true"); document.documentElement.classList.remove("v-open"); st.post = null; }, 900);
 }
