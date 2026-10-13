@@ -303,3 +303,5 @@ html.v-open #modal{z-index:95}
 .pkb{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--pk);color:var(--pkf);font-size:12px;font-weight:700;margin-top:4px}
 .lv.pick{border:1.5px dashed var(--ac)}.lv.pick .pr small{display:block;margin-top:2px}
 .pkok{font-size:44px;text-align:center;margin:6px 0}
+
+input[style*="uppercase"]::placeholder{text-transform:none}

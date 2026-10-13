@@ -187,14 +187,18 @@ function goIntro(id) { const h = "#/post/" + id; if (location.hash == h) { rende
 function openWithIntro(id) { const k = `miaUnlockIntro:${S.user?.id || "anon"}:${id}`, seen = localStorage[k]; localStorage[k] = "1"; openViewer(id, 0, false, seen ? {} : { intro: true }); }
 async function enterCode(e) {
   e.preventDefault(); const code = $("#ci").value.trim(), ce = $("#ce"); if (!code) return; ce.className = "err"; ce.textContent = "Проверяю…";
-  if (/^MIA-PICK-/i.test(code) && S.user) { closeModal(false); openModal({ t: "pick" }); $("#pci").value = code; return $("#pf").requestSubmit(); } // код «1 пак на выбор» в окне подписки
   const r = await fn("unlock", { code });
   if (r.status == 200) { if (r.data.token) { S.token = r.data.token; localStorage.miaToken = r.data.token; } S.rank = Math.max(S.rank, r.data.rank);
     ce.className = "okm"; ce.textContent = "✔ " + T("code_ok"); toast(T("code_ok")); const ret = JSON.parse(localStorage.miaReturn || "{}"); localStorage.removeItem("miaReturn");
     S.stay = null; render(); const pid = ret.post || S.posts.find(p => p.tier_rank > 0 && p.tier_rank <= S.rank)?.id;
     // открыть купленный пак и один раз показать вступление (и в ленте/посте/уровнях, и в кинорежиме)
     setTimeout(() => { closeModal(false); if (pid) return goIntro(pid); location.hash = "#/feed"; render(); }, 700); }
-  else ce.textContent = r.status == 429 ? T("rate_limited") : r.status == 0 ? T("offline") : T("code_bad");
+  else if (r.status == 429 || r.status == 0) ce.textContent = r.status == 429 ? T("rate_limited") : T("offline");
+  else if (!S.user) ce.textContent = T("code_bad");
+  else { // не код уровня → может быть код «1 пак на выбор»
+    const q = await sb.rpc("redeem_pick_code", { p_code: code }).catch(() => ({ error: 1 })), er = q.error ? "offline" : q.data?.ok ? null : q.data?.error;
+    if (!er) { S.pick.credit = true; closeModal(false); await render(); window.MiaViewer?.refresh?.(); openModal({ t: "pick" }); if ($("#pci")) $("#pci").value = code; if ($("#pcb")) $("#pcb").disabled = true; const c2 = $("#pce"); if (c2) { c2.className = "okm"; c2.textContent = "✔ Мяу, код принят! У тебя 1 пак на выбор 💕 Выбери любой закрытый пак и нажми «🎁 Мур, открыть этот пак»."; } return; }
+    ce.textContent = { already_used: "Мур, на этом аккаунте «1 пак на выбор» уже был — он даётся один раз 💕", rate_limited: T("rate_limited"), offline: T("offline") }[er] || T("code_bad"); }
 }
 
 // ---------- like / comments ----------
