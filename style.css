@@ -249,4 +249,4 @@ html.v-open #modal{z-index:95}
 .viewer.lkd .vlc{padding:60px 10px calc(var(--ps) + 10px)}
 /* v3: постер пака чёткий, сверху мягкое затемнение под название */
 .lfull img{filter:none;transform:none}
-.lfz{background:linear-gradient(rgba(0,0,0,.35),transparent 20%);opacity:1}
+.lfz{background:linear-gradient(to bottom,rgba(0,0,0,.75) 0%,rgba(0,0,0,.4) 12%,rgba(0,0,0,0) 32%);opacity:1}
