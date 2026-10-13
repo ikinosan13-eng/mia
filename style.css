@@ -298,3 +298,8 @@ html.v-open #modal{z-index:95}
 /* «Медиа»: закрытые плитки снова размыты (значок замка остаётся сверху) */
 .mgrid a.lk:before{display:block;background:none;box-shadow:none;backdrop-filter:blur(12px) saturate(.9);-webkit-backdrop-filter:blur(12px) saturate(.9)}
 .vload.err{color:#ff9a9a}
+/* «1 пак на выбор» */
+.pko{margin-top:6px;background:#fff!important;color:var(--ac)!important;border:1.5px solid var(--ac)!important}
+.pkb{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--pk);color:var(--pkf);font-size:12px;font-weight:700;margin-top:4px}
+.lv.pick{border:1.5px dashed var(--ac)}.lv.pick .pr small{display:block;margin-top:2px}
+.pkok{font-size:44px;text-align:center;margin:6px 0}
