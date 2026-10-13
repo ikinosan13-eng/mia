@@ -239,7 +239,8 @@ function bindMe() {
 
 function openViewer(id, start, quick) {
   const p = S.posts.find(x => x.id == id); if (!p) return;
-  const imgs = S.imgsFor == id && S.imgs ? Promise.resolve(S.imgs) : fn("unlock", { token: S.token || undefined, post_id: id }).then(r => { if (r.status != 200) throw new Error(r.status); return r.data.images.map(i => B + i.url); });
+  S.vc = S.vc || {}; const hit = S.vc[id] && Date.now() - S.vc[id].t < 45 * 60e3 ? S.vc[id].u : S.imgsFor == id && S.imgs ? S.imgs : null;
+  const imgs = hit ? Promise.resolve(hit) : fn("unlock", { token: S.token || undefined, post_id: id }).then(r => { if (r.status != 200) throw new Error(r.status); const u = r.data.images.map(i => B + i.url); S.vc[id] = { u, t: Date.now() }; return u; });
   window.MiaViewer.open(p, imgs, { start, quick });
 }
 // ---------- render ----------
