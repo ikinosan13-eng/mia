@@ -247,3 +247,6 @@ html.v-open #modal{z-index:95}
 .viewer .lpan .mu,body.dark .viewer .lpan .mu{color:#555}
 .viewer.lkd .vstage{z-index:5}.viewer.lkd .vbz{height:var(--ps)}
 .viewer.lkd .vlc{padding:60px 10px calc(var(--ps) + 10px)}
+/* v3: постер пака чёткий, лёгкое затемнение ~18% */
+.lfull img{filter:none;transform:none}
+.lfz{background:linear-gradient(rgba(0,0,0,.28),rgba(0,0,0,.12) 30%,rgba(0,0,0,.12) 70%,rgba(0,0,0,.25));opacity:1}
