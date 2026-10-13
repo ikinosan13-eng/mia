@@ -74,11 +74,13 @@ function sub(p) { window.Mia.subscribe(p.tier_rank, p.id, { stay: () => { if (st
 // превью закрытого пака: 1–2 размытые миниатюры с водяным знаком и замком, затем «Подписаться».
 // Только миниатюры из бакета previews (размытие всегда через CSS) — настоящие арты не показываем.
 let tz = null;
+// превью арта пака строго по порядку в паке (position): арт №1 и №2, без случайности
+const packPv = p => window.Mia.S.media.filter(m => m.post_id == p.id && m.preview_path).sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
 // плашка «Подписаться» поверх арта — как на карточке закрытого пака (подпись уровня + цена)
 function plate(p) { const M = window.Mia; return `<div class="tzp"><span class="mu">${M.esc(M.T("locked_label"))}</span><b>${M.esc(p.tier_name || "")}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><span class="ob">🔒 ${M.esc(M.T("btn_subscribe"))}</span></div>`; }
 function teaser(p) {
   if (tz) return tz.done();
-  const M = window.Mia, list = M.S.media.filter(m => m.post_id == p.id && m.preview_path).slice(0, 2).map(m => M.pub(m.preview_path));
+  const M = window.Mia, list = packPv(p).slice(0, 2).map(m => M.pub(m.preview_path));
   if (!list.length || RM) return sub(p);
   const box = el("tz"), ts = [];
   box.innerHTML = `<div class="tzw">${list.map(u => `<div class="im" style="background-image:url('${u}')"></div>`).join("")}${plate(p)}</div>`;
@@ -112,8 +114,8 @@ function lockCard(p) {
   const M = window.Mia, n = p.image_count || 0; st.post = p; st.imgs = null; st.i = 0; st.pending = null;
   title(p); drawBot(); drawPacks(); el("cnt").textContent = ""; st.front.classList.remove("show"); st.back.classList.remove("show"); el("load").classList.remove("on");
   V.classList.add("lkd"); lkSize(); V.style.setProperty("--lkbg", `url('${M.pub(p.cover_path)}')`);
-  const pv = M.S.media.filter(m => m.post_id == p.id && m.preview_path);
-  el("strip").innerHTML = Array.from({ length: Math.min(n, 12) }, (_, k) => `<div class="tzt"${pv[k] ? ` style="background-image:url('${M.pub(pv[k].preview_path)}')"` : ""}><b>🔒 ${M.esc(M.T("btn_subscribe"))}</b></div>`).join(""); el("strip").classList.add("on");
+  const pv = packPv(p);
+  el("strip").innerHTML = Array.from({ length: Math.min(n, 12) }, (_, k) => `<div class="tzt"><i${pv[k] ? ` style="background-image:url('${M.pub(pv[k].preview_path)}')"` : ""}></i></div>`).join(""); el("strip").classList.add("on");
   el("strip").querySelectorAll(".tzt").forEach(d => d.onclick = e => { e.stopPropagation(); teaser(p); });
   el("lc").innerHTML = `<div class="lfull"><img src="${M.pub(p.cover_path)}" alt=""><i class="lfz"></i><button class="llock" id="v-llk" title="${M.esc(M.T("btn_subscribe"))}"></button><h3>${M.esc(p.title)}</h3><span class="lcnt">${n} ${M.plural(n, "арт", "арта", "артов")}</span>
     <div class="frost lpan"><span class="mu">${M.esc(M.T("locked_label"))}</span><b>${M.esc(p.tier_name || "")}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><button class="ob" id="v-buy">🔒 ${M.esc(M.T("btn_subscribe"))}</button></div></div>`;
