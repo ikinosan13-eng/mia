@@ -68,9 +68,8 @@ function lockCard(p) {
   title(p); drawBot(); drawPacks(); el("cnt").textContent = ""; st.front.classList.remove("show"); st.back.classList.remove("show"); el("load").classList.remove("on");
   V.classList.add("lkd"); V.style.setProperty("--lkbg", `url('${M.pub(p.cover_path)}')`);
   el("strip").innerHTML = Array.from({ length: Math.min(n, 12) }, () => `<div class="lk fz" style="background-image:url('${M.pub(p.cover_path)}')"></div>`).join(""); el("strip").classList.add("on");
-  el("lc").innerHTML = `<div class="lcard"><div class="lcv fz"><img src="${M.pub(p.cover_path)}" alt=""><span class="cnt">${n} ${M.plural(n, "арт", "арта", "артов")}</span></div>
-    <div class="lcb"><h3>${M.esc(p.title)}</h3><div class="mu">Закрытый пак · ${n} ${M.plural(n, "арт", "арта", "артов")}</div>
-    <div class="lneed"><i class="lki"></i>Нужен уровень ${M.esc(p.tier_name || "")}${p.price_rub ? ` · <b>${p.price_rub} ₽/мес</b>` : ""}</div><button class="ob full" id="v-buy">Купить пак</button></div></div>`;
+  el("lc").innerHTML = `<div class="lfull"><img src="${M.pub(p.cover_path)}" alt=""><i class="lfz"></i><h3>${M.esc(p.title)}</h3><span class="lcnt">${n} ${M.plural(n, "арт", "арта", "артов")}</span>
+    <div class="frost lpan"><span class="mu">${M.esc(M.T("locked_label"))}</span><b>${M.esc(p.tier_name || "")}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><button class="ob" id="v-buy">🔒 ${M.esc(M.T("btn_subscribe"))}</button></div></div>`;
   el("buy").onclick = e => { e.stopPropagation(); M.subscribe(p.tier_rank, p.id, { stay: () => { if (st.post !== p || locked(p)) return; goPack(p); } }); };
   wake();
 }

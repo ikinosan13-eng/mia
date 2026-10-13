@@ -235,3 +235,15 @@ html.v-open #modal{z-index:95}
 .vlc{pointer-events:none}.lcard{pointer-events:auto}
 .lcv .cnt{left:auto;top:auto;display:inline-flex;align-items:center;gap:6px;line-height:1;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .lcv{max-height:46vh;aspect-ratio:auto;height:46vh}
+/* v2: закрытый пак в кинорежиме — весь кадр как обложка в ленте */
+.vlc{padding:0 10px}.viewer.lkd .vstage:before,.viewer.lkd .vstage:after{display:none}
+.lfull{position:relative;width:100%;height:100%;border-radius:16px;overflow:hidden;pointer-events:auto;background:#222;box-shadow:0 20px 40px rgba(0,0,0,.6)}
+.lfull img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(1.5px);transform:scale(1.03)}
+.lfz{position:absolute;inset:0;background:var(--frost);background-size:160px,cover;opacity:.45}
+.lfull h3{position:absolute;left:14px;right:14px;top:12px;color:#fff;font-size:20px;text-shadow:0 1px 6px #0009;z-index:2}
+.lcnt{position:absolute;left:14px;top:calc(12px + 2.2em);z-index:2;display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:rgba(20,20,24,.45);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.18);color:#fff;font-size:12px;font-weight:600;line-height:1}
+.lcnt:before{content:"";width:12px;height:12px;background:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='7' y='7' width='14' height='14' rx='3'/%3E%3Cpath d='M17 3H6a3 3 0 0 0-3 3v11'/%3E%3C/svg%3E")}
+.viewer .lpan,body.dark .viewer .lpan{z-index:2;bottom:14px;left:12px;right:12px;background:rgba(255,255,255,.78);border-color:rgba(255,255,255,.6);color:#333}
+.viewer .lpan .mu,body.dark .viewer .lpan .mu{color:#555}
+.viewer.lkd .vstage{z-index:5}.viewer.lkd .vbz{height:var(--ps)}
+.viewer.lkd .vlc{padding:60px 10px calc(var(--ps) + 10px)}
