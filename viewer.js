@@ -32,8 +32,8 @@ function build() {
   V.querySelector(".vchrome.top").addEventListener("pointerleave", () => { over = 0; wake(); });
   V.addEventListener("mousemove", wake);
   // нижняя плашка: появляется только по тапу в её зоне, пока с ней работают — держится, потом быстро гаснет
-  el("bz").addEventListener("pointerup", e => { e.preventDefault(); bar(1500); });
-  V.querySelectorAll(".vchrome.bot,.pstrip").forEach(c => { c.addEventListener("pointerdown", () => { if (V.classList.contains("bar")) bar(1500); }); c.addEventListener("scroll", () => { if (V.classList.contains("bar")) bar(1500); }, true); });
+  el("bz").addEventListener("pointerup", e => { e.preventDefault(); bar(0); });
+  V.querySelectorAll(".vchrome.bot,.pstrip").forEach(c => { c.addEventListener("pointerdown", () => { if (V.classList.contains("bar") && !barStay) bar(1500); }); c.addEventListener("scroll", () => { if (V.classList.contains("bar") && !barStay) bar(1500); }, true); });
   // полоса паков: перетаскивание мышью, тап выбирает
   const ps = el("ps"); let x0 = null, sl = 0, moved = 0;
   ps.addEventListener("pointerdown", e => { moved = 0; if (e.pointerType != "mouse") return; x0 = e.clientX; sl = ps.scrollLeft; });
@@ -41,8 +41,9 @@ function build() {
   addEventListener("pointerup", () => x0 = null);
   ps.addEventListener("click", e => { if (moved) return; const t = e.target.closest("[data-p]"); if (!t) return; const p = window.Mia.S.posts.find(x => x.id == t.dataset.p); if (p) goPack(p); });
 }
-let hideT = null, over = 0, barT = null;
-function bar(ms) { if (!V) return; V.classList.add("bar"); clearTimeout(barT); barT = setTimeout(() => { if (!document.querySelector(".cs")) V.classList.remove("bar"); else bar(ms); }, RM ? ms : ms); }
+let hideT = null, over = 0, barT = null, barStay = 0;
+// bar(0): плашка остаётся, пока не выберут другой арт в полосе
+function bar(ms) { if (!V) return; V.classList.add("bar"); clearTimeout(barT); barStay = ms === 0 ? 1 : 0; if (barStay) return; barT = setTimeout(() => { if (!document.querySelector(".cs")) V.classList.remove("bar"); else bar(ms); }, RM ? ms : ms); }
 function wake() { if (!V) return; V.classList.remove("idle"); clearTimeout(hideT); if (!V.classList.contains("ui")) return; hideT = setTimeout(() => { if (!over && !document.querySelector(".cs")) V.classList.add("idle"); }, 2000); }
 const locked = p => p.tier_rank > window.Mia.S.rank;
 // прокрутка полосы к элементу без сдвига самого кинорежима (scrollIntoView двигал и предков)
@@ -78,7 +79,7 @@ function lockCard(p) {
 function title(post) { el("ttl").querySelector("h2").textContent = post.title; el("ttl").querySelector("p").textContent = `пак · ${post.image_count} ${window.Mia.plural(post.image_count, "арт", "арта", "артов")}${post.tier_rank > 0 ? " · " + post.tier_name : ""}`; }
 function fill(post, imgsP, then) {
   imgsP.then(imgs => { if (st.post !== post) return; if (!imgs.length) { el("load").textContent = "В паке пока нет артов"; el("load").classList.add("on"); } st.imgs = imgs; el("strip").innerHTML = "";
-    imgs.forEach((u, k) => { const d = document.createElement("div"); d.style.backgroundImage = `url("${u}")`; d.style.transitionDelay = (k * .06) + "s"; d.onclick = () => show(k); el("strip").append(d); });
+    imgs.forEach((u, k) => { const d = document.createElement("div"); d.style.backgroundImage = `url("${u}")`; d.style.transitionDelay = (k * .06) + "s"; d.onclick = () => { const ch = k != st.i; show(k); if (ch && V) { barStay = 0; clearTimeout(barT); V.classList.remove("bar"); } }; el("strip").append(d); });
     imgs.slice(0, 3).forEach(u => { const i = new Image(); i.src = u; });
     if (then) then(); else if (st.pending) { const p = st.pending; st.pending = null; p(); } }).catch(() => { if (st.post !== post) return; el("load").textContent = "Не удалось загрузить арты"; el("load").classList.add("on"); });
 }
@@ -122,7 +123,7 @@ function show(k, slow) {
 }
 function finish() {
   timers.forEach(clearTimeout); timers = []; el("intro").classList.add("out");
-  const go = () => { el("load").classList.remove("on"); if (!st.front.classList.contains("show")) show(st.start || 0, true); V.classList.add("ui"); el("strip").classList.add("on"); el("ttl").classList.add("on"); wake(); bar(1000); };
+  const go = () => { el("load").classList.remove("on"); if (!st.front.classList.contains("show")) show(st.start || 0, true); V.classList.add("ui"); el("strip").classList.add("on"); el("ttl").classList.add("on"); wake(); bar(2000); };
   if (st.imgs) go(); else { el("load").classList.add("on"); st.pending = go; }
 }
 function isShort(c) { if (c.full == "always") return false; const d = new Date().toDateString(), r = localStorage.miaIntro == d; localStorage.miaIntro = d; return r; }
