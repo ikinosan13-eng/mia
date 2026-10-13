@@ -20,7 +20,7 @@ function build() {
   // ‹ › — листают по кругу (как свайп и стрелки клавиатуры); остальная боковая зона — открывает плашку
   const side = d => e => { e.stopPropagation(); if (e.target.closest("span") && !V.classList.contains("lkd")) { step(d); wake(); } else bar(0); };
   el("nx").onclick = side(1); el("pv").onclick = side(-1);
-  el("fs").onclick = () => document.fullscreenElement ? document.exitFullscreen() : V.requestFullscreen?.();
+  el("fs").onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.().catch(() => {});
   el("mu").onclick = () => toggleMute();
   el("lk").onclick = async () => { await window.Mia.toggleLike(st.post.id); drawBot(); };
   el("cm").onclick = () => window.Mia.openComments(st.post.id, drawBot);
@@ -179,8 +179,8 @@ function open(post, imgsP, o = {}) {
   const style = !c.enabled ? "none" : c.style, short = o.quick || style != "curtain" || isShort(c) || RM;
   V.className = "viewer on" + (short ? " short" : "") + (style == "none" ? " none" : "") + (style == "develop" ? " dev-only" : "") + (c.music_on && !st.muted ? " music" : "");
   V.setAttribute("aria-hidden", "false"); document.documentElement.classList.add("v-open");
-  // авто-полный экран (в жесте тапа); где не поддерживается (iPhone Safari) — молча пропускаем
-  try { if (!document.fullscreenElement && V.requestFullscreen) V.requestFullscreen().catch(() => {}); } catch {}
+  // авто-полный экран на всю страницу (чтобы окна подписки/комментариев были видны поверх) (в жесте тапа); где не поддерживается (iPhone Safari) — молча пропускаем
+  try { if (!document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {}); } catch {}
   for (const a of [el("a1"), el("a2")]) { a.classList.toggle("dev", style != "none"); a.classList.remove("show"); a.style.backgroundImage = ""; }
   el("intro").classList.remove("out"); el("hello").innerHTML = ""; el("mia").classList.remove("on"); el("skip").classList.toggle("hide", !c.skip); el("strip").classList.remove("on"); el("ttl").classList.remove("on");
   el("mia").style.backgroundImage = c.art ? `url("${window.Mia.pub(c.art, "media")}")` : ""; el("mia").classList.toggle("noart", !c.art);
