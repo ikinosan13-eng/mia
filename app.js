@@ -76,7 +76,7 @@ function hero() {
 }
 const tabs = on => `<div class="tabs">${[["ЛЕНТА", "feed"], ["МЕДИА", "media"], ["УРОВНИ", "levels"], ["ОБ АВТОРЕ", "about"]].map(([n, h]) => `<a href="#/${h}" class="${h == on ? "on" : ""}">${n}</a>`).join("")}</div>`;
 const heart = p => `${S.liked.has(p.id) ? "❤" : "♡"} ${p.like_count || 0}`;
-const ACT = p => `<div class="act"><a class="${S.liked.has(p.id) ? "on" : ""}" data-like="${p.id}">${heart(p)}</a><a href="#/post/${p.id}">💬 ${p.comment_count || 0}</a><span class="sp"></span><a data-share="${p.id}" title="Поделиться">↗</a></div>`;
+const ACT = p => `<div class="act"><a class="${S.liked.has(p.id) ? "on" : ""}" data-like="${p.id}">${heart(p)}</a><a href="#/post/${p.id}" data-cm="${p.id}">💬 ${p.comment_count || 0}</a><span class="sp"></span><a data-share="${p.id}" title="Поделиться">↗</a></div>`;
 const lockPanel = p => `<div class="frost"><span class="mu">${esc(T("locked_label"))}</span><b>${esc(p.tier_name)}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><button class="ob" data-sub="${p.id}">🔒 ${esc(T("btn_subscribe"))}</button></div>`;
 function card(p) {
   const locked = p.tier_rank > S.rank, n = `🖼 ${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}`;
@@ -90,7 +90,8 @@ function levelsHtml() {
 }
 const views = {
   feed: () => bar() + hero() + tabs("feed") + (S.posts.map(card).join("") || `<div class="note">🎨 ${esc(T("empty_feed"))}</div>`),
-  media: () => bar() + hero() + tabs("media") + `<div class="grid">${S.media.map(m => `<a href="#/post/${m.post_id}" class="${m.tier_rank > S.rank ? "lk" : ""}" style="background-image:url('${pub(m.preview_path)}')"></a>`).join("")}</div>` + (S.media.length ? "" : `<div class="note">🎨 ${esc(T("empty_feed"))}</div>`),
+  media: () => { const k = {}; return bar() + hero() + tabs("media") + `<div class="grid mgrid">${S.media.map(m => { const i = k[m.post_id] = (k[m.post_id] ?? -1) + 1, lk = m.tier_rank > S.rank, p = S.posts.find(x => x.id == m.post_id);
+    return lk ? `<a href="#/post/${m.post_id}" class="lk" style="background-image:url('${pub(m.preview_path)}')"></a>` : `<a href="#/post/${m.post_id}" data-mp="${m.post_id}" data-mi="${i}" style="background-image:url('${pub(m.preview_path)}')">${p ? `<span class="cb" data-cm="${p.id}">💬 ${p.comment_count || 0}</span>` : ""}</a>`; }).join("")}</div>` + (S.media.length ? "" : `<div class="note">🎨 ${esc(T("empty_feed"))}</div>`); },
   levels: () => bar() + hero() + tabs("levels") + levelsHtml(),
   about: () => bar() + hero() + tabs("about") + `<div class="body">${esc(S.profile.about || "Привет! Я Мия, рисую паки артов 💕🐾")}</div>` + levelsHtml(),
 };
@@ -182,6 +183,51 @@ async function commentsBlock(p) {
   else box = `<form class="cbox" id="cmf"><input type="hidden" id="cpar"><textarea id="cmt" maxlength="1000" placeholder="Написать комментарий…"></textarea><button class="ob" type="submit">➤</button></form><div class="err" id="cme" style="padding:0 14px"></div>`;
   return `<h3 style="padding:14px 14px 4px">Комментарии · ${list.length}</h3>${roots.map(c => commentHtml(c, kids(c.id))).join("") || `<div class="note">💬 ${esc(T("empty_comments"))}</div>`}${box}`;
 }
+// Комментарии: нижняя шторка в стиле X (лента, страница поста, «Медиа», кинорежим)
+function closeComments(now) {
+  const s = $(".cs"), bd = $(".cs-bd"); if (!s) return; document.body.classList.remove("cs-open"); s.style.transform = "";
+  const done = () => { s.remove(); bd?.remove(); document.body.style.overflow = ""; removeEventListener("keydown", csKey, true); };
+  now ? done() : setTimeout(done, 320);
+}
+function csKey(e) { if (e.key == "Escape") { e.stopPropagation(); closeComments(); } }
+async function openComments(id, onChange) {
+  const p = S.posts.find(x => x.id == id); if (!p) return;
+  closeComments(true);
+  const bd = document.createElement("div"); bd.className = "cs-bd";
+  const d = document.createElement("div"); d.className = "cs"; d.setAttribute("role", "dialog");
+  d.innerHTML = `<div class="cs-grab"><i></i></div><div class="cs-h"><h3>${esc(p.title)} <small>· ${p.comment_count || 0}</small></h3><button class="cs-x" title="Закрыть">✕</button></div><div class="cs-list"><div class="note">Загрузка…</div></div>`;
+  document.body.append(bd, d); document.body.style.overflow = "hidden";
+  requestAnimationFrame(() => requestAnimationFrame(() => document.body.classList.add("cs-open")));
+  const close = () => closeComments();
+  bd.onclick = close; d.querySelector(".cs-x").onclick = close; addEventListener("keydown", csKey, true);
+  let y0 = null, dy = 0, t0 = 0;
+  d.querySelectorAll(".cs-grab,.cs-h").forEach(h => {
+    h.addEventListener("pointerdown", e => { if (e.target.closest(".cs-x")) return; y0 = e.clientY; dy = 0; t0 = Date.now(); d.classList.add("drag"); h.setPointerCapture(e.pointerId); });
+    h.addEventListener("pointermove", e => { if (y0 === null) return; dy = Math.max(0, e.clientY - y0); d.style.transform = `translateY(${dy}px)`; bd.style.opacity = 1 - dy / d.offsetHeight; });
+    const up = () => { if (y0 === null) return; y0 = null; d.classList.remove("drag"); bd.style.opacity = ""; if (dy > d.offsetHeight * .25 || dy / Math.max(1, Date.now() - t0) > .5) close(); else d.style.transform = ""; };
+    h.addEventListener("pointerup", up); h.addEventListener("pointercancel", up);
+  });
+  const draw = async () => {
+    const b = d.querySelector(".cs-list"); b.innerHTML = (await commentsBlock(p)).replace(/^<h3[^>]*>.*?<\/h3>/, "");
+    d.querySelector(".cs-in")?.remove(); d.querySelector("#cme")?.remove();
+    const f = b.querySelector("#cmf"), err = b.querySelector("#cme");
+    if (f) { f.className = "cs-in"; f.querySelector("button").className = "cs-send"; d.append(f); err && f.before(err); }
+    d.querySelector(".cs-h small").textContent = `· ${p.comment_count || 0}`;
+    d.querySelectorAll("[data-open]").forEach(x => x.onclick = e => { e.preventDefault(); closeComments(true); window.MiaViewer?.isOpen() && window.MiaViewer.close(); openModal({ t: x.dataset.open }); });
+    d.querySelectorAll("[data-sub]").forEach(x => x.onclick = e => { e.preventDefault(); closeComments(true); window.MiaViewer?.isOpen() && window.MiaViewer.close(); subscribe(p.tier_rank, p.id); });
+    const ta = d.querySelector("#cmt"); if (ta) ta.oninput = () => { ta.style.height = "44px"; ta.style.height = Math.min(120, ta.scrollHeight) + "px"; };
+    if (f) f.onsubmit = async e => { e.preventDefault(); const t = ta.value.trim(); if (!t) return;
+      const par = d.querySelector("#cpar").value;
+      const { error } = await sb.rpc("add_comment", { p_post: id, p_body: t, p_parent: par ? +par : null });
+      if (error) return d.querySelector("#cme").textContent = CERR[error.message] || error.message;
+      p.comment_count++; await draw(); updCount(); const l = d.querySelector(".cs-list"); l.scrollTop = l.scrollHeight; };
+    d.querySelectorAll("[data-rep]").forEach(a => a.onclick = () => { d.querySelector("#cpar").value = a.dataset.rep; ta.placeholder = "Ответ для " + a.dataset.nm + "…"; ta.focus(); });
+    d.querySelectorAll("[data-cdel]").forEach(a => a.onclick = async () => { if (!confirm("Удалить комментарий?")) return; await sb.rpc("delete_my_comment", { p_id: +a.dataset.cdel }); p.comment_count--; await draw(); updCount(); });
+    d.querySelectorAll("[data-crep]").forEach(a => a.onclick = async () => { await sb.rpc("report_comment", { p_id: +a.dataset.crep }); toast("Жалоба отправлена"); });
+  };
+  const updCount = () => { $$(`[data-cm="${id}"]`).forEach(a => a.textContent = `💬 ${p.comment_count || 0}`); onChange && onChange(); };
+  await draw();
+}
 async function postView(id) {
   const p = S.posts.find(x => x.id == id); if (!p) return bar() + `<div class="empty">Публикация не найдена</div>`;
   const head = `<div class="ph" style="padding-top:14px"><a href="#/feed">← Лента</a><span>${fmt(p.publish_at)}</span></div>`;
@@ -237,11 +283,22 @@ function bindMe() {
     const r = await fn("login", { action: "delete_self", old_password: pw }); if (r.status != 200) return toast("Неверный пароль"); await sb.auth.signOut(); await loadUser(); toast("Аккаунт удалён"); location.hash = "#/feed"; });
 }
 
+// Ссылки на полные арты пака через функцию unlock, с кэшем на 45 минут (просмотр, «Медиа», смена пака в кинорежиме)
+function loadImgs(id) {
+  S.vc = S.vc || {}; S.vp = S.vp || {}; id = +id || id;
+  const hit = S.vc[id] && Date.now() - S.vc[id].t < 45 * 60e3 ? S.vc[id].u : S.imgsFor == id && S.imgs ? S.imgs : null;
+  if (hit) return Promise.resolve(hit); if (S.vp[id]) return S.vp[id];
+  return S.vp[id] = fn("unlock", { token: S.token || undefined, post_id: id }).then(r => { if (r.status != 200) throw new Error(r.status); const u = r.data.images.map(i => B + i.url); S.vc[id] = { u, t: Date.now() }; return u; }).finally(() => delete S.vp[id]);
+}
 function openViewer(id, start, quick) {
   const p = S.posts.find(x => x.id == id); if (!p) return;
-  S.vc = S.vc || {}; const hit = S.vc[id] && Date.now() - S.vc[id].t < 45 * 60e3 ? S.vc[id].u : S.imgsFor == id && S.imgs ? S.imgs : null;
-  const imgs = hit ? Promise.resolve(hit) : fn("unlock", { token: S.token || undefined, post_id: id }).then(r => { if (r.status != 200) throw new Error(r.status); const u = r.data.images.map(i => B + i.url); S.vc[id] = { u, t: Date.now() }; return u; });
-  window.MiaViewer.open(p, imgs, { start, quick });
+  window.MiaViewer.open(p, loadImgs(p.id), { start, quick });
+}
+// «Медиа»: открытые плитки подгружают полные арты лениво, пока показано превью
+function bindMedia() {
+  const io = "IntersectionObserver" in window ? new IntersectionObserver(es => es.forEach(e => { if (!e.isIntersecting) return; io.unobserve(e.target); sharpen(e.target); }), { rootMargin: "300px" }) : null;
+  const sharpen = t => loadImgs(t.dataset.mp).then(u => { const src = u[+t.dataset.mi]; if (!src) return; const i = new Image(); i.onload = () => { t.style.backgroundImage = `url("${src}")`; t.classList.add("sharp"); }; i.src = src; }).catch(() => {});
+  $$(".mgrid a[data-mp]").forEach(t => { io ? io.observe(t) : sharpen(t); t.onclick = e => { if (e.target.closest("[data-cm]")) return; e.preventDefault(); openViewer(+t.dataset.mp, +t.dataset.mi, false); }; });
 }
 // ---------- render ----------
 async function render() {
@@ -258,6 +315,8 @@ async function render() {
   $$("[data-subt]").forEach(b => b.onclick = () => subscribe(+b.dataset.subt, null));
   $$("[data-share]").forEach(b => b.onclick = () => { const u = location.href.split("#")[0] + "#/post/" + b.dataset.share; navigator.share ? navigator.share({ url: u }).catch(() => {}) : navigator.clipboard.writeText(u).then(() => toast("Ссылка скопирована")); });
   $$("[data-like]").forEach(b => b.onclick = e => { e.preventDefault(); toggleLike(b.dataset.like); });
+  $$("[data-cm]").forEach(a => a.onclick = e => { e.preventDefault(); e.stopPropagation(); openComments(a.dataset.cm); });
+  if (v == "media") bindMedia();
   $$("[data-view]").forEach(a => a.onclick = e => { e.preventDefault(); openViewer(a.dataset.view, 0, false); });
   $$("[data-vi]").forEach(im => im.onclick = () => openViewer(id, +im.dataset.vi, true));
   if (parts[2] == "c") setTimeout(() => $("#cmts")?.scrollIntoView({ behavior: "smooth" }), 100);
@@ -271,8 +330,8 @@ async function render() {
   if (v == "me") bindMe();
   if (S.modal) drawModal();
 }
-window.Mia = { toggleLike, sb, S, $, $$, esc, pub, fmt, toast, T, DEF, fn, load, render, B, plural, setTexts: t => TX = t };
-window.addEventListener("hashchange", () => { if (window.MiaViewer?.isOpen()) window.MiaViewer.close(); if (S.modal) { S.modal = null; $("#modal")?.remove(); } render(); });
+window.Mia = { openComments, closeComments, loadImgs, subscribe, openViewer, toggleLike, sb, S, $, $$, esc, pub, fmt, toast, T, DEF, fn, load, render, B, plural, setTexts: t => TX = t };
+window.addEventListener("hashchange", () => { if (window.MiaViewer?.isOpen()) window.MiaViewer.close(); if (S.modal) { S.modal = null; $("#modal")?.remove(); } closeComments(true); render(); });
 $("#app").innerHTML = `<div style="padding:14px"><div class="sk" style="height:120px"></div><div class="sk" style="height:300px;margin-top:14px"></div><div class="sk" style="height:16px;margin-top:10px;width:60%"></div></div>`;
 fetch("version.txt?" + Date.now(), { cache: "no-store" }).then(r => r.text()).then(v => { v = v.trim(); if (v && v != window.MIA_VERSION && !sessionStorage.miaReloaded) { sessionStorage.miaReloaded = 1; location.reload(); } }).catch(() => {});
 load().then(render).catch(() => { $("#app").innerHTML = `<div class="empty">📡 ${esc(T("offline"))}<br><br><button class="ob" onclick="location.reload()">Повторить</button></div>`; });

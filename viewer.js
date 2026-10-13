@@ -8,20 +8,60 @@ const el = id => V.querySelector("#v-" + id);
 function build() {
   V = document.createElement("div"); V.className = "viewer"; V.setAttribute("aria-hidden", "true");
   V.innerHTML = `<div class="curtain"></div><div class="intro" id="v-intro"><div class="mia" id="v-mia"></div><div class="hello" id="v-hello"></div></div>
-  <div class="vtop"><button id="v-x" class="ib" title="Закрыть">✕</button><div class="vcnt" id="v-cnt"></div><div class="r"><button id="v-mu" class="ib" title="Музыка">🎵</button><button id="v-fs" class="ib" title="Во весь экран">⛶</button></div></div>
+  <div class="vchrome top"><div class="vtop"><button id="v-x" class="ib" title="Закрыть">✕</button><div class="vcnt" id="v-cnt"></div><div class="r"><button id="v-mu" class="ib" title="Музыка">🎵</button><button id="v-fs" class="ib" title="Во весь экран">⛶</button></div></div></div>
   <button id="v-skip" class="vskip">Пропустить ›</button><div class="vload" id="v-load">Загрузка…</div>
   <div class="vstage" id="v-stage"><div class="art" id="v-a1"></div><div class="art" id="v-a2"></div><button class="vnav l" id="v-pv">‹</button><button class="vnav rr" id="v-nx">›</button></div>
-  <div class="vttl" id="v-ttl"><h2></h2><p></p></div><div class="vstrip" id="v-strip"></div>
-  <div class="vbot"><button class="vpill" id="v-lk"></button><button class="vpill" id="v-cm"></button><div class="eq"><i></i><i></i><i></i><i></i></div></div>`;
+  <div class="vchrome bot"><div class="vttl" id="v-ttl"><div class="row"><button class="parr" id="v-pp" title="Предыдущий пак">‹</button><h2></h2><button class="parr" id="v-pn" title="Следующий пак">›</button></div><p></p></div><div class="vstrip" id="v-strip"></div>
+  <div class="vbot"><button class="vpill" id="v-lk"></button><button class="vpill" id="v-cm"></button><div class="eq"><i></i><i></i><i></i><i></i></div></div></div>
+  <div class="pstrip" id="v-ps"></div>`;
   document.body.append(V);
   el("x").onclick = close; el("skip").onclick = finish; el("nx").onclick = () => show(st.i + 1); el("pv").onclick = () => show(st.i - 1);
   el("fs").onclick = () => document.fullscreenElement ? document.exitFullscreen() : V.requestFullscreen?.();
   el("mu").onclick = () => toggleMute();
   el("lk").onclick = async () => { await window.Mia.toggleLike(st.post.id); drawBot(); };
-  el("cm").onclick = () => { const id = st.post.id; close(); location.hash = "#/post/" + id + "/c"; };
-  addEventListener("keydown", e => { if (!V.classList.contains("on")) return; if (e.key == "ArrowRight") show(st.i + 1); if (e.key == "ArrowLeft") show(st.i - 1); if (e.key == "Escape") close(); });
-  let sx = 0; el("stage").addEventListener("touchstart", e => sx = e.touches[0].clientX, { passive: true });
-  el("stage").addEventListener("touchend", e => { const d = e.changedTouches[0].clientX - sx; if (Math.abs(d) > 40) show(st.i + (d < 0 ? 1 : -1)); });
+  el("cm").onclick = () => window.Mia.openComments(st.post.id, drawBot);
+  el("pp").onclick = () => pack(-1); el("pn").onclick = () => pack(1);
+  addEventListener("keydown", e => { if (!V.classList.contains("on") || document.querySelector(".cs")) return;
+    if (e.key == "ArrowRight" || e.key == "ArrowLeft") { const d = e.key == "ArrowRight" ? 1 : -1; e.shiftKey ? pack(d) : show(st.i + d); wake(); }
+    if (e.key == "Escape") close(); });
+  // арт: свайп листает, тап при скрытых панелях только возвращает их
+  let sx = null; el("stage").addEventListener("pointerdown", e => sx = e.clientX);
+  el("stage").addEventListener("pointerup", e => { if (sx === null) return; const d = e.clientX - sx; sx = null; if (Math.abs(d) > 40) show(st.i + (d < 0 ? 1 : -1)); wake(); });
+  // панели прячутся через 2 с без касаний, остаются пока курсор/палец на них
+  V.querySelectorAll(".vchrome,.pstrip").forEach(c => { c.addEventListener("pointerenter", () => { over = 1; clearTimeout(hideT); }); c.addEventListener("pointerleave", () => { over = 0; wake(); }); c.addEventListener("pointerdown", wake); });
+  V.addEventListener("mousemove", wake);
+  // полоса паков: перетаскивание мышью, тап выбирает
+  const ps = el("ps"); let x0 = null, sl = 0, moved = 0;
+  ps.addEventListener("pointerdown", e => { moved = 0; if (e.pointerType != "mouse") return; x0 = e.clientX; sl = ps.scrollLeft; });
+  addEventListener("pointermove", e => { if (x0 === null) return; const d = e.clientX - x0; if (Math.abs(d) > 4) moved = 1; ps.scrollLeft = sl - d; });
+  addEventListener("pointerup", () => x0 = null);
+  ps.addEventListener("click", e => { if (moved) return; const t = e.target.closest("[data-p]"); if (!t) return; const p = window.Mia.S.posts.find(x => x.id == t.dataset.p); if (p) goPack(p); });
+}
+let hideT = null, over = 0;
+function wake() { if (!V) return; V.classList.remove("idle"); clearTimeout(hideT); if (!V.classList.contains("ui")) return; hideT = setTimeout(() => { if (!over && !document.querySelector(".cs")) V.classList.add("idle"); }, 2000); }
+const locked = p => p.tier_rank > window.Mia.S.rank;
+function drawPacks() {
+  const M = window.Mia, ps = el("ps");
+  ps.innerHTML = M.S.posts.map(p => `<div data-p="${p.id}" class="p${p.id == st.post.id ? " cur" : ""}${locked(p) ? " lk" : ""}" title="${M.esc(p.title)}" style="background-image:url('${M.pub(p.cover_path)}')"></div>`).join("");
+  ps.querySelector(".cur")?.scrollIntoView({ inline: "center", block: "nearest" });
+}
+function pack(d) { const P = window.Mia.S.posts, n = P.length; let k = P.findIndex(p => p.id == st.post.id); for (let j = 0; j < n; j++) { k = (k + d + n) % n; if (!locked(P[k])) return goPack(P[k]); } }
+// смена пака внутри просмотра: без длинного приветствия и без перезапуска музыки
+function goPack(p) {
+  if (p.id == st.post.id) return;
+  if (locked(p)) { close(); window.Mia.subscribe(p.tier_rank, p.id); return; }
+  st.post = p; st.imgs = null; st.i = 0; st.start = 0; title(p); drawBot(); drawPacks();
+  el("cnt").textContent = ""; el("strip").innerHTML = ""; st.front.classList.remove("show"); st.back.classList.remove("show"); el("load").textContent = "Загрузка…";
+  fill(p, window.Mia.loadImgs(p.id), () => { el("load").classList.remove("on"); show(0); el("strip").classList.add("on"); });
+  if (!st.imgs) el("load").classList.add("on");
+  wake();
+}
+function title(post) { el("ttl").querySelector("h2").textContent = post.title; el("ttl").querySelector("p").textContent = `пак · ${post.image_count} ${window.Mia.plural(post.image_count, "арт", "арта", "артов")}${post.tier_rank > 0 ? " · " + post.tier_name : ""}`; }
+function fill(post, imgsP, then) {
+  imgsP.then(imgs => { if (st.post !== post) return; if (!imgs.length) { el("load").textContent = "В паке пока нет артов"; el("load").classList.add("on"); } st.imgs = imgs; el("strip").innerHTML = "";
+    imgs.forEach((u, k) => { const d = document.createElement("div"); d.style.backgroundImage = `url("${u}")`; d.style.transitionDelay = (k * .06) + "s"; d.onclick = () => show(k); el("strip").append(d); });
+    imgs.slice(0, 3).forEach(u => { const i = new Image(); i.src = u; });
+    if (then) then(); else if (st.pending) { const p = st.pending; st.pending = null; p(); } }).catch(() => { if (st.post !== post) return; el("load").textContent = "Не удалось загрузить арты"; el("load").classList.add("on"); });
 }
 function drawBot() { const p = st.post, S = window.Mia.S; el("lk").textContent = `${S.liked.has(p.id) ? "❤" : "♡"} ${p.like_count || 0}`; el("lk").classList.toggle("liked", S.liked.has(p.id)); el("cm").textContent = `💬 ${p.comment_count || 0}`; }
 // ---- music: must start inside the tap gesture ----
@@ -63,7 +103,7 @@ function show(k, slow) {
 }
 function finish() {
   timers.forEach(clearTimeout); timers = []; el("intro").classList.add("out");
-  const go = () => { el("load").classList.remove("on"); if (!st.front.classList.contains("show")) show(st.start || 0, true); V.classList.add("ui"); el("strip").classList.add("on"); el("ttl").classList.add("on"); };
+  const go = () => { el("load").classList.remove("on"); if (!st.front.classList.contains("show")) show(st.start || 0, true); V.classList.add("ui"); el("strip").classList.add("on"); el("ttl").classList.add("on"); wake(); };
   if (st.imgs) go(); else { el("load").classList.add("on"); st.pending = go; }
 }
 function isShort(c) { if (c.full == "always") return false; const d = new Date().toDateString(), r = localStorage.miaIntro == d; localStorage.miaIntro = d; return r; }
@@ -78,12 +118,9 @@ function open(post, imgsP, o = {}) {
   for (const a of [el("a1"), el("a2")]) { a.classList.toggle("dev", style != "none"); a.classList.remove("show"); a.style.backgroundImage = ""; }
   el("intro").classList.remove("out"); el("hello").innerHTML = ""; el("mia").classList.remove("on"); el("skip").classList.toggle("hide", !c.skip); el("strip").classList.remove("on"); el("ttl").classList.remove("on");
   el("mia").style.backgroundImage = c.art ? `url("${window.Mia.pub(c.art, "media")}")` : ""; el("mia").classList.toggle("noart", !c.art);
-  el("ttl").querySelector("h2").textContent = post.title; el("ttl").querySelector("p").textContent = `пак · ${post.image_count} ${window.Mia.plural(post.image_count, "арт", "арта", "артов")}${post.tier_rank > 0 ? " · " + post.tier_name : ""}`;
-  el("cnt").textContent = ""; el("strip").innerHTML = ""; el("strip").classList.toggle("hide", !c.strip); drawBot();
-  imgsP.then(imgs => { if (st.post !== post) return; if (!imgs.length) { el("load").textContent = "В паке пока нет артов"; el("load").classList.add("on"); } st.imgs = imgs; el("strip").innerHTML = "";
-    imgs.forEach((u, k) => { const d = document.createElement("div"); d.style.backgroundImage = `url("${u}")`; d.style.transitionDelay = (k * .06) + "s"; d.onclick = () => show(k); el("strip").append(d); });
-    imgs.slice(0, 3).forEach(u => { const i = new Image(); i.src = u; });
-    if (st.pending) { const p = st.pending; st.pending = null; p(); } }).catch(() => { el("load").textContent = "Не удалось загрузить арты"; el("load").classList.add("on"); });
+  title(post); el("load").textContent = "Загрузка…"; clearTimeout(hideT);
+  el("cnt").textContent = ""; el("strip").innerHTML = ""; el("strip").classList.toggle("hide", !c.strip); drawBot(); drawPacks();
+  fill(post, imgsP);
   if (style == "none") { T(finish, 50); return; }
   const D = Math.max(2, Math.min(12, +c.duration || 6)) * 1000;
   if (short) { T(() => { if (st.imgs) show(st.start, true); }, 500); T(finish, style == "develop" ? 2600 : 1500); return; }
@@ -94,7 +131,7 @@ function open(post, imgsP, o = {}) {
   T(finish, D * 1.4);
 }
 function close() {
-  if (!V) return; timers.forEach(clearTimeout); timers = []; stopMusic(); V.classList.add("closing"); V.classList.remove("ui");
+  if (!V) return; timers.forEach(clearTimeout); timers = []; stopMusic(); clearTimeout(hideT); window.Mia.closeComments?.(true); V.classList.add("closing"); V.classList.remove("ui", "idle");
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   setTimeout(() => { V.className = "viewer"; V.setAttribute("aria-hidden", "true"); document.documentElement.classList.remove("v-open"); st.post = null; }, 900);
 }
