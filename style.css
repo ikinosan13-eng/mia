@@ -271,3 +271,5 @@ html.v-open #modal{z-index:95}
   .viewer.lkd .vlc{padding-top:60px;padding-left:8px;padding-right:8px}
 }
 .viewer .vnav span{display:block}
+/* v14: в закрытом паке сцена (z5) перекрывала верхнюю панель (z3) — ✕ не нажимался */
+.viewer.lkd .vchrome.top{z-index:7}
