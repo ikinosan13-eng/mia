@@ -18,7 +18,7 @@ function build() {
   el("x").onclick = close; el("skip").onclick = finish; // боковые зоны больше не листают: тап открывает нижнюю плашку с артами (как тап внизу)
   // кнопка ‹ › — листает (без перескока через край); остальная боковая зона — открывает плашку
   // ‹ › — листают по кругу (как свайп и стрелки клавиатуры); остальная боковая зона — открывает плашку
-  const side = d => e => { e.stopPropagation(); if (e.target.closest("span") && !V.classList.contains("lkd")) { step(d); wake(); } else bar(0); };
+  const side = d => e => { e.stopPropagation(); if (e.target.closest("span") && !V.classList.contains("lkd")) { step(d); hideBar(); wake(); } else togBar(); };
   el("nx").onclick = side(1); el("pv").onclick = side(-1);
   el("fs").onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.().catch(() => {});
   el("mu").onclick = () => toggleMute();
@@ -32,7 +32,7 @@ function build() {
   let sx = null; el("stage").addEventListener("pointerdown", e => sx = e.clientX);
   el("stage").addEventListener("pointerup", e => { if (sx === null) return; const d = e.clientX - sx; sx = null; if (Math.abs(d) > 40) step(d < 0 ? 1 : -1);
     // тап по центру арта (не боковые зоны/кнопки, не панель закрытого пака) закрывает открытую нижнюю плашку
-    else if (Math.abs(d) < 10 && V.classList.contains("bar") && !e.target.closest(".vnav,.lfull,button")) { barStay = 0; clearTimeout(barT); V.classList.remove("bar"); }
+    else if (Math.abs(d) < 10 && !e.target.closest(".vnav,.lfull,button")) togBar();
     wake(); });
   // верхняя панель (✕) прячется через 2 с без касаний
   V.querySelector(".vchrome.top").addEventListener("pointerenter", () => { over = 1; clearTimeout(hideT); });
@@ -56,6 +56,9 @@ function build() {
 let hideT = null, over = 0, barT = null, barStay = 0;
 // bar(0): плашка остаётся, пока не выберут другой арт в полосе
 function bar(ms) { if (!V) return; V.classList.add("bar"); clearTimeout(barT); barStay = ms === 0 ? 1 : 0; if (barStay) return; barT = setTimeout(() => { if (!document.querySelector(".cs")) V.classList.remove("bar"); else bar(ms); }, RM ? ms : ms); }
+// плашка: тап по арту открывает, следующий тап закрывает; ‹ › и выбор арта в полосе — закрывают
+function hideBar() { if (!V) return; barStay = 0; clearTimeout(barT); V.classList.remove("bar"); }
+function togBar() { V.classList.contains("bar") ? hideBar() : bar(0); }
 function wake() { if (!V) return; V.classList.remove("idle"); clearTimeout(hideT); if (!V.classList.contains("ui")) return; hideT = setTimeout(() => { if (!over && !document.querySelector(".cs")) V.classList.add("idle"); }, 2000); }
 const locked = p => p.tier_rank > window.Mia.S.rank;
 // прокрутка полосы к элементу без сдвига самого кинорежима (scrollIntoView двигал и предков)
@@ -123,7 +126,7 @@ function lockCard(p) {
 function title(post) { el("ttl").querySelector("h2").textContent = post.title; el("ttl").querySelector("p").textContent = `пак · ${post.image_count} ${window.Mia.plural(post.image_count, "арт", "арта", "артов")}${post.tier_rank > 0 ? " · " + post.tier_name : ""}`; }
 function fill(post, imgsP, then) {
   imgsP.then(imgs => { if (st.post !== post) return; if (!imgs.length) { el("load").textContent = "В паке пока нет артов"; el("load").classList.add("on"); } st.imgs = imgs; el("strip").innerHTML = "";
-    imgs.forEach((u, k) => { const d = document.createElement("div"); d.style.backgroundImage = `url("${u}")`; d.style.transitionDelay = (k * .06) + "s"; d.onclick = () => { const ch = k != st.i; show(k); if (ch && V) { barStay = 0; clearTimeout(barT); V.classList.remove("bar"); } }; el("strip").append(d); });
+    imgs.forEach((u, k) => { const d = document.createElement("div"); d.style.backgroundImage = `url("${u}")`; d.style.transitionDelay = (k * .06) + "s"; d.onclick = () => { show(k); hideBar(); }; el("strip").append(d); });
     imgs.slice(0, 3).forEach(u => { const i = new Image(); i.src = u; });
     if (then) then(); else if (st.pending) { const p = st.pending; st.pending = null; p(); } }).catch(() => { if (st.post !== post) return; el("load").textContent = "Не удалось загрузить арты"; el("load").classList.add("on"); });
 }
@@ -167,7 +170,7 @@ function show(k, slow) {
 }
 function finish() {
   timers.forEach(clearTimeout); timers = []; el("intro").classList.add("out");
-  const go = () => { el("load").classList.remove("on"); if (!st.front.classList.contains("show")) show(st.start || 0, true); V.classList.add("ui"); el("strip").classList.add("on"); el("ttl").classList.add("on"); wake(); bar(2000); };
+  const go = () => { el("load").classList.remove("on"); if (!st.front.classList.contains("show")) show(st.start || 0, true); V.classList.add("ui"); el("strip").classList.add("on"); el("ttl").classList.add("on"); wake(); bar(0); };
   if (st.imgs) go(); else { el("load").classList.add("on"); st.pending = go; }
 }
 function isShort(c) { if (c.full == "always") return false; const d = new Date().toDateString(), r = localStorage.miaIntro == d; localStorage.miaIntro = d; return r; }
