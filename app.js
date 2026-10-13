@@ -298,7 +298,7 @@ function openViewer(id, start, quick) {
 function bindMedia() {
   const io = "IntersectionObserver" in window ? new IntersectionObserver(es => es.forEach(e => { if (!e.isIntersecting) return; io.unobserve(e.target); sharpen(e.target); }), { rootMargin: "300px" }) : null;
   const sharpen = t => loadImgs(t.dataset.mp).then(u => { const src = u[+t.dataset.mi]; if (!src) return; const i = new Image(); i.onload = () => { t.style.backgroundImage = `url("${src}")`; t.classList.add("sharp"); }; i.src = src; }).catch(() => {});
-  $$(".mgrid a[data-mp]").forEach(t => { io ? io.observe(t) : sharpen(t); t.onclick = e => { if (e.target.closest("[data-cm]")) return; e.preventDefault(); openViewer(+t.dataset.mp, +t.dataset.mi, false); }; });
+  $$(".mgrid a[data-mp]").forEach(t => { io ? io.observe(t) : sharpen(t); t.onclick = e => { if (e.target.closest("[data-cm]")) return; e.preventDefault(); openViewer(t.dataset.mp, +t.dataset.mi, false); }; });
 }
 // ---------- render ----------
 async function render() {
