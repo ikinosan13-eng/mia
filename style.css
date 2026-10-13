@@ -95,3 +95,6 @@ button.ob{cursor:pointer;font-family:inherit}
 .dark .lst .row{border-color:#2a2433}
 .up div{cursor:pointer}.up .rm{position:absolute;right:4px;bottom:20px;background:#000a;color:#fff;border-radius:6px;font-size:11px;padding:0 5px}
 .up .mv{position:absolute;left:4px;bottom:20px;display:flex;gap:2px}.up .mv b{background:#000a;color:#fff;border-radius:6px;font-size:11px;padding:0 5px}
+.ob.sm{padding:10px 14px;font-size:14px}.uchip{background:#f2f2f4;border-radius:18px;padding:8px 12px;font-size:14px;font-weight:600;max-width:120px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.dark .uchip{background:#2a2433}.lk-btn{cursor:pointer;font-size:20px;display:flex;align-items:center;gap:4px}.lk-btn small{font-size:15px;color:#8a8a92}.lk-btn.liked small{color:#e0245e}
+.sheet .in+.in{margin-top:8px}.bar .r{gap:8px}
