@@ -180,15 +180,17 @@ async function publish(app) {
 
 // ---------- «1 пак на выбор»: выпуск одноразовых кодов и кто какой пак открыл ----------
 async function pickTab(app) {
-  const { sb, esc, toast } = M(); const { data, error } = await sb.rpc("admin_pick_codes");
-  if (error) { app.innerHTML = shell("pick", `<h2>🎁 1 пак на выбор</h2><div class="note">Функции ещё не установлены в базе (нужна миграция supabase/migrations/20261014_pick_pack.sql). ${esc(error.message)}</div>`); return; }
-  const rows = data || [], used = rows.filter(r => r.redeemed_at).length, d = t => t ? new Date(t).toLocaleString("ru-RU") : "";
-  app.innerHTML = shell("pick", `<h2>🎁 1 пак на выбор</h2><div class="card"><div class="mu small">Одноразовые коды: один код → один кредит на аккаунт → один закрытый пак навсегда. Продаются отдельно (любая сумма).</div>
-    <div class="r" style="margin-top:10px;flex-wrap:wrap"><input type="number" id="pn" min="1" max="200" value="5" style="width:90px"><input type="text" id="pnote" placeholder="Пометка (кому, сумма)" style="flex:1;min-width:160px"><button class="ob" id="pgen">Выпустить коды</button></div><pre id="pout" class="hide" style="white-space:pre-wrap;user-select:all;margin-top:10px"></pre></div>
-    <div class="card"><b>Коды</b> <span class="mu">· всего ${rows.length}, активировано ${used}</span><div class="tw"><table><tr><th>Код</th><th>Пометка</th><th>Активировал</th><th>Открытый пак</th><th>Когда</th></tr>${rows.map(r => `<tr><td><code>${esc(r.code)}</code></td><td>${esc(r.note || "")}</td><td>${r.redeemed_at ? esc(r.username || "—") : `<span class="mu">не активирован</span>`}</td><td>${r.post_title ? esc(r.post_title) : r.redeemed_at ? `<span class="mu">ещё не выбран</span>` : ""}</td><td>${d(r.used_at || r.redeemed_at || r.created_at)}</td></tr>`).join("") || `<tr><td colspan="5" class="mu">Кодов пока нет</td></tr>`}</table></div></div>`);
-  app.querySelector("#pgen").onclick = async e => { e.target.disabled = true; const n = +app.querySelector("#pn").value || 1, note = app.querySelector("#pnote").value.trim() || null;
-    const { data: c, error } = await sb.rpc("admin_create_pick_codes", { p_n: n, p_note: note }); e.target.disabled = false; if (error) return toast("Ошибка: " + error.message);
-    ev(`Выпущено кодов «1 пак на выбор»: ${c.length}`); await pickTab(app); const o = app.querySelector("#pout"); o.textContent = c.join("\n"); o.classList.remove("hide"); toast("Коды готовы — скопируй их"); };
+  const { sb, esc, toast } = M(); const { data, error } = await sb.rpc("admin_pick_code");
+  if (error) { app.innerHTML = shell("pick", `<h2>🎁 1 пак на выбор</h2><div class="note">Функции ещё не установлены в базе (нужна миграция supabase/migrations/20261014_universal_code.sql). ${esc(error.message)}</div>`); return; }
+  const g = data || {}, d = t => t ? new Date(t).toLocaleString("ru-RU") : "";
+  app.innerHTML = shell("pick", `<h2>🎁 1 пак на выбор</h2><div class="card"><b>Общий код</b><div class="mu small" style="margin-top:4px">Один код для всех 🐾 Любой аккаунт может ввести его <b>один раз</b> и получить 1 пак на выбор. Код можно сменить в любой момент — кто уже активировал, сохранит свой пак.</div>
+    <div class="r" style="margin-top:10px;flex-wrap:wrap"><input type="text" id="pcode" value="${esc(g.code || "")}" placeholder="Например: MUR-MEOW-2026" maxlength="64" style="flex:1;min-width:180px;text-transform:uppercase;font-family:monospace"><button class="ob" id="psave">Сохранить код</button></div>
+    <div class="mu small" style="margin-top:8px">${g.code ? `Сейчас действует: <code>${esc(g.code)}</code> · изменён ${d(g.updated_at)}` : "Код не задан — ввести пока нечего, мяу"}</div></div>
+    <div class="card"><b>Активации</b><div class="r" style="margin-top:8px;gap:24px"><div><div style="font-size:28px;font-weight:700">${g.redeemed || 0}</div><div class="mu small">аккаунтов ввели код</div></div><div><div style="font-size:28px;font-weight:700">${g.used || 0}</div><div class="mu small">уже выбрали пак</div></div></div></div>`);
+  app.querySelector("#psave").onclick = async e => { const v = app.querySelector("#pcode").value.trim();
+    if (v && (v.length < 4 || v.length > 64)) return toast("Код: от 4 до 64 символов");
+    e.target.disabled = true; const { error } = await sb.rpc("admin_set_pick_code", { p_code: v }); e.target.disabled = false; if (error) return toast("Ошибка: " + error.message);
+    ev(v ? "Общий код «1 пак на выбор» изменён" : "Общий код «1 пак на выбор» выключен"); toast(v ? "Код сохранён 🐾" : "Код выключен"); await pickTab(app); };
 }
 
 // ---------- tiers ----------

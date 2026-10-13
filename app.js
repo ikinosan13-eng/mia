@@ -128,7 +128,7 @@ function drawModal() {
     <form id="cf"><label>${esc(T("code_label"))}</label><input type="text" id="ci" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase"><div class="err" id="ce"></div><button class="ob full" type="submit">${esc(T("btn_unlock"))}</button></form>`; }
   else if (m.t == "pick") h = `<h2>🎁 1 пак на выбор 🐾</h2><div class="perks">✔ Любая сумма, мур · один раз · на этот аккаунт<br>✔ Открой любой закрытый пак — навсегда твой 💕</div>
     <a class="ob full" href="${esc(S.profile.pick_url || C.BOOSTY_URL)}" target="_blank" rel="noopener">Купить код, мяу ↗</a><div class="mu small" style="text-align:center;margin-top:6px">Оплата на странице продавца — потом тебе придёт код 🐾</div>
-    <form id="pf"><label>Твой код «1 пак на выбор»</label><input type="text" id="pci" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase" placeholder="MIA-PICK-XXXX-XXXX"><div class="err" id="pce"></div><button class="ob full" id="pcb">Активировать, мур 🐾</button></form>`;
+    <form id="pf"><label>Твой код «1 пак на выбор»</label><input type="text" id="pci" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase" placeholder="Введи код, мур 🐾"><div class="err" id="pce"></div><button class="ob full" id="pcb">Активировать, мур 🐾</button></form>`;
   else if (m.t == "pickc") { const p = S.posts.find(x => x.id == m.post) || {}; h = `<h2>Мур-открыть «${esc(p.title)}» навсегда? 🐾</h2><p class="mu">Это твой единственный выбор, мяу: 1 пак, один раз, на этот аккаунт. Поменять потом не получится 💕</p><div class="err" id="pke"></div><button class="ob full" id="pkyes">🎁 Да, мур, хочу «${esc(p.title)}»</button><button class="gb full" data-close style="margin-top:8px">Ещё подумаю, мяу</button>`; }
   else if (m.t == "picks") { const p = S.posts.find(x => x.id == m.post) || {}; h = `<div class="pkok">🎉</div><h2 style="text-align:center">Мур-р, пак «${esc(p.title)}» твой навсегда 🐾</h2><p class="mu" style="text-align:center">Он теперь живёт в твоём аккаунте — смотри когда захочешь, на любом устройстве 💕</p><button class="ob full" id="pkgo">Смотреть, мяу 🐾</button>`; }
   d.innerHTML = `<div class="sheet"><a class="x" data-close>✕</a>${h}</div>`; document.body.append(d);
@@ -187,14 +187,18 @@ function goIntro(id) { const h = "#/post/" + id; if (location.hash == h) { rende
 function openWithIntro(id) { const k = `miaUnlockIntro:${S.user?.id || "anon"}:${id}`, seen = localStorage[k]; localStorage[k] = "1"; openViewer(id, 0, false, seen ? {} : { intro: true }); }
 async function enterCode(e) {
   e.preventDefault(); const code = $("#ci").value.trim(), ce = $("#ce"); if (!code) return; ce.className = "err"; ce.textContent = "Проверяю…";
-  if (/^MIA-PICK-/i.test(code) && S.user) { closeModal(false); openModal({ t: "pick" }); $("#pci").value = code; return $("#pf").requestSubmit(); } // код «1 пак на выбор» в окне подписки
   const r = await fn("unlock", { code });
   if (r.status == 200) { if (r.data.token) { S.token = r.data.token; localStorage.miaToken = r.data.token; } S.rank = Math.max(S.rank, r.data.rank);
     ce.className = "okm"; ce.textContent = "✔ " + T("code_ok"); toast(T("code_ok")); const ret = JSON.parse(localStorage.miaReturn || "{}"); localStorage.removeItem("miaReturn");
     S.stay = null; render(); const pid = ret.post || S.posts.find(p => p.tier_rank > 0 && p.tier_rank <= S.rank)?.id;
     // открыть купленный пак и один раз показать вступление (и в ленте/посте/уровнях, и в кинорежиме)
     setTimeout(() => { closeModal(false); if (pid) return goIntro(pid); location.hash = "#/feed"; render(); }, 700); }
-  else ce.textContent = r.status == 429 ? T("rate_limited") : r.status == 0 ? T("offline") : T("code_bad");
+  else if (r.status == 429 || r.status == 0) ce.textContent = r.status == 429 ? T("rate_limited") : T("offline");
+  else if (!S.user) ce.textContent = T("code_bad");
+  else { // не код уровня → может быть код «1 пак на выбор»
+    const q = await sb.rpc("redeem_pick_code", { p_code: code }).catch(() => ({ error: 1 })), er = q.error ? "offline" : q.data?.ok ? null : q.data?.error;
+    if (!er) { S.pick.credit = true; closeModal(false); await render(); window.MiaViewer?.refresh?.(); openModal({ t: "pick" }); if ($("#pci")) $("#pci").value = code; if ($("#pcb")) $("#pcb").disabled = true; const c2 = $("#pce"); if (c2) { c2.className = "okm"; c2.textContent = "✔ Мяу, код принят! У тебя 1 пак на выбор 💕 Выбери любой закрытый пак и нажми «🎁 Мур, открыть этот пак»."; } return; }
+    ce.textContent = { already_used: "Мур, на этом аккаунте «1 пак на выбор» уже был — он даётся один раз 💕", rate_limited: T("rate_limited"), offline: T("offline") }[er] || T("code_bad"); }
 }
 
 // ---------- like / comments ----------
