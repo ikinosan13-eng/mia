@@ -68,7 +68,7 @@ function goPack(p) {
 function lockCard(p) {
   const M = window.Mia, n = p.image_count || 0; st.post = p; st.imgs = null; st.i = 0; st.pending = null;
   title(p); drawBot(); drawPacks(); el("cnt").textContent = ""; st.front.classList.remove("show"); st.back.classList.remove("show"); el("load").classList.remove("on");
-  V.classList.add("lkd"); V.style.setProperty("--lkbg", `url('${M.pub(p.cover_path)}')`);
+  V.classList.add("lkd"); V.style.setProperty("--vb", Math.max(0, V.querySelector(".vchrome.bot").offsetHeight - 8) + "px"); V.style.setProperty("--lkbg", `url('${M.pub(p.cover_path)}')`);
   el("strip").innerHTML = Array.from({ length: Math.min(n, 12) }, () => `<div class="lk fz" style="background-image:url('${M.pub(p.cover_path)}')"></div>`).join(""); el("strip").classList.add("on");
   el("lc").innerHTML = `<div class="lfull"><img src="${M.pub(p.cover_path)}" alt=""><i class="lfz"></i><h3>${M.esc(p.title)}</h3><span class="lcnt">${n} ${M.plural(n, "арт", "арта", "артов")}</span>
     <div class="frost lpan"><span class="mu">${M.esc(M.T("locked_label"))}</span><b>${M.esc(p.tier_name || "")}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><button class="ob" id="v-buy">🔒 ${M.esc(M.T("btn_subscribe"))}</button></div></div>`;

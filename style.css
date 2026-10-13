@@ -258,3 +258,5 @@ html.v-open #modal{z-index:95}
 .viewer .lpan{left:50%;right:auto;transform:translateX(-50%);width:min(calc(100% - 24px),340px);bottom:12px;padding:12px 14px;gap:4px}
 .viewer .lpan .ob{padding:9px 26px}
 .viewer{overflow:clip}
+/* закрытый пак: квадрат заканчивается над названием/полосой артов; нижняя плашка поверх */
+.viewer.lkd .vlc{padding-bottom:var(--vb,0px)}.viewer.lkd .vchrome.bot{z-index:6}
