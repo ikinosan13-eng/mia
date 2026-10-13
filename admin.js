@@ -1,6 +1,6 @@
 (() => {
 const M = () => window.Mia;
-const TABS = [["posts", "🖼 Публикации"], ["tiers", "💕 Уровни"], ["comments", "💬 Комментарии"], ["users", "👥 Пользователи"], ["author", "👤 Профиль автора"], ["viewer", "🎬 Режим просмотра"], ["texts", "✏ Тексты сайта"], ["log", "📜 Журнал"]];
+const TABS = [["posts", "🖼 Публикации"], ["tiers", "💕 Уровни"], ["pick", "🎁 1 пак на выбор"], ["comments", "💬 Комментарии"], ["users", "👥 Пользователи"], ["author", "👤 Профиль автора"], ["viewer", "🎬 Режим просмотра"], ["texts", "✏ Тексты сайта"], ["log", "📜 Журнал"]];
 const shell = (tab, body) => `<div class="bar"><a class="logo" href="#/feed">MIA</a><div class="r"><b>Админка</b><a class="gb sm" href="#/feed">← На сайт</a><a class="gb sm" href="#/me/settings">Пароль</a></div></div><div class="adm"><div class="side">${TABS.map(([k, n]) => `<a href="#/admin/${k}" class="${k == tab ? "on" : ""}">${n}</a>`).join("")}</div><div class="main" id="main">${body}</div></div>`;
 const uuid = () => crypto.randomUUID();
 const ev = e => M().sb.rpc("admin_event", { e });
@@ -178,6 +178,19 @@ async function publish(app) {
   } catch (e) { st.textContent = "Ошибка: " + (e.message || e) + " — нажмите ещё раз, чтобы повторить"; $("#pub").disabled = false; }
 }
 
+// ---------- «1 пак на выбор»: выпуск одноразовых кодов и кто какой пак открыл ----------
+async function pickTab(app) {
+  const { sb, esc, toast } = M(); const { data, error } = await sb.rpc("admin_pick_codes");
+  if (error) { app.innerHTML = shell("pick", `<h2>🎁 1 пак на выбор</h2><div class="note">Функции ещё не установлены в базе (нужна миграция supabase/migrations/20261014_pick_pack.sql). ${esc(error.message)}</div>`); return; }
+  const rows = data || [], used = rows.filter(r => r.redeemed_at).length, d = t => t ? new Date(t).toLocaleString("ru-RU") : "";
+  app.innerHTML = shell("pick", `<h2>🎁 1 пак на выбор</h2><div class="card"><div class="mu small">Одноразовые коды: один код → один кредит на аккаунт → один закрытый пак навсегда. Продаются отдельно (любая сумма).</div>
+    <div class="r" style="margin-top:10px;flex-wrap:wrap"><input type="number" id="pn" min="1" max="200" value="5" style="width:90px"><input type="text" id="pnote" placeholder="Пометка (кому, сумма)" style="flex:1;min-width:160px"><button class="ob" id="pgen">Выпустить коды</button></div><pre id="pout" class="hide" style="white-space:pre-wrap;user-select:all;margin-top:10px"></pre></div>
+    <div class="card"><b>Коды</b> <span class="mu">· всего ${rows.length}, активировано ${used}</span><div class="tw"><table><tr><th>Код</th><th>Пометка</th><th>Активировал</th><th>Открытый пак</th><th>Когда</th></tr>${rows.map(r => `<tr><td><code>${esc(r.code)}</code></td><td>${esc(r.note || "")}</td><td>${r.redeemed_at ? esc(r.username || "—") : `<span class="mu">не активирован</span>`}</td><td>${r.post_title ? esc(r.post_title) : r.redeemed_at ? `<span class="mu">ещё не выбран</span>` : ""}</td><td>${d(r.used_at || r.redeemed_at || r.created_at)}</td></tr>`).join("") || `<tr><td colspan="5" class="mu">Кодов пока нет</td></tr>`}</table></div></div>`);
+  app.querySelector("#pgen").onclick = async e => { e.target.disabled = true; const n = +app.querySelector("#pn").value || 1, note = app.querySelector("#pnote").value.trim() || null;
+    const { data: c, error } = await sb.rpc("admin_create_pick_codes", { p_n: n, p_note: note }); e.target.disabled = false; if (error) return toast("Ошибка: " + error.message);
+    ev(`Выпущено кодов «1 пак на выбор»: ${c.length}`); await pickTab(app); const o = app.querySelector("#pout"); o.textContent = c.join("\n"); o.classList.remove("hide"); toast("Коды готовы — скопируй их"); };
+}
+
 // ---------- tiers ----------
 async function tiersTab(app) {
   const { sb, esc, toast } = M(); await loadTiers(); const { data: codes } = await sb.rpc("admin_codes"); const cd = Object.fromEntries((codes || []).map(c => [c.id, c]));
@@ -321,6 +334,6 @@ async function logTab(app) {
   app.innerHTML = shell("log", `<h2>Журнал</h2><div class="tw"><table><tr><th>Когда</th><th>Событие</th></tr>${(data || []).map(r => `<tr><td style="white-space:nowrap">${new Date(r.at).toLocaleString("ru-RU")}</td><td>${esc(r.event)}</td></tr>`).join("") || `<tr><td colspan="2" class="mu">Пусто</td></tr>`}</table></div>`);
 }
 window.MiaAdmin = { async render(tab, arg) { const app = document.getElementById("app");
-  const f = { posts: () => posts(app, arg || "all"), new: () => newPost(app), tiers: () => tiersTab(app), comments: () => commentsTab(app, arg || "new"), users: () => usersTab(app), author: () => authorTab(app), texts: () => textsTab(app), viewer: () => viewerTab(app), log: () => logTab(app) }[tab] || (() => posts(app));
+  const f = { posts: () => posts(app, arg || "all"), new: () => newPost(app), tiers: () => tiersTab(app), pick: () => pickTab(app), comments: () => commentsTab(app, arg || "new"), users: () => usersTab(app), author: () => authorTab(app), texts: () => textsTab(app), viewer: () => viewerTab(app), log: () => logTab(app) }[tab] || (() => posts(app));
   await f(); } };
 })();

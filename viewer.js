@@ -60,7 +60,7 @@ function bar(ms) { if (!V) return; V.classList.add("bar"); clearTimeout(barT); b
 function hideBar() { if (!V) return; barStay = 0; clearTimeout(barT); V.classList.remove("bar"); }
 function togBar() { V.classList.contains("bar") ? hideBar() : bar(0); }
 function wake() { if (!V) return; V.classList.remove("idle"); clearTimeout(hideT); if (!V.classList.contains("ui")) return; hideT = setTimeout(() => { if (!over && !document.querySelector(".cs")) V.classList.add("idle"); }, 2000); }
-const locked = p => p.tier_rank > window.Mia.S.rank;
+const locked = p => window.Mia.isLocked(p);
 // прокрутка полосы к элементу без сдвига самого кинорежима (scrollIntoView двигал и предков)
 function center(box, c, behavior) { if (!c) return; const b = box.getBoundingClientRect(), r = c.getBoundingClientRect(); box.scrollTo({ left: box.scrollLeft + r.left - b.left - (b.width - r.width) / 2, behavior: behavior || "auto" }); }
 function drawPacks() {
@@ -121,7 +121,7 @@ function lockCard(p) {
   el("strip").innerHTML = Array.from({ length: Math.min(n, 12) }, (_, k) => `<div class="tzt"><i${pv[k] ? ` style="background-image:url('${M.pub(pv[k].preview_path)}')"` : ""}></i></div>`).join(""); el("strip").classList.add("on");
   el("strip").querySelectorAll(".tzt").forEach(d => d.onclick = e => { e.stopPropagation(); teaser(p); });
   el("lc").innerHTML = `<div class="lfull"><img src="${M.pub(p.cover_path)}" alt=""><i class="lfz"></i><button class="llock" id="v-llk" title="${M.esc(M.T("btn_subscribe"))}"></button><h3>${M.esc(p.title)}</h3><span class="lcnt">${n} ${M.plural(n, "арт", "арта", "артов")}</span>
-    <div class="frost lpan"><span class="mu">${M.esc(M.T("locked_label"))}</span><b>${M.esc(p.tier_name || "")}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><button class="ob" id="v-buy">🔒 ${M.esc(M.T("btn_subscribe"))}</button></div></div>`;
+    <div class="frost lpan"><span class="mu">${M.esc(M.T("locked_label"))}</span><b>${M.esc(p.tier_name || "")}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><button class="ob" id="v-buy">🔒 ${M.esc(M.T("btn_subscribe"))}</button>${M.pickBtn(p)}</div></div>`;
   el("buy").onclick = e => { e.stopPropagation(); sub(p); };
   // тап по замку / обложке → превью → «Подписаться»; плашку не закрывает
   el("lc").querySelector(".lfull").onclick = e => { e.stopPropagation(); if (e.target.closest(".lpan") && !e.target.closest("#v-llk")) return; teaser(p); };
@@ -189,11 +189,13 @@ function finish() {
 }
 function isShort(c) { if (c.full == "always") return false; const d = new Date().toDateString(), r = localStorage.miaIntro == d; localStorage.miaIntro = d; return r; }
 // open(post, imgsPromise, {start, quick}) — call synchronously from the tap handler
+let vGen = 0; // открытие сразу после закрытия отменяет отложенную очистку закрытия
 function open(post, imgsP, o = {}) {
-  if (!V) build(); const c = { ...DEFV, ...(window.Mia.S.viewer || {}) }; timers.forEach(clearTimeout); timers = [];
+  if (!V) build(); vGen++; const c = { ...DEFV, ...(window.Mia.S.viewer || {}) }; timers.forEach(clearTimeout); timers = [];
   st = { post, cfg: c, i: 0, start: o.start || 0, imgs: null, front: el("a1"), back: el("a2") };
   startMusic(c, post);
-  const style = !c.enabled ? "none" : c.style, short = o.quick || style != "curtain" || isShort(c) || RM;
+  // o.intro: пак только что открыт кодом — полный «Занавес» с текстом для паков с уровнем (один раз, решает вызывающий)
+  const style = o.intro ? "curtain" : !c.enabled ? "none" : c.style, short = !o.intro && (o.quick || style != "curtain" || isShort(c) || RM);
   V.className = "viewer on" + (short ? " short" : "") + (style == "none" ? " none" : "") + (style == "develop" ? " dev-only" : "") + (c.music_on && !st.muted ? " music" : "");
   V.setAttribute("aria-hidden", "false"); document.documentElement.classList.add("v-open");
   // авто-полный экран на всю страницу (чтобы окна подписки/комментариев были видны поверх) (в жесте тапа); где не поддерживается (iPhone Safari) — молча пропускаем
@@ -207,7 +209,7 @@ function open(post, imgsP, o = {}) {
   if (style == "none") { T(finish, 50); return; }
   const D = Math.max(2, Math.min(12, +c.duration || 6)) * 1000;
   if (short) { T(() => { if (st.imgs) show(st.start, true); }, 500); T(finish, style == "develop" ? 2600 : 1500); return; }
-  const text = post.tier_rank > 0 && c.text_locked ? c.text_locked : c.text;
+  const text = (o.intro || post.tier_rank > 0) && c.text_locked ? c.text_locked : c.text;
   T(() => { el("mia").classList.add("on"); [...(text || "")].forEach((ch, k) => { const e = document.createElement("b"); e.textContent = ch; el("hello").append(e); setTimeout(() => e.classList.add("on"), k * 70); }); }, D * 0.33);
   T(() => el("intro").classList.add("out"), D * 1.0);
   T(() => { if (st.imgs) show(st.start, true); }, D * 1.12);
@@ -216,7 +218,7 @@ function open(post, imgsP, o = {}) {
 function close() {
   if (!V) return; stopTeaser(); timers.forEach(clearTimeout); timers = []; stopMusic(); clearTimeout(hideT); clearTimeout(barT); window.Mia.closeComments?.(true); V.classList.add("closing"); V.classList.remove("ui", "idle", "bar");
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-  setTimeout(() => { V.className = "viewer"; V.setAttribute("aria-hidden", "true"); document.documentElement.classList.remove("v-open"); st.post = null; }, 900);
+  const g = ++vGen; setTimeout(() => { if (g != vGen) return; V.className = "viewer"; V.setAttribute("aria-hidden", "true"); document.documentElement.classList.remove("v-open"); st.post = null; }, 900);
 }
-window.MiaViewer = { open, close, DEFV, isOpen: () => V?.classList.contains("on") };
+window.MiaViewer = { open, close, DEFV, refresh: () => { if (V?.classList.contains("on") && st.post && V.classList.contains("lkd")) lockCard(st.post); }, isOpen: () => V?.classList.contains("on") };
 })();

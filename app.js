@@ -22,7 +22,9 @@ const DEF = {
 };
 let TX = {};
 const T = (k, v = {}) => String(TX[k] || DEF[k] || k).replace(/\{(\w+)\}/g, (_, x) => v[x] ?? "");
-let S = { user: null, liked: new Set(), rank: 0, token: localStorage.miaToken || "", tiers: [], posts: [], media: [], profile: {}, modal: null, offline: false };
+let S = { user: null, liked: new Set(), rank: 0, token: localStorage.miaToken || "", tiers: [], posts: [], media: [], profile: {}, modal: null, offline: false, pick: { credit: false, unlocked: new Set() } };
+// закрыт ли пак для этого аккаунта: уровень ниже нужного и пак не открыт через «1 пак на выбор»
+const isLocked = p => p.tier_rank > S.rank && !S.pick.unlocked.has(p.id);
 if (localStorage.miaTheme === "dark") document.body.classList.add("dark");
 
 function timeout(p, ms = 10000) { return Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error("timeout")), ms))]); }
@@ -44,18 +46,21 @@ async function load() {
   if (!S.offline) await loadUser();
 }
 async function loadUser() {
-  const { data: { session } } = await sb.auth.getSession(); S.user = null; S.liked = new Set(); S.rank = 0;
+  const { data: { session } } = await sb.auth.getSession(); S.user = null; S.liked = new Set(); S.rank = 0; S.pick = { credit: false, unlocked: new Set() };
   if (session) {
     const [{ data: adm }, { data: pr }] = await Promise.all([sb.from("admins").select("user_id").eq("user_id", session.user.id), sb.from("profiles").select("username,avatar_path,banned_until,created_at").eq("id", session.user.id)]);
     if (adm?.length) S.user = { id: session.user.id, username: "mia_owner", admin: true };
     else if (pr?.length) S.user = { id: session.user.id, ...pr[0], banned: pr[0].banned_until && new Date(pr[0].banned_until) > new Date() };
     else { await sb.auth.signOut(); }
     if (S.user) { const { data: lk } = await sb.from("likes").select("post_id"); S.liked = new Set((lk || []).map(x => x.post_id)); }
+    if (S.user && !S.user.admin) await loadPick();
   }
   const r = await fn("unlock", S.token ? { token: S.token } : {});
   if (r.status === 200) S.rank = r.data.rank || 0;
   else if (r.status === 401 && S.token) { S.token = ""; localStorage.removeItem("miaToken"); toast(T("code_old")); }
 }
+// «1 пак на выбор»: кредит и открытые навсегда паки (до применения миграции функция отсутствует — тихо пропускаем)
+async function loadPick() { try { const { data, error } = await sb.rpc("my_pick_access"); if (error || !data) return; S.pick = { credit: !!data.credit, unlocked: new Set(data.unlocked || []) }; } catch {} }
 const tierOf = r => S.tiers.find(t => t.rank == r);
 const tierName = r => tierOf(r)?.name || "";
 const avatarHtml = (u, size = 36, extra = "") => { const url = u.is_author || u.admin ? (S.profile.avatar ? pub(S.profile.avatar) : "avatar.jpg") : u.avatar_path ? pub(u.avatar_path, "avatars") : "";
@@ -77,20 +82,23 @@ function hero() {
 const tabs = on => `<div class="tabs">${[["ЛЕНТА", "feed"], ["МЕДИА", "media"], ["УРОВНИ", "levels"], ["ОБ АВТОРЕ", "about"]].map(([n, h]) => `<a href="#/${h}" class="${h == on ? "on" : ""}">${n}</a>`).join("")}</div>`;
 const heart = p => `${S.liked.has(p.id) ? "❤" : "♡"} ${p.like_count || 0}`;
 const ACT = p => `<div class="act"><a class="${S.liked.has(p.id) ? "on" : ""}" data-like="${p.id}">${heart(p)}</a><a href="#/post/${p.id}" data-cm="${p.id}">💬 ${p.comment_count || 0}</a><span class="sp"></span><a data-share="${p.id}" title="Поделиться">↗</a></div>`;
-const lockPanel = p => `<div class="frost"><span class="mu">${esc(T("locked_label"))}</span><b>${esc(p.tier_name)}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><button class="ob" data-sub="${p.id}">🔒 ${esc(T("btn_subscribe"))}</button></div>`;
+const lockPanel = p => `<div class="frost"><span class="mu">${esc(T("locked_label"))}</span><b>${esc(p.tier_name)}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><button class="ob" data-sub="${p.id}">🔒 ${esc(T("btn_subscribe"))}</button>${pickBtn(p)}</div>`;
+const pickBtn = p => S.pick.credit ? `<button class="ob pko" data-pick="${p.id}">🎁 Мур, открыть этот пак</button><span class="pkb">Мяу! У тебя 1 пак на выбор 💕</span>` : "";
 function card(p) {
-  const locked = p.tier_rank > S.rank, n = `${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}`;
+  const locked = isLocked(p), n = `${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}`;
   return `<div class="post"><div class="ph"><span>${fmt(p.publish_at)}</span>${p.tier_rank > 0 ? `<span class="tier">${locked ? `<i class="lki"></i>` : ""}${esc(p.tier_name)}</span>` : `<span class="tier f">Открыто всем</span>`}</div>
   <a href="#/post/${p.id}" class="cov ${locked ? "lk" : ""}" ${locked ? "" : `data-view="${p.id}"`}><img src="${pub(p.cover_path)}" alt="" loading="lazy"><h3>${esc(p.title)}</h3><span class="cnt">${n}</span>${locked ? lockPanel(p) : ""}</a>
   ${p.body && !locked ? `<div class="body">${esc(p.body.length > 300 ? p.body.slice(0, 300) + "…" : p.body)}</div>` : ""}${ACT(p)}</div>`;
 }
 function levelsHtml() {
   return `<div class="levels">${S.tiers.map(t => `<div class="lv"><b>${esc(t.name)}</b><div class="pr">${t.price_rub ? `${t.price_rub} ₽ <small class="mu">/ мес</small>` : "Бесплатно"}</div><div class="perks">${(t.perks || []).map(x => "✔ " + esc(x)).join("<br>")}</div>
-  ${t.rank == 0 ? `<span class="gb full">${S.rank == 0 ? "Вы здесь" : "Входит"}</span>` : S.rank >= t.rank ? `<span class="gb full">✓ Открыто</span>` : `<button class="ob full" data-subt="${t.rank}">${esc(T("btn_subscribe"))}</button>`}</div>`).join("")}</div>`;
+  ${t.rank == 0 ? `<span class="gb full">${S.rank == 0 ? "Вы здесь" : "Входит"}</span>` : S.rank >= t.rank ? `<span class="gb full">✓ Открыто</span>` : `<button class="ob full" data-subt="${t.rank}">${esc(T("btn_subscribe"))}</button>`}</div>`).join("")}
+  <div class="lv pick"><b>🎁 1 пак на выбор 🐾</b><div class="pr">Любая сумма <small class="mu">мур, один раз · на этот аккаунт</small></div><div class="perks">✔ Выбери любой закрытый пак — он станет твоим навсегда 💕<br>✔ Плати сколько хочешь — получишь код, мяу<br>✔ Всего 1 пак, один раз, только на этот аккаунт</div>
+  ${S.pick.credit ? `<span class="gb full">🐾 У тебя есть 1 пак на выбор</span>` : S.pick.unlocked.size ? `<span class="gb full">✓ Твой пак уже выбран 💕</span>` : `<button class="ob full" data-pickcode>Хочу код, мур 🐾</button>`}</div></div>`;
 }
 const views = {
   feed: () => bar() + hero() + tabs("feed") + (S.posts.map(card).join("") || `<div class="note">🎨 ${esc(T("empty_feed"))}</div>`),
-  media: () => { const k = {}; return bar() + hero() + tabs("media") + `<div class="grid mgrid">${S.media.map(m => { const i = k[m.post_id] = (k[m.post_id] ?? -1) + 1, lk = m.tier_rank > S.rank, p = S.posts.find(x => x.id == m.post_id);
+  media: () => { const k = {}; return bar() + hero() + tabs("media") + `<div class="grid mgrid">${S.media.map(m => { const i = k[m.post_id] = (k[m.post_id] ?? -1) + 1, lk = m.tier_rank > S.rank && !S.pick.unlocked.has(m.post_id), p = S.posts.find(x => x.id == m.post_id);
     return lk ? `<a href="#/post/${m.post_id}" class="lk" style="background-image:url('${pub(m.preview_path)}')"></a>` : `<a href="#/post/${m.post_id}" data-mp="${m.post_id}" data-mi="${i}" style="background-image:url('${pub(m.preview_path)}')">${p ? `<span class="cb" data-cm="${p.id}">💬 ${p.comment_count || 0}</span>` : ""}</a>`; }).join("")}</div>` + (S.media.length ? "" : `<div class="note">🎨 ${esc(T("empty_feed"))}</div>`); },
   levels: () => bar() + hero() + tabs("levels") + levelsHtml(),
   about: () => bar() + hero() + tabs("about") + `<div class="body">${esc(S.profile.about || "Привет! Я Мия, рисую паки артов 💕🐾")}</div>` + levelsHtml(),
@@ -118,7 +126,13 @@ function drawModal() {
     h = `<h2>Уровень ${esc(t.name)} · ${t.price_rub || 0} ₽/мес</h2><div class="perks">${(t.perks || []).map(x => "✔ " + esc(x)).join("<br>")}</div>
     <a class="ob full" href="${esc(t.pay_url || t.boosty_url || C.BOOSTY_URL)}" target="_blank" rel="noopener" id="paylink">${esc(T("btn_pay"))}</a><div class="mu small" style="text-align:center;margin-top:6px">${esc(T("pay_hint"))}</div>
     <form id="cf"><label>${esc(T("code_label"))}</label><input type="text" id="ci" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase"><div class="err" id="ce"></div><button class="ob full" type="submit">${esc(T("btn_unlock"))}</button></form>`; }
+  else if (m.t == "pick") h = `<h2>🎁 1 пак на выбор 🐾</h2><div class="perks">✔ Любая сумма, мур · один раз · на этот аккаунт<br>✔ Открой любой закрытый пак — навсегда твой 💕</div>
+    <a class="ob full" href="${esc(S.profile.pick_url || C.BOOSTY_URL)}" target="_blank" rel="noopener">Купить код, мяу ↗</a><div class="mu small" style="text-align:center;margin-top:6px">Оплата на странице продавца — потом тебе придёт код 🐾</div>
+    <form id="pf"><label>Твой код «1 пак на выбор»</label><input type="text" id="pci" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase" placeholder="MIA-PICK-XXXX-XXXX"><div class="err" id="pce"></div><button class="ob full" id="pcb">Активировать, мур 🐾</button></form>`;
+  else if (m.t == "pickc") { const p = S.posts.find(x => x.id == m.post) || {}; h = `<h2>Мур-открыть «${esc(p.title)}» навсегда? 🐾</h2><p class="mu">Это твой единственный выбор, мяу: 1 пак, один раз, на этот аккаунт. Поменять потом не получится 💕</p><div class="err" id="pke"></div><button class="ob full" id="pkyes">🎁 Да, мур, хочу «${esc(p.title)}»</button><button class="gb full" data-close style="margin-top:8px">Ещё подумаю, мяу</button>`; }
+  else if (m.t == "picks") { const p = S.posts.find(x => x.id == m.post) || {}; h = `<div class="pkok">🎉</div><h2 style="text-align:center">Мур-р, пак «${esc(p.title)}» твой навсегда 🐾</h2><p class="mu" style="text-align:center">Он теперь живёт в твоём аккаунте — смотри когда захочешь, на любом устройстве 💕</p><button class="ob full" id="pkgo">Смотреть, мяу 🐾</button>`; }
   d.innerHTML = `<div class="sheet"><a class="x" data-close>✕</a>${h}</div>`; document.body.append(d);
+  $("#pf")?.addEventListener("submit", enterPick); $("#pkyes") && ($("#pkyes").onclick = () => usePick(m.post)); $("#pkgo") && ($("#pkgo").onclick = () => { closeModal(false); goIntro(m.post); });
   d.onclick = e => { if (e.target == d || e.target.dataset.close != null) closeModal(); const sw = e.target.dataset.sw; if (sw) { S.modal = { ...m, t: sw }; drawModal(); } };
   $("#af")?.addEventListener("submit", signup); $("#lf")?.addEventListener("submit", login); $("#cf")?.addEventListener("submit", enterCode);
   if (fineP()) setTimeout(() => d.querySelector("input")?.focus(), 50); // на телефоне клавиатура только по тапу в поле
@@ -148,14 +162,38 @@ function afterAuth() {
   const ret = S.modal?.rank != null ? { rank: S.modal.rank, post: S.modal.post } : null;
   if (ret && S.rank < ret.rank) { S.modal = { t: "pay", ...ret }; drawModal(); render(); } else { closeModal(); render(); }
 }
+// ввод кода «1 пак на выбор»
+async function enterPick(e) {
+  e.preventDefault(); const code = $("#pci").value.trim(), ce = $("#pce"), b = $("#pcb"); if (!code || b.disabled) return; b.disabled = true; ce.className = "err"; ce.textContent = "Мур, проверяю…";
+  const r = await sb.rpc("redeem_pick_code", { p_code: code }).catch(() => ({ error: 1 })); b.disabled = false;
+  const er = r.error ? "offline" : r.data?.ok ? null : r.data?.error;
+  if (!er) { S.pick.credit = true; ce.className = "okm"; ce.textContent = "✔ Мяу, код принят! У тебя 1 пак на выбор 💕 Выбери любой закрытый пак и нажми «🎁 Мур, открыть этот пак»."; b.disabled = true; render(); window.MiaViewer?.refresh?.(); return; }
+  ce.textContent = { bad_code: "Мяу, такого кода нет или он уже использован 🐾", already_used: "Мур, на этом аккаунте «1 пак на выбор» уже был — он даётся один раз 💕", rate_limited: T("rate_limited"), login: "Сначала войди в аккаунт, мур 🐾" }[er] || T("offline");
+}
+// потратить кредит на пак (кнопка блокируется — двойной тап не тратит дважды; сервер тоже защищён)
+let picking = false;
+async function usePick(id) {
+  if (picking) return; picking = true; const b = $("#pkyes"); if (b) b.disabled = true;
+  const r = await sb.rpc("use_pack_credit", { p_post: id }).catch(() => ({ error: 1 })); picking = false;
+  if (!r.error && r.data?.ok) { S.pick.credit = false; S.pick.unlocked.add(id); render(); S.modal = { t: "picks", post: id }; drawModal(); return; }
+  if (b) b.disabled = false; const e = $("#pke"); if (e) e.textContent = r.data?.error == "credit_used" ? "Мур, твой выбор уже потрачен на другой пак 🐾" : T("offline");
+}
+function pickOpen(id) { if (!S.user) return openModal({ t: "signup" }); if (!S.pick.credit) return openModal({ t: "pick" }); openModal({ t: "pickc", post: id }); }
+document.addEventListener("click", e => { const t = e.target.closest("[data-pick],[data-pickcode]"); if (!t) return; e.preventDefault(); e.stopPropagation();
+  t.dataset.pick ? pickOpen(t.dataset.pick) : S.user ? openModal({ t: "pick" }) : openModal({ t: "signup" }); }, true);
+// вступление «Занавес» с текстом для паков с уровнем — один раз на аккаунт + пак, сразу после открытия пака кодом
+// перейти на страницу пака и после перерисовки открыть его со вступлением (смена адреса закрывает кинорежим)
+function goIntro(id) { const h = "#/post/" + id; if (location.hash == h) { render(); return openWithIntro(id); } addEventListener("hashchange", () => setTimeout(() => openWithIntro(id), 0), { once: true }); location.hash = h; }
+function openWithIntro(id) { const k = `miaUnlockIntro:${S.user?.id || "anon"}:${id}`, seen = localStorage[k]; localStorage[k] = "1"; openViewer(id, 0, false, seen ? {} : { intro: true }); }
 async function enterCode(e) {
   e.preventDefault(); const code = $("#ci").value.trim(), ce = $("#ce"); if (!code) return; ce.className = "err"; ce.textContent = "Проверяю…";
+  if (/^MIA-PICK-/i.test(code) && S.user) { closeModal(false); openModal({ t: "pick" }); $("#pci").value = code; return $("#pf").requestSubmit(); } // код «1 пак на выбор» в окне подписки
   const r = await fn("unlock", { code });
   if (r.status == 200) { if (r.data.token) { S.token = r.data.token; localStorage.miaToken = r.data.token; } S.rank = Math.max(S.rank, r.data.rank);
     ce.className = "okm"; ce.textContent = "✔ " + T("code_ok"); toast(T("code_ok")); const ret = JSON.parse(localStorage.miaReturn || "{}"); localStorage.removeItem("miaReturn");
-    const stay = S.stay; S.stay = null; render();
-    if (stay && window.MiaViewer?.isOpen()) return setTimeout(() => { closeModal(); stay(); }, 700);
-    setTimeout(() => { closeModal(false); location.hash = ret.post ? `#/post/${ret.post}` : "#/feed"; render(); }, 700); }
+    S.stay = null; render(); const pid = ret.post || S.posts.find(p => p.tier_rank > 0 && p.tier_rank <= S.rank)?.id;
+    // открыть купленный пак и один раз показать вступление (и в ленте/посте/уровнях, и в кинорежиме)
+    setTimeout(() => { closeModal(false); if (pid) return goIntro(pid); location.hash = "#/feed"; render(); }, 700); }
   else ce.textContent = r.status == 429 ? T("rate_limited") : r.status == 0 ? T("offline") : T("code_bad");
 }
 
@@ -178,7 +216,7 @@ function commentHtml(c, kids) {
 async function commentsBlock(p) {
   let list = [];
   try { list = await api(`comments_public?post_id=eq.${p.id}&order=created_at`); } catch { return `<div class="note">${esc(T("offline"))}</div>`; }
-  const locked = p.tier_rank > S.rank; S.canComment = S.user && !S.user.banned && !locked;
+  const locked = isLocked(p); S.canComment = S.user && !S.user.banned && !locked;
   const roots = list.filter(c => !c.parent_id), kids = id => list.filter(c => c.parent_id == id);
   let box;
   if (!S.user) box = `<div class="note">${esc(T("guest_comment"))} · <a class="lnk" data-open="login">${esc(T("btn_login"))}</a></div>`;
@@ -235,8 +273,8 @@ async function openComments(id, onChange) {
 async function postView(id) {
   const p = S.posts.find(x => x.id == id); if (!p) return bar() + `<div class="empty">Публикация не найдена</div>`;
   const head = `<div class="ph" style="padding-top:14px"><a href="#/feed">← Лента</a><span>${fmt(p.publish_at)}</span></div>`;
-  if (p.tier_rank > S.rank) return bar() + head + `<div class="cov lk"><img src="${pub(p.cover_path)}" alt=""><h3>${esc(p.title)}</h3><span class="cnt">${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}</span>${lockPanel(p)}</div>` + ACT(p) + await commentsBlock(p);
-  const r = await fn("unlock", { token: S.token || undefined, post_id: id });
+  if (isLocked(p)) return bar() + head + `<div class="cov lk"><img src="${pub(p.cover_path)}" alt=""><h3>${esc(p.title)}</h3><span class="cnt">${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}</span>${lockPanel(p)}</div>` + ACT(p) + await commentsBlock(p);
+  const r = await packFn(id);
   if (r.status !== 200) return bar() + head + `<div class="empty">Не удалось открыть: ${esc(r.status == 0 ? T("offline") : r.data.message || r.data.error || r.status)}</div>`;
   S.imgs = r.data.images.map(i => B + i.url); S.idx = 0; S.imgsFor = id;
   return bar() + head + `<div style="padding:0 14px 10px;font-size:20px;font-weight:700">${esc(p.title)}</div><div class="arts">${r.data.images.map((im, k) => `<img src="${S.imgs[k]}" alt="" data-vi="${k}" ${im.width && im.height ? `width="${im.width}" height="${im.height}"` : ""} loading="${k < 2 ? "eager" : "lazy"}">`).join("")}</div>
@@ -288,15 +326,17 @@ function bindMe() {
 }
 
 // Ссылки на полные арты пака через функцию unlock, с кэшем на 45 минут (просмотр, «Медиа», смена пака в кинорежиме)
+// арты пака: по уровню (unlock) или, если пак открыт через «1 пак на выбор», через pack_images
+const packFn = id => fn("unlock", { token: S.token || undefined, post_id: id }).then(r => r.status != 200 && S.pick.unlocked.has(id) ? fn("pack_images", { post_id: id }) : r);
 function loadImgs(id) {
   S.vc = S.vc || {}; S.vp = S.vp || {}; id = +id || id;
   const hit = S.vc[id] && Date.now() - S.vc[id].t < 45 * 60e3 ? S.vc[id].u : S.imgsFor == id && S.imgs ? S.imgs : null;
   if (hit) return Promise.resolve(hit); if (S.vp[id]) return S.vp[id];
-  return S.vp[id] = fn("unlock", { token: S.token || undefined, post_id: id }).then(r => { if (r.status != 200) throw new Error(r.status); const u = r.data.images.map(i => B + i.url); S.vc[id] = { u, t: Date.now() }; return u; }).finally(() => delete S.vp[id]);
+  return S.vp[id] = packFn(id).then(r => { if (r.status != 200) throw new Error(r.status); const u = r.data.images.map(i => B + i.url); S.vc[id] = { u, t: Date.now() }; return u; }).finally(() => delete S.vp[id]);
 }
-function openViewer(id, start, quick) {
+function openViewer(id, start, quick, o = {}) {
   const p = S.posts.find(x => x.id == id); if (!p) return;
-  window.MiaViewer.open(p, loadImgs(p.id), { start, quick });
+  window.MiaViewer.open(p, loadImgs(p.id), { start, quick, ...o });
 }
 // «Медиа»: открытые плитки подгружают полные арты лениво, пока показано превью
 function bindMedia() {
@@ -334,7 +374,7 @@ async function render() {
   if (v == "me") bindMe();
   if (S.modal) drawModal();
 }
-window.Mia = { openComments, closeComments, loadImgs, subscribe, openViewer, toggleLike, sb, S, $, $$, esc, pub, fmt, toast, T, DEF, fn, load, render, B, plural, setTexts: t => TX = t };
+window.Mia = { isLocked, pickOpen, pickBtn, openComments, closeComments, loadImgs, subscribe, openViewer, toggleLike, sb, S, $, $$, esc, pub, fmt, toast, T, DEF, fn, load, render, B, plural, setTexts: t => TX = t };
 window.addEventListener("hashchange", () => { if (window.MiaViewer?.isOpen()) window.MiaViewer.close(); if (S.modal) { S.modal = null; $("#modal")?.remove(); } closeComments(true); render(); });
 $("#app").innerHTML = `<div style="padding:14px"><div class="sk" style="height:120px"></div><div class="sk" style="height:300px;margin-top:14px"></div><div class="sk" style="height:16px;margin-top:10px;width:60%"></div></div>`;
 fetch("version.txt?" + Date.now(), { cache: "no-store" }).then(r => r.text()).then(v => { v = v.trim(); if (v && v != window.MIA_VERSION && !sessionStorage.miaReloaded) { sessionStorage.miaReloaded = 1; location.reload(); } }).catch(() => {});
