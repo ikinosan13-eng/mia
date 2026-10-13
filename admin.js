@@ -14,7 +14,8 @@ const autoThumb = c => { // square from the middle of the cover crop (in fractio
 // ---------- posts ----------
 async function posts(app, filter = "all") {
   const { sb, esc, pub, fmt } = M(); await loadTiers();
-  const { data } = await sb.from("posts").select("id,title,body,tier_id,cover_path,publish_at,status,hidden,post_images(count)").order("publish_at", { ascending: false });
+  const { data, error } = await sb.from("posts").select("id,title,body,tier_id,cover_path,publish_at,status,hidden,post_images!post_images_post_id_fkey(count)").order("publish_at", { ascending: false });
+  if (error) { app.innerHTML = shell("posts", `<div class="note">Ошибка загрузки списка: ${esc(error.message)} <a class="ob sm" href="#/admin/posts">Повторить</a></div>`); return; }
   const { data: fp } = await sb.from("feed_public").select("id,like_count,comment_count"); const st = Object.fromEntries((fp || []).map(x => [x.id, x]));
   const now = Date.now(), all = data || [];
   const kind = p => p.status == "draft" ? "draft" : new Date(p.publish_at) > now ? "sched" : "pub";
