@@ -80,7 +80,7 @@ const ACT = p => `<div class="act"><a class="${S.liked.has(p.id) ? "on" : ""}" d
 const lockPanel = p => `<div class="frost"><span class="mu">${esc(T("locked_label"))}</span><b>${esc(p.tier_name)}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><button class="ob" data-sub="${p.id}">🔒 ${esc(T("btn_subscribe"))}</button></div>`;
 function card(p) {
   const locked = p.tier_rank > S.rank, n = `${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}`;
-  return `<div class="post"><div class="ph"><span>${fmt(p.publish_at)}</span>${p.tier_rank > 0 ? `<span class="tier">${locked ? "🔒 " : ""}${esc(p.tier_name)}</span>` : `<span class="tier f">Открыто всем</span>`}</div>
+  return `<div class="post"><div class="ph"><span>${fmt(p.publish_at)}</span>${p.tier_rank > 0 ? `<span class="tier">${locked ? `<i class="lki"></i>` : ""}${esc(p.tier_name)}</span>` : `<span class="tier f">Открыто всем</span>`}</div>
   <a href="#/post/${p.id}" class="cov ${locked ? "lk" : ""}" ${locked ? "" : `data-view="${p.id}"`}><img src="${pub(p.cover_path)}" alt="" loading="lazy"><h3>${esc(p.title)}</h3><span class="cnt">${n}</span>${locked ? lockPanel(p) : ""}</a>
   ${p.body && !locked ? `<div class="body">${esc(p.body.length > 300 ? p.body.slice(0, 300) + "…" : p.body)}</div>` : ""}${ACT(p)}</div>`;
 }
