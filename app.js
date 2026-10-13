@@ -33,13 +33,13 @@ const fn = async (name, body) => { const { data: { session } } = await sb.auth.g
 
 async function load() {
   try {
-    const [tiers, posts, media, settings] = await Promise.all([api("tiers_public?order=rank"), api("feed_public?order=publish_at.desc"), api("media_public?order=publish_at.desc,position"), api("settings?key=in.(profile,texts)")]);
+    const [tiers, posts, media, settings] = await Promise.all([api("tiers_public?order=rank"), api("feed_public?order=publish_at.desc"), api("media_public?order=publish_at.desc,position"), api("settings?key=in.(profile,texts,viewer)")]);
     const st = Object.fromEntries(settings.map(x => [x.key, x.value]));
-    Object.assign(S, { tiers, posts, media, profile: st.profile || {}, offline: false }); TX = st.texts || {};
+    Object.assign(S, { tiers, posts, media, profile: st.profile || {}, viewer: st.viewer || {}, offline: false }); TX = st.texts || {};
     localStorage.miaCache = JSON.stringify({ tiers, posts, media, st });
   } catch (e) {
     const c = JSON.parse(localStorage.miaCache || "null"); S.offline = true;
-    if (!c) throw e; Object.assign(S, { tiers: c.tiers, posts: c.posts, media: c.media, profile: c.st.profile || {} }); TX = c.st.texts || {};
+    if (!c) throw e; Object.assign(S, { tiers: c.tiers, posts: c.posts, media: c.media, profile: c.st.profile || {}, viewer: c.st.viewer || {} }); TX = c.st.texts || {};
   }
   if (!S.offline) await loadUser();
 }
@@ -58,9 +58,9 @@ async function loadUser() {
 }
 const tierOf = r => S.tiers.find(t => t.rank == r);
 const tierName = r => tierOf(r)?.name || "";
-const avatarHtml = (u, size = 36) => { const url = u.is_author || u.admin ? (S.profile.avatar ? pub(S.profile.avatar) : "avatar.jpg") : u.avatar_path ? pub(u.avatar_path, "avatars") : "";
+const avatarHtml = (u, size = 36, extra = "") => { const url = u.is_author || u.admin ? (S.profile.avatar ? pub(S.profile.avatar) : "avatar.jpg") : u.avatar_path ? pub(u.avatar_path, "avatars") : "";
   const n = (u.username || "?")[0].toUpperCase(), col = ["#7a4cc9", "#2b6f78", "#e2557b", "#2c3e8f", "#d17b0f"][(u.username || "").length % 5];
-  return `<span class="ava" style="width:${size}px;height:${size}px;font-size:${size * .42}px;${url ? `background-image:url('${esc(url)}')` : `background:${col}`}">${url ? "" : esc(n)}</span>`; };
+  return `<span class="ava" style="width:${size}px;height:${size}px;font-size:${Math.round(size * .42)}px;line-height:1;${url ? `background-image:url('${esc(url)}');background-color:#ddd` : `background:${col}`};${extra}">${url ? "" : esc(n)}</span>`; };
 const tierBadge = r => r > 0 && r < 32767 ? `<span class="tier">${esc(tierName(r))}</span>` : "";
 
 function bar() {
@@ -71,7 +71,7 @@ function bar() {
 function hero() {
   const p = S.profile, cover = p.cover ? pub(p.cover) : "", l = p.links || {};
   const links = [["Boosty", l.boosty], ["VK Donut", l.donut], ["Telegram", l.telegram], ["VK", l.vk]].filter(x => x[1]).map(([n, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${n}</a>`).join("");
-  return `<div class="hero"><div class="cv" style="${cover ? `background-image:url('${cover}')` : ""}"></div><div class="prof"><span class="ava" style="background-image:url('${p.avatar ? pub(p.avatar) : "avatar.jpg"}')"></span>
+  return `<div class="hero"><div class="cv">${cover ? `<img src="${cover}" alt="">` : ""}</div><div class="prof"><span class="ava" style="background-image:url('${p.avatar ? pub(p.avatar) : "avatar.jpg"}')"></span>
   <h1>${esc(p.name || "Мия")}</h1><div class="mu">${esc(p.tagline || "")}</div><div class="mu small" style="margin-top:4px">${S.posts.length} ${plural(S.posts.length, "пак", "пака", "паков")} · ${S.media.length} ${plural(S.media.length, "арт", "арта", "артов")}</div>${links ? `<div class="links">${links}</div>` : ""}</div></div>`;
 }
 const tabs = on => `<div class="tabs">${[["ЛЕНТА", "feed"], ["МЕДИА", "media"], ["УРОВНИ", "levels"], ["ОБ АВТОРЕ", "about"]].map(([n, h]) => `<a href="#/${h}" class="${h == on ? "on" : ""}">${n}</a>`).join("")}</div>`;
@@ -81,7 +81,7 @@ const lockPanel = p => `<div class="frost"><span class="mu">${esc(T("locked_labe
 function card(p) {
   const locked = p.tier_rank > S.rank, n = `🖼 ${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}`;
   return `<div class="post"><div class="ph"><span>${fmt(p.publish_at)}</span>${p.tier_rank > 0 ? `<span class="tier">${locked ? "🔒 " : ""}${esc(p.tier_name)}</span>` : `<span class="tier f">Открыто всем</span>`}</div>
-  <a href="#/post/${p.id}" class="cov ${locked ? "lk" : ""}"><img src="${pub(p.cover_path)}" alt="" loading="lazy"><h3>${esc(p.title)}</h3><span class="cnt">${n}</span>${locked ? lockPanel(p) : ""}</a>
+  <a href="#/post/${p.id}" class="cov ${locked ? "lk" : ""}" ${locked ? "" : `data-view="${p.id}"`}><img src="${pub(p.cover_path)}" alt="" loading="lazy"><h3>${esc(p.title)}</h3><span class="cnt">${n}</span>${locked ? lockPanel(p) : ""}</a>
   ${p.body && !locked ? `<div class="body">${esc(p.body.length > 300 ? p.body.slice(0, 300) + "…" : p.body)}</div>` : ""}${ACT(p)}</div>`;
 }
 function levelsHtml() {
@@ -188,9 +188,9 @@ async function postView(id) {
   if (p.tier_rank > S.rank) return bar() + head + `<div class="cov lk"><img src="${pub(p.cover_path)}" alt=""><h3>${esc(p.title)}</h3><span class="cnt">🖼 ${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}</span>${lockPanel(p)}</div>` + ACT(p) + await commentsBlock(p);
   const r = await fn("unlock", { token: S.token || undefined, post_id: id });
   if (r.status !== 200) return bar() + head + `<div class="empty">Не удалось открыть: ${esc(r.status == 0 ? T("offline") : r.data.message || r.data.error || r.status)}</div>`;
-  S.imgs = r.data.images.map(i => B + i.url); S.idx = 0;
-  return bar() + head + `<div style="padding:0 14px 10px;font-size:20px;font-weight:700">${esc(p.title)}</div><div class="viewer" id="vw"><div class="slides" id="sl">${S.imgs.map((u, k) => `<img src="${u}" alt="" loading="${k < 2 ? "eager" : "lazy"}">`).join("")}</div><span class="ctr" id="ctr">1 / ${S.imgs.length}</span><span class="fs" id="fsb">⛶</span></div>
-  <div class="dots" id="dots">${S.imgs.map((_, i) => `<i class="${i ? "" : "on"}"></i>`).join("")}</div>${p.body ? `<div class="body">${esc(p.body)}</div>` : ""}` + ACT(p) + await commentsBlock(p);
+  S.imgs = r.data.images.map(i => B + i.url); S.idx = 0; S.imgsFor = id;
+  return bar() + head + `<div style="padding:0 14px 10px;font-size:20px;font-weight:700">${esc(p.title)}</div><div class="arts">${r.data.images.map((im, k) => `<img src="${S.imgs[k]}" alt="" data-vi="${k}" ${im.width && im.height ? `width="${im.width}" height="${im.height}"` : ""} loading="${k < 2 ? "eager" : "lazy"}">`).join("")}</div>
+  ${p.body ? `<div class="body">${esc(p.body)}</div>` : ""}` + ACT(p) + `<div id="cmts"></div>` + await commentsBlock(p);
 }
 function go(i) { const n = S.imgs.length; S.idx = (i + n) % n; $("#sl") && ($("#sl").style.transform = `translateX(${-100 * S.idx}%)`); $("#ctr") && ($("#ctr").textContent = `${S.idx + 1} / ${n}`); $$("#dots i").forEach((d, k) => d.className = k == S.idx ? "on" : ""); const f = $("#fsi"); if (f) { f.src = S.imgs[S.idx]; $("#fsc").textContent = `${S.idx + 1} / ${n}`; } }
 function fullscreen() { const d = document.createElement("div"); d.className = "fsbox"; d.innerHTML = `<img id="fsi" src="${S.imgs[S.idx]}"><span class="x">✕</span><span class="ctr" id="fsc">${S.idx + 1} / ${S.imgs.length}</span><span class="nv" style="left:0">‹</span><span class="nv" style="right:0">›</span>`; document.body.append(d);
@@ -209,13 +209,13 @@ async function meView(tab = "likes") {
     <form id="nmf"><label>Имя (менять можно раз в 30 дней)</label><div class="r"><input type="text" id="nm" value="${esc(u.username)}" maxlength="24"><button class="gb" type="submit">Сохранить</button></div><div class="err" id="nme"></div></form>`}
     <form id="pwf"><b style="display:block;margin-top:16px">Смена пароля</b><label>Старый пароль</label><input type="password" id="pw0" autocomplete="current-password"><label>Новый пароль</label><input type="password" id="pw1" autocomplete="new-password"><label>Повторите новый</label><input type="password" id="pw2" autocomplete="new-password"><div class="err" id="pwe"></div><button class="ob" type="submit">Сменить пароль</button></form>
     <div class="r" style="margin-top:16px;flex-wrap:wrap"><a class="gb" id="lout">Выйти</a><a class="gb" id="loutall">Выйти на всех устройствах</a></div>${u.admin ? "" : `<p style="margin-top:14px"><a class="danger small" id="delme">Удалить аккаунт</a></p>`}</div>`;
-  return `<div class="bar"><a href="#/feed">← Назад</a><a class="gb sm" id="lout2">Выйти</a></div><div class="prof" style="padding-top:20px">${avatarHtml(u, 96).replace('class="ava"', 'class="ava" style="margin:0 auto 8px"')}<h1>${esc(u.admin ? "mia_owner" : u.username)}</h1>${u.admin ? `<span class="tier">Владелец</span>` : S.rank > 0 ? `<span class="tier">${esc(tierName(S.rank))} Подписчик</span>` : `<span class="tier f">Follower</span>`}
+  return `<div class="bar"><a href="#/feed">← Назад</a><a class="gb sm" id="lout2">Выйти</a></div><div class="prof" style="padding-top:20px">${avatarHtml(u, 96, "margin:0 auto 8px")}<h1>${esc(u.admin ? "mia_owner" : u.username)}</h1>${u.admin ? `<span class="tier">Владелец</span>` : S.rank > 0 ? `<span class="tier">${esc(tierName(S.rank))} Подписчик</span>` : `<span class="tier f">Follower</span>`}
   ${u.created_at ? `<div class="mu" style="margin-top:6px">С нами с ${new Date(u.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" })}</div>` : ""}${u.banned ? `<div class="note">⛔ ${esc(T("banned"))}</div>` : ""}</div>
   <div class="tabs">${[["likes", "Понравилось"], ["comments", "Мои комментарии"], ["settings", "Настройки"]].map(([k, n]) => `<a href="#/me/${k}" class="${k == tab ? "on" : ""}">${n}</a>`).join("")}</div>${body}`;
 }
 async function userView(id) {
   const r = await api(`profiles_public?id=eq.${id}`).catch(() => []); const u = r[0]; if (!u) return bar() + `<div class="empty">Пользователь не найден</div>`;
-  return bar() + `<div class="prof" style="padding-top:24px"><span style="display:inline-block">${avatarHtml(u, 96)}</span><h1>${esc(u.username)}</h1>${u.tier_rank > 0 ? `<span class="tier">${esc(tierName(u.tier_rank))}</span>` : `<span class="tier f">Follower</span>`}<div class="mu" style="margin-top:6px">С нами с ${new Date(u.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" })}</div></div>`;
+  return bar() + `<div class="prof" style="padding-top:24px">${avatarHtml(u, 96, "margin:0 auto 8px")}<h1>${esc(u.username)}</h1>${u.tier_rank > 0 ? `<span class="tier">${esc(tierName(u.tier_rank))}</span>` : `<span class="tier f">Follower</span>`}<div class="mu" style="margin-top:6px">С нами с ${new Date(u.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" })}</div></div>`;
 }
 function bindMe() {
   const out = async scope => { await sb.auth.signOut(scope ? { scope } : undefined); S.token = ""; localStorage.removeItem("miaToken"); await loadUser(); toast("Вы вышли"); location.hash = "#/feed"; };
@@ -237,6 +237,11 @@ function bindMe() {
     const r = await fn("login", { action: "delete_self", old_password: pw }); if (r.status != 200) return toast("Неверный пароль"); await sb.auth.signOut(); await loadUser(); toast("Аккаунт удалён"); location.hash = "#/feed"; });
 }
 
+function openViewer(id, start, quick) {
+  const p = S.posts.find(x => x.id == id); if (!p) return;
+  const imgs = S.imgsFor == id && S.imgs ? Promise.resolve(S.imgs) : fn("unlock", { token: S.token || undefined, post_id: id }).then(r => { if (r.status != 200) throw new Error(r.status); return r.data.images.map(i => B + i.url); });
+  window.MiaViewer.open(p, imgs, { start, quick });
+}
 // ---------- render ----------
 async function render() {
   const parts = (location.hash || "#/feed").slice(2).split("/"), [v, id] = parts, app = $("#app");
@@ -245,13 +250,16 @@ async function render() {
     if (v == "admin") { if (!S.user?.admin) { location.hash = "#/feed"; return; } await window.MiaAdmin.render(id || "posts", parts[2]); }
     else app.innerHTML = v == "post" ? await postView(id) : v == "me" ? await meView(id) : v == "u" ? await userView(id) : (views[v] || views.feed)();
   } catch (e) { console.error(e); app.innerHTML = `<div class="empty">📡 ${esc(T("offline"))}<br><br><button class="ob" onclick="location.reload()">Повторить</button></div>`; }
-  if (!["post"].includes(v)) window.scrollTo(0, 0);
+  if (!["post"].includes(v) || parts[2] != "c") window.scrollTo(0, 0);
   $("#tg")?.addEventListener("click", () => { const d = document.body.classList.toggle("dark"); localStorage.miaTheme = d ? "dark" : "light"; render(); });
   $$("[data-open]").forEach(b => b.onclick = e => { e.preventDefault(); openModal({ t: b.dataset.open }); });
   $$("[data-sub]").forEach(b => b.onclick = e => { e.preventDefault(); e.stopPropagation(); const p = S.posts.find(x => x.id == b.dataset.sub); subscribe(p.tier_rank, p.id); });
   $$("[data-subt]").forEach(b => b.onclick = () => subscribe(+b.dataset.subt, null));
   $$("[data-share]").forEach(b => b.onclick = () => { const u = location.href.split("#")[0] + "#/post/" + b.dataset.share; navigator.share ? navigator.share({ url: u }).catch(() => {}) : navigator.clipboard.writeText(u).then(() => toast("Ссылка скопирована")); });
   $$("[data-like]").forEach(b => b.onclick = e => { e.preventDefault(); toggleLike(b.dataset.like); });
+  $$("[data-view]").forEach(a => a.onclick = e => { e.preventDefault(); openViewer(a.dataset.view, 0, false); });
+  $$("[data-vi]").forEach(im => im.onclick = () => openViewer(id, +im.dataset.vi, true));
+  if (parts[2] == "c") setTimeout(() => $("#cmts")?.scrollIntoView({ behavior: "smooth" }), 100);
   if ($("#vw")) { $("#fsb").onclick = fullscreen; $("#vw").onclick = e => { if (e.target.tagName == "IMG") go(S.idx + 1); }; swipe($("#vw")); }
   if ($("#cmf")) { $("#cmf").onsubmit = async e => { e.preventDefault(); const b = $("#cmt").value.trim(); if (!b) return;
       const { error } = await sb.rpc("add_comment", { p_post: id, p_body: b, p_parent: $("#cpar").value ? +$("#cpar").value : null });
@@ -262,8 +270,9 @@ async function render() {
   if (v == "me") bindMe();
   if (S.modal) drawModal();
 }
-window.Mia = { sb, S, $, $$, esc, pub, fmt, toast, T, DEF, fn, load, render, B, plural, setTexts: t => TX = t };
-window.addEventListener("hashchange", () => { if (S.modal) { S.modal = null; $("#modal")?.remove(); } render(); });
+window.Mia = { toggleLike, sb, S, $, $$, esc, pub, fmt, toast, T, DEF, fn, load, render, B, plural, setTexts: t => TX = t };
+window.addEventListener("hashchange", () => { if (window.MiaViewer?.isOpen()) window.MiaViewer.close(); if (S.modal) { S.modal = null; $("#modal")?.remove(); } render(); });
 $("#app").innerHTML = `<div style="padding:14px"><div class="sk" style="height:120px"></div><div class="sk" style="height:300px;margin-top:14px"></div><div class="sk" style="height:16px;margin-top:10px;width:60%"></div></div>`;
+fetch("version.txt?" + Date.now(), { cache: "no-store" }).then(r => r.text()).then(v => { v = v.trim(); if (v && v != window.MIA_VERSION && !sessionStorage.miaReloaded) { sessionStorage.miaReloaded = 1; location.reload(); } }).catch(() => {});
 load().then(render).catch(() => { $("#app").innerHTML = `<div class="empty">📡 ${esc(T("offline"))}<br><br><button class="ob" onclick="location.reload()">Повторить</button></div>`; });
 })();

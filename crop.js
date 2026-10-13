@@ -59,7 +59,8 @@ function open(img, o = {}) {
   return new Promise(res => {
     const d = document.createElement("div"); d.className = "ov"; d.innerHTML = `<div class="sheet wide-sheet"><a class="x">✕</a><h2>${o.title || "Обрезка"}</h2><div class="cr-wrap"><div class="cr-box"></div><div class="cr-prev">${(o.previews || []).map((p, i) => `<div class="cr-p"><canvas data-p="${i}" style="width:${p.w}px;height:${p.h}px;${p.round ? "border-radius:50%" : "border-radius:8px"}"></canvas><div class="mu small">${p.label}</div></div>`).join("")}</div></div><div class="row-btn"><button class="gb" data-x>Отмена</button><button class="ob" data-ok>Готово</button></div></div>`;
     document.body.append(d);
-    const api = mount(d.querySelector(".cr-box"), img, { ...o, onChange: a => d.querySelectorAll("[data-p]").forEach(c => { const p = o.previews[c.dataset.p]; a.drawTo(c, p.w * 2, p.h * 2); }) });
+    const api = mount(d.querySelector(".cr-box"), img, { ...o, onChange: a => d.querySelectorAll("[data-p]").forEach(c => { const p = o.previews[c.dataset.p], k = a.getCrop(), im = a.img(), r = p.w / p.h, cr = k.w * im.width / (k.h * im.height);
+      const q = { ...k }; if (cr > r) { q.w = k.w * r / cr; q.x = k.x + (k.w - q.w) / 2; } else if (cr < r) { q.h = k.h * cr / r; q.y = k.y + (k.h - q.h) / 2; } a.drawTo(c, p.w * 2, p.h * 2, q); }) });
     const close = v => { d.remove(); res(v); };
     d.querySelector(".x").onclick = d.querySelector("[data-x]").onclick = () => close(null);
     d.querySelector("[data-ok]").onclick = async () => close({ crop: api.getCrop(), blob: await api.toBlob(o.outW || 512, o.outH || 512, 0.88) });
