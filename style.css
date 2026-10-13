@@ -238,7 +238,7 @@ html.v-open #modal{z-index:95}
 /* v2: закрытый пак в кинорежиме — весь кадр как обложка в ленте */
 .vlc{padding:0 10px}.viewer.lkd .vstage:before,.viewer.lkd .vstage:after{display:none}
 .lfull{position:relative;width:100%;height:100%;border-radius:16px;overflow:hidden;pointer-events:auto;background:#222;box-shadow:0 20px 40px rgba(0,0,0,.6)}
-.lfull img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(1.5px);transform:scale(1.03)}
+.lfull img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .lfz{position:absolute;inset:0;background:var(--frost);background-size:160px,cover;opacity:.45}
 .lfull h3{position:absolute;left:14px;right:14px;top:12px;color:#fff;font-size:20px;text-shadow:0 1px 6px #0009;z-index:2}
 .lcnt{position:absolute;left:14px;top:calc(12px + 2.2em);z-index:2;display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:rgba(20,20,24,.45);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.18);color:#fff;font-size:12px;font-weight:600;line-height:1}
@@ -248,7 +248,6 @@ html.v-open #modal{z-index:95}
 .viewer.lkd .vstage{z-index:5}.viewer.lkd .vbz{height:var(--ps)}
 .viewer.lkd .vlc{padding:60px 10px calc(var(--ps) + 10px)}
 /* v3: постер пака чёткий, сверху мягкое затемнение под название */
-.lfull img{filter:none;transform:none}
 .lfz{background:linear-gradient(to bottom,rgba(0,0,0,.75) 0%,rgba(0,0,0,.4) 12%,rgba(0,0,0,0) 32%);opacity:1}
 /* v10: обложки закрытых постов в ленте и на странице поста — чёткие, чёрный градиент сверху, без стекла */
 .cov.lk:after{backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none;background:linear-gradient(to bottom,rgba(0,0,0,.75) 0%,rgba(0,0,0,.4) 12%,rgba(0,0,0,0) 32%);background-size:auto}
@@ -284,7 +283,15 @@ html.v-open #modal{z-index:95}
 .vtz{position:absolute;inset:0;z-index:9;display:none;align-items:center;justify-content:center;background:rgba(5,5,7,.55);opacity:0;transition:opacity .3s;cursor:pointer}
 .vtz.on{display:flex;opacity:1}
 .tzw{position:relative;width:var(--fs,300px);height:var(--fs,300px);max-width:92vw;max-height:80vh;border-radius:16px;overflow:hidden;background:#111;box-shadow:0 20px 40px rgba(0,0,0,.6)}
-.tzw .im{position:absolute;inset:-24px;background:center/cover;filter:blur(18px) saturate(.85);opacity:0;transition:opacity .45s ease}
+.tzw .im{position:absolute;inset:0;background:center/cover;opacity:0;transition:opacity .45s ease}
 .tzw .im.on{opacity:1}
-.tzw .wm{position:absolute;left:0;right:0;top:58%;text-align:center;font-size:44px;font-weight:800;letter-spacing:.08em;color:rgba(255,255,255,.35);transform:rotate(-14deg);text-shadow:0 2px 10px rgba(0,0,0,.3);pointer-events:none}
-.tzl{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:rgba(20,20,24,.45) var(--lock-svg) center/26px no-repeat}
+/* превью закрытого пака: чёткий арт + плашка «Подписаться» на нижней трети */
+.tzp{position:absolute;left:0;right:0;bottom:0;min-height:33%;box-sizing:border-box;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:14px;background:rgba(255,255,255,.82);color:#333;text-align:center;box-shadow:0 -6px 20px rgba(0,0,0,.25)}
+.tzp .mu{color:#555;font-size:13px}.tzp b{font-size:15px}.tzp .ob{margin-top:4px;padding:9px 26px}
+/* закрытые арты показываются чётко: без матового стекла и размытия (лента, «Медиа», пост, полоса паков, кинорежим) */
+.grid a.lk:before,.mgrid a.lk:before,.pstrip .p.lk:before{display:none}
+.viewer.lkd .vstage:before,.viewer.lkd .vstage:after{display:none}
+/* исключение: полоса артов закрытого пака под названием — размыто, только замок */
+.vstrip .tzt{position:relative;overflow:hidden;background:#2a2a30;cursor:pointer;filter:none!important}
+.vstrip .tzt i{position:absolute;inset:-8px;background:center/cover;filter:blur(8px) saturate(.85)}
+.vstrip .tzt:after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:999px;background:rgba(20,20,24,.45) var(--lock-svg) center/12px no-repeat;border:1px solid rgba(255,255,255,.18);box-sizing:border-box;z-index:2}

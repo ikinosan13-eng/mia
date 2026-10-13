@@ -18,7 +18,7 @@ function build() {
   el("x").onclick = close; el("skip").onclick = finish; // боковые зоны больше не листают: тап открывает нижнюю плашку с артами (как тап внизу)
   // кнопка ‹ › — листает (без перескока через край); остальная боковая зона — открывает плашку
   // ‹ › — листают по кругу (как свайп и стрелки клавиатуры); остальная боковая зона — открывает плашку
-  const side = d => e => { e.stopPropagation(); if (e.target.closest("span") && !V.classList.contains("lkd")) { step(d); wake(); } else bar(0); };
+  const side = d => e => { e.stopPropagation(); if (e.target.closest("span") && !V.classList.contains("lkd")) { step(d); hideBar(); wake(); } else togBar(); };
   el("nx").onclick = side(1); el("pv").onclick = side(-1);
   el("fs").onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.().catch(() => {});
   el("mu").onclick = () => toggleMute();
@@ -32,7 +32,7 @@ function build() {
   let sx = null; el("stage").addEventListener("pointerdown", e => sx = e.clientX);
   el("stage").addEventListener("pointerup", e => { if (sx === null) return; const d = e.clientX - sx; sx = null; if (Math.abs(d) > 40) step(d < 0 ? 1 : -1);
     // тап по центру арта (не боковые зоны/кнопки, не панель закрытого пака) закрывает открытую нижнюю плашку
-    else if (Math.abs(d) < 10 && V.classList.contains("bar") && !e.target.closest(".vnav,.lfull,button")) { barStay = 0; clearTimeout(barT); V.classList.remove("bar"); }
+    else if (Math.abs(d) < 10 && !e.target.closest(".vnav,.lfull,button")) togBar();
     wake(); });
   // верхняя панель (✕) прячется через 2 с без касаний
   V.querySelector(".vchrome.top").addEventListener("pointerenter", () => { over = 1; clearTimeout(hideT); });
@@ -56,6 +56,9 @@ function build() {
 let hideT = null, over = 0, barT = null, barStay = 0;
 // bar(0): плашка остаётся, пока не выберут другой арт в полосе
 function bar(ms) { if (!V) return; V.classList.add("bar"); clearTimeout(barT); barStay = ms === 0 ? 1 : 0; if (barStay) return; barT = setTimeout(() => { if (!document.querySelector(".cs")) V.classList.remove("bar"); else bar(ms); }, RM ? ms : ms); }
+// плашка: тап по арту открывает, следующий тап закрывает; ‹ › и выбор арта в полосе — закрывают
+function hideBar() { if (!V) return; barStay = 0; clearTimeout(barT); V.classList.remove("bar"); }
+function togBar() { V.classList.contains("bar") ? hideBar() : bar(0); }
 function wake() { if (!V) return; V.classList.remove("idle"); clearTimeout(hideT); if (!V.classList.contains("ui")) return; hideT = setTimeout(() => { if (!over && !document.querySelector(".cs")) V.classList.add("idle"); }, 2000); }
 const locked = p => p.tier_rank > window.Mia.S.rank;
 // прокрутка полосы к элементу без сдвига самого кинорежима (scrollIntoView двигал и предков)
@@ -74,12 +77,16 @@ function sub(p) { window.Mia.subscribe(p.tier_rank, p.id, { stay: () => { if (st
 // превью закрытого пака: 1–2 размытые миниатюры с водяным знаком и замком, затем «Подписаться».
 // Только миниатюры из бакета previews (размытие всегда через CSS) — настоящие арты не показываем.
 let tz = null;
+// превью арта пака строго по порядку в паке (position): арт №1 и №2, без случайности
+const packPv = p => window.Mia.S.media.filter(m => m.post_id == p.id && m.preview_path).sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+// плашка «Подписаться» поверх арта — как на карточке закрытого пака (подпись уровня + цена)
+function plate(p) { const M = window.Mia; return `<div class="tzp"><span class="mu">${M.esc(M.T("locked_label"))}</span><b>${M.esc(p.tier_name || "")}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><span class="ob">🔒 ${M.esc(M.T("btn_subscribe"))}</span></div>`; }
 function teaser(p) {
   if (tz) return tz.done();
-  const M = window.Mia, list = M.S.media.filter(m => m.post_id == p.id && m.preview_path).slice(0, 2).map(m => M.pub(m.preview_path));
+  const M = window.Mia, list = packPv(p).slice(0, 2).map(m => M.pub(m.preview_path));
   if (!list.length || RM) return sub(p);
   const box = el("tz"), ts = [];
-  box.innerHTML = `<div class="tzw">${list.map(u => `<div class="im" style="background-image:url('${u}')"></div>`).join("")}<b class="wm">Мия</b><i class="tzl"></i></div>`;
+  box.innerHTML = `<div class="tzw">${list.map(u => `<div class="im" style="background-image:url('${u}')"></div>`).join("")}${plate(p)}</div>`;
   const ims = [...box.querySelectorAll(".im")];
   const lf = el("lc").querySelector(".lfull"), w = box.firstChild;
   if (lf) { const r = lf.getBoundingClientRect(); Object.assign(w.style, { position: "fixed", left: r.left + "px", top: r.top + "px", width: r.width + "px", height: r.height + "px", maxWidth: "none", maxHeight: "none" }); }
@@ -110,8 +117,8 @@ function lockCard(p) {
   const M = window.Mia, n = p.image_count || 0; st.post = p; st.imgs = null; st.i = 0; st.pending = null;
   title(p); drawBot(); drawPacks(); el("cnt").textContent = ""; st.front.classList.remove("show"); st.back.classList.remove("show"); el("load").classList.remove("on");
   V.classList.add("lkd"); lkSize(); V.style.setProperty("--lkbg", `url('${M.pub(p.cover_path)}')`);
-  const pv = M.S.media.filter(m => m.post_id == p.id && m.preview_path);
-  el("strip").innerHTML = Array.from({ length: Math.min(n, 12) }, (_, k) => `<div class="lk fz tzt"${pv[k] ? ` style="background-image:url('${M.pub(pv[k].preview_path)}')"` : ""}></div>`).join(""); el("strip").classList.add("on");
+  const pv = packPv(p);
+  el("strip").innerHTML = Array.from({ length: Math.min(n, 12) }, (_, k) => `<div class="tzt"><i${pv[k] ? ` style="background-image:url('${M.pub(pv[k].preview_path)}')"` : ""}></i></div>`).join(""); el("strip").classList.add("on");
   el("strip").querySelectorAll(".tzt").forEach(d => d.onclick = e => { e.stopPropagation(); teaser(p); });
   el("lc").innerHTML = `<div class="lfull"><img src="${M.pub(p.cover_path)}" alt=""><i class="lfz"></i><button class="llock" id="v-llk" title="${M.esc(M.T("btn_subscribe"))}"></button><h3>${M.esc(p.title)}</h3><span class="lcnt">${n} ${M.plural(n, "арт", "арта", "артов")}</span>
     <div class="frost lpan"><span class="mu">${M.esc(M.T("locked_label"))}</span><b>${M.esc(p.tier_name || "")}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><button class="ob" id="v-buy">🔒 ${M.esc(M.T("btn_subscribe"))}</button></div></div>`;
@@ -123,7 +130,7 @@ function lockCard(p) {
 function title(post) { el("ttl").querySelector("h2").textContent = post.title; el("ttl").querySelector("p").textContent = `пак · ${post.image_count} ${window.Mia.plural(post.image_count, "арт", "арта", "артов")}${post.tier_rank > 0 ? " · " + post.tier_name : ""}`; }
 function fill(post, imgsP, then) {
   imgsP.then(imgs => { if (st.post !== post) return; if (!imgs.length) { el("load").textContent = "В паке пока нет артов"; el("load").classList.add("on"); } st.imgs = imgs; el("strip").innerHTML = "";
-    imgs.forEach((u, k) => { const d = document.createElement("div"); d.style.backgroundImage = `url("${u}")`; d.style.transitionDelay = (k * .06) + "s"; d.onclick = () => { const ch = k != st.i; show(k); if (ch && V) { barStay = 0; clearTimeout(barT); V.classList.remove("bar"); } }; el("strip").append(d); });
+    imgs.forEach((u, k) => { const d = document.createElement("div"); d.style.backgroundImage = `url("${u}")`; d.style.transitionDelay = (k * .06) + "s"; d.onclick = () => { show(k); hideBar(); }; el("strip").append(d); });
     imgs.slice(0, 3).forEach(u => { const i = new Image(); i.src = u; });
     if (then) then(); else if (st.pending) { const p = st.pending; st.pending = null; p(); } }).catch(() => { if (st.post !== post) return; el("load").textContent = "Не удалось загрузить арты"; el("load").classList.add("on"); });
 }
@@ -167,7 +174,7 @@ function show(k, slow) {
 }
 function finish() {
   timers.forEach(clearTimeout); timers = []; el("intro").classList.add("out");
-  const go = () => { el("load").classList.remove("on"); if (!st.front.classList.contains("show")) show(st.start || 0, true); V.classList.add("ui"); el("strip").classList.add("on"); el("ttl").classList.add("on"); wake(); bar(2000); };
+  const go = () => { el("load").classList.remove("on"); if (!st.front.classList.contains("show")) show(st.start || 0, true); V.classList.add("ui"); el("strip").classList.add("on"); el("ttl").classList.add("on"); wake(); bar(0); };
   if (st.imgs) go(); else { el("load").classList.add("on"); st.pending = go; }
 }
 function isShort(c) { if (c.full == "always") return false; const d = new Date().toDateString(), r = localStorage.miaIntro == d; localStorage.miaIntro = d; return r; }
