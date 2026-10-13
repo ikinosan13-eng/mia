@@ -29,7 +29,10 @@ function build() {
     if (e.key == "Escape") close(); });
   // арт: свайп листает; нижнюю плашку не трогает
   let sx = null; el("stage").addEventListener("pointerdown", e => sx = e.clientX);
-  el("stage").addEventListener("pointerup", e => { if (sx === null) return; const d = e.clientX - sx; sx = null; if (Math.abs(d) > 40) show(st.i + (d < 0 ? 1 : -1)); wake(); });
+  el("stage").addEventListener("pointerup", e => { if (sx === null) return; const d = e.clientX - sx; sx = null; if (Math.abs(d) > 40) show(st.i + (d < 0 ? 1 : -1));
+    // тап по центру арта (не боковые зоны/кнопки, не панель закрытого пака) закрывает открытую нижнюю плашку
+    else if (Math.abs(d) < 10 && V.classList.contains("bar") && !e.target.closest(".vnav,.lpan,button")) { barStay = 0; clearTimeout(barT); V.classList.remove("bar"); }
+    wake(); });
   // верхняя панель (✕) прячется через 2 с без касаний
   V.querySelector(".vchrome.top").addEventListener("pointerenter", () => { over = 1; clearTimeout(hideT); });
   V.querySelector(".vchrome.top").addEventListener("pointerleave", () => { over = 0; wake(); });
