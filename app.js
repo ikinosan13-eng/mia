@@ -70,8 +70,8 @@ async function postView(id) {
   if (p.tier_rank > S.rank) return head + `<div class="cov lock" style="background-image:url('${pub(p.cover_path)}')"><h3>${esc(p.title)}</h3><div class="frost"><b style="font-size:20px">🖼 ${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}</b><br>Нужен уровень: ${esc(p.tier_name)}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}<br><span class="ob" data-code="1">🔒 ПОДПИСАТЬСЯ</span></div></div><div class="txt">${esc(p.body)}</div>` + ACT(p.id);
   const r = await unlock({ token: S.token || undefined, post_id: id });
   if (r.status !== 200) { if (r.status == 401) setRank(0, ""); return head + `<div class="empty">Не удалось открыть: ${esc(r.data.message || r.data.error || r.status)}</div>`; }
-  S.imgs = r.data.images.map(i => B + i.url); S.idx = 0;
-  return head + `<div style="padding:0 14px 10px;font-size:20px;font-weight:700">${esc(p.title)}</div><div class="viewer" id="vw"><div class="slides" id="sl">${S.imgs.map(u => `<img src="${u}" alt="">`).join("")}</div><span class="ctr" id="ctr">1 / ${S.imgs.length}</span><span class="fs" id="fsb">⛶</span></div>
+  S.imgs = r.data.images.map(i => B + i.url); S.dims = r.data.images; S.idx = 0;
+  return head + `<div style="padding:0 14px 10px;font-size:20px;font-weight:700">${esc(p.title)}</div><div class="viewer" id="vw"><div class="slides" id="sl">${S.imgs.map((u, k) => `<img src="${u}" alt="" width="${S.dims[k].width || 1000}" height="${S.dims[k].height || 1000}" style="height:auto">`).join("")}</div><span class="ctr" id="ctr">1 / ${S.imgs.length}</span><span class="fs" id="fsb">⛶</span></div>
   <div class="dots" id="dots">${S.imgs.map((_, i) => `<i class="${i ? "" : "on"}"></i>`).join("")}</div><div class="txt">${esc(p.body)}</div>` + ACT(p.id);
 }
 function go(i) { const n = S.imgs.length; S.idx = (i + n) % n; $("#sl") && ($("#sl").style.transform = `translateX(${-100 * S.idx}%)`); $("#ctr") && ($("#ctr").textContent = `${S.idx + 1} / ${n}`); document.querySelectorAll("#dots i").forEach((d, k) => d.className = k == S.idx ? "on" : ""); const f = $("#fsi"); if (f) { f.src = S.imgs[S.idx]; $("#fsc").textContent = `${S.idx + 1} / ${n}`; } }
