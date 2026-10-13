@@ -260,3 +260,4 @@ html.v-open #modal{z-index:95}
 .viewer{overflow:clip}
 /* закрытый пак: квадрат заканчивается над названием/полосой артов; нижняя плашка поверх */
 .viewer.lkd .vlc{padding-bottom:var(--vb,0px)}.viewer.lkd .vchrome.bot{z-index:6}
+.viewer .vnav span{display:none}

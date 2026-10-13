@@ -15,7 +15,8 @@ function build() {
   <div class="vbot"><button class="vpill" id="v-lk"></button><button class="vpill" id="v-cm"></button><div class="eq"><i></i><i></i><i></i><i></i></div></div></div>
   <div class="pstrip" id="v-ps"></div><div class="vbz" id="v-bz"></div>`;
   document.body.append(V);
-  el("x").onclick = close; el("skip").onclick = finish; el("nx").onclick = e => { e.stopPropagation(); show(st.i + 1); }; el("pv").onclick = e => { e.stopPropagation(); show(st.i - 1); };
+  el("x").onclick = close; el("skip").onclick = finish; // боковые зоны больше не листают: тап открывает нижнюю плашку с артами (как тап внизу)
+  el("nx").onclick = el("pv").onclick = e => { e.stopPropagation(); bar(0); };
   el("fs").onclick = () => document.fullscreenElement ? document.exitFullscreen() : V.requestFullscreen?.();
   el("mu").onclick = () => toggleMute();
   el("lk").onclick = async () => { await window.Mia.toggleLike(st.post.id); drawBot(); };
