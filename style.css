@@ -295,3 +295,9 @@ html.v-open #modal{z-index:95}
 .tzp .ob{margin-top:4px;padding:9px 26px}
 .vstrip .tzt{position:relative;overflow:hidden;filter:none!important}
 .vstrip .tzt b{position:absolute;left:0;right:0;bottom:0;padding:3px 2px;background:rgba(255,255,255,.85);color:#333;font-size:8px;line-height:1.15;text-align:center;font-weight:700}
+/* без размытия: закрытые арты показываются чётко (лента, медиа, полоса паков, кинорежим) */
+.grid a.lk:before,.mgrid a.lk:before,.pstrip .p.lk:before,.fz:before,.cov.lk:after{display:none!important}
+.viewer.lkd .vstage:before,.viewer.lkd .vstage:after{display:none!important}
+.lfull img,.cov.lk img,.tzw .im{filter:none!important;transform:none}
+.tzw .wm{display:none}
+.vstrip .lk,.vstrip .tzt{filter:none!important}
