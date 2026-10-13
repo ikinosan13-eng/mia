@@ -167,7 +167,7 @@ async function enterPick(e) {
   e.preventDefault(); const code = $("#pci").value.trim(), ce = $("#pce"), b = $("#pcb"); if (!code || b.disabled) return; b.disabled = true; ce.className = "err"; ce.textContent = "Мур, проверяю…";
   const r = await sb.rpc("redeem_pick_code", { p_code: code }).catch(() => ({ error: 1 })); b.disabled = false;
   const er = r.error ? "offline" : r.data?.ok ? null : r.data?.error;
-  if (!er) { S.pick.credit = true; ce.className = "okm"; ce.textContent = "✔ Мяу, код принят! У тебя 1 пак на выбор 💕 Выбери любой закрытый пак и нажми «🎁 Мур, открыть этот пак»."; b.disabled = true; render(); window.MiaViewer?.refresh?.(); return; }
+  if (!er) { S.pick.credit = true; await render(); window.MiaViewer?.refresh?.(); const c2 = $("#pce") || ce; c2.className = "okm"; c2.textContent = "✔ Мяу, код принят! У тебя 1 пак на выбор 💕 Выбери любой закрытый пак и нажми «🎁 Мур, открыть этот пак»."; if ($("#pci")) $("#pci").value = code; if ($("#pcb")) $("#pcb").disabled = true; return; }
   ce.textContent = { bad_code: "Мяу, такого кода нет или он уже использован 🐾", already_used: "Мур, на этом аккаунте «1 пак на выбор» уже был — он даётся один раз 💕", rate_limited: T("rate_limited"), login: "Сначала войди в аккаунт, мур 🐾" }[er] || T("offline");
 }
 // потратить кредит на пак (кнопка блокируется — двойной тап не тратит дважды; сервер тоже защищён)
