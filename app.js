@@ -27,10 +27,11 @@ let S = { user: null, liked: new Set(), rank: 0, token: localStorage.miaToken ||
 const isLocked = p => p.tier_rank > S.rank && !S.pick.unlocked.has(p.id);
 if (localStorage.miaTheme === "dark") document.body.classList.add("dark");
 
+const rpcT = (n, a, ms = 12000) => timeout(sb.rpc(n, a), ms).catch(e => ({ error: e, timeout: e?.message == "timeout" }));
 function timeout(p, ms = 10000) { return Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error("timeout")), ms))]); }
 const api = p => timeout(fetch(`${B}/rest/v1/${p}`, { headers: H })).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
-const fn = async (name, body) => { const { data: { session } } = await sb.auth.getSession();
-  try { const r = await timeout(fetch(`${B}/functions/v1/${name}`, { method: "POST", headers: { ...H, "Content-Type": "application/json", ...(session ? { Authorization: "Bearer " + session.access_token } : {}) }, body: JSON.stringify(body) }), 15000); return { status: r.status, data: await r.json().catch(() => ({})) }; }
+const fn = async (name, body) => { const session = await timeout(sb.auth.getSession(), 5000).then(r => r.data.session).catch(() => null);
+  try { const r = await timeout(fetch(`${B}/functions/v1/${name}`, { method: "POST", headers: { ...H, "Content-Type": "application/json", ...(session ? { Authorization: "Bearer " + session.access_token } : {}) }, body: JSON.stringify(body) }), 15000); return { status: r.status, data: await timeout(r.json(), 5000).catch(() => ({})) }; }
   catch { return { status: 0, data: { error: "offline" } }; } };
 
 async function load() {
@@ -60,7 +61,7 @@ async function loadUser() {
   else if (r.status === 401 && S.token) { S.token = ""; localStorage.removeItem("miaToken"); toast(T("code_old")); }
 }
 // «1 пак на выбор»: кредит и открытые навсегда паки (до применения миграции функция отсутствует — тихо пропускаем)
-async function loadPick() { try { const { data, error } = await sb.rpc("my_pick_access"); if (error || !data) return; S.pick = { credit: !!data.credit, unlocked: new Set(data.unlocked || []) }; } catch {} }
+async function loadPick() { try { const { data, error } = await rpcT("my_pick_access", {}, 8000); if (error || !data) return; S.pick = { credit: !!data.credit, unlocked: new Set(data.unlocked || []) }; } catch {} }
 const tierOf = r => S.tiers.find(t => t.rank == r);
 const tierName = r => tierOf(r)?.name || "";
 const avatarHtml = (u, size = 36, extra = "") => { const url = u.is_author || u.admin ? (S.profile.avatar ? pub(S.profile.avatar) : "avatar.jpg") : u.avatar_path ? pub(u.avatar_path, "avatars") : "";
@@ -101,7 +102,7 @@ const views = {
   media: () => { const k = {}; return bar() + hero() + tabs("media") + `<div class="grid mgrid">${S.media.map(m => { const i = k[m.post_id] = (k[m.post_id] ?? -1) + 1, lk = m.tier_rank > S.rank && !S.pick.unlocked.has(m.post_id), p = S.posts.find(x => x.id == m.post_id);
     return lk ? `<a href="#/post/${m.post_id}" class="lk" style="background-image:url('${pub(m.preview_path)}')"></a>` : `<a href="#/post/${m.post_id}" data-mp="${m.post_id}" data-mi="${i}" style="background-image:url('${pub(m.preview_path)}')">${p ? `<span class="cb" data-cm="${p.id}">💬 ${p.comment_count || 0}</span>` : ""}</a>`; }).join("")}</div>` + (S.media.length ? "" : `<div class="note">🎨 ${esc(T("empty_feed"))}</div>`); },
   levels: () => bar() + hero() + tabs("levels") + levelsHtml(),
-  about: () => bar() + hero() + tabs("about") + `<div class="body">${esc(S.profile.about || "Привет! Я Мия, рисую паки артов 💕🐾")}</div>` + levelsHtml(),
+  about: () => bar() + hero() + tabs("about") + `<div class="body">${esc(S.profile.about || "Привет! Я Мия, рисую паки артов 💕🐾")}</div>`,
 };
 
 // ---------- modals ----------
@@ -163,12 +164,25 @@ function afterAuth() {
   if (ret && S.rank < ret.rank) { S.modal = { t: "pay", ...ret }; drawModal(); render(); } else { closeModal(); render(); }
 }
 // ввод кода «1 пак на выбор»
+const PICK_SLOW = "Мяу, сервер долго молчит 🐾 Проверь интернет и попробуй ещё раз";
+const PICK_ERR = { bad_code: "Мяу, такого кода нет или он уже использован 🐾", already_used: "Мур, на этом аккаунте «1 пак на выбор» уже был — он даётся один раз 💕", login: "Сначала войди в аккаунт, мур 🐾" };
+// общий вызов redeem_pick_code с таймаутом; если ответ потерялся, а кредит уже начислен — считаем успехом
+async function redeemPick(code) {
+  const r = await rpcT("redeem_pick_code", { p_code: code });
+  let er = r.timeout ? "slow" : r.error ? "offline" : r.data?.ok ? null : (r.data?.error || "offline");
+  if (er == "already_used" || er == "slow") { await loadPick(); if (S.pick.credit) er = null; }
+  return er;
+}
+const pickMsg = er => er == "slow" ? PICK_SLOW : er == "rate_limited" ? T("rate_limited") : PICK_ERR[er] || T("offline");
+function pickOk(code) { const c2 = $("#pce"); if (c2) { c2.className = "okm"; c2.textContent = "✔ Мяу, код принят! У тебя 1 пак на выбор 💕 Выбери любой закрытый пак и нажми «🎁 Мур, открыть этот пак»."; } if ($("#pci")) $("#pci").value = code; if ($("#pcb")) $("#pcb").disabled = true; }
 async function enterPick(e) {
   e.preventDefault(); const code = $("#pci").value.trim(), ce = $("#pce"), b = $("#pcb"); if (!code || b.disabled) return; b.disabled = true; ce.className = "err"; ce.textContent = "Мур, проверяю…";
-  const r = await sb.rpc("redeem_pick_code", { p_code: code }).catch(() => ({ error: 1 })); b.disabled = false;
-  const er = r.error ? "offline" : r.data?.ok ? null : r.data?.error;
-  if (!er) { S.pick.credit = true; await render(); window.MiaViewer?.refresh?.(); const c2 = $("#pce") || ce; c2.className = "okm"; c2.textContent = "✔ Мяу, код принят! У тебя 1 пак на выбор 💕 Выбери любой закрытый пак и нажми «🎁 Мур, открыть этот пак»."; if ($("#pci")) $("#pci").value = code; if ($("#pcb")) $("#pcb").disabled = true; return; }
-  ce.textContent = { bad_code: "Мяу, такого кода нет или он уже использован 🐾", already_used: "Мур, на этом аккаунте «1 пак на выбор» уже был — он даётся один раз 💕", rate_limited: T("rate_limited"), login: "Сначала войди в аккаунт, мур 🐾" }[er] || T("offline");
+  let ok = false;
+  try { const er = await redeemPick(code);
+    if (!er) { ok = true; S.pick.credit = true; await render(); window.MiaViewer?.refresh?.(); pickOk(code); return; }
+    ce.textContent = pickMsg(er);
+  } catch (x) { console.error(x); ce.textContent = PICK_SLOW; }
+  finally { if (!ok && $("#pcb")) $("#pcb").disabled = false; }
 }
 // потратить кредит на пак (кнопка блокируется — двойной тап не тратит дважды; сервер тоже защищён)
 let picking = false;
@@ -186,7 +200,8 @@ document.addEventListener("click", e => { const t = e.target.closest("[data-pick
 function goIntro(id) { const h = "#/post/" + id; if (location.hash == h) { render(); return openWithIntro(id); } addEventListener("hashchange", () => setTimeout(() => openWithIntro(id), 0), { once: true }); location.hash = h; }
 function openWithIntro(id) { const k = `miaUnlockIntro:${S.user?.id || "anon"}:${id}`, seen = localStorage[k]; localStorage[k] = "1"; openViewer(id, 0, false, seen ? {} : { intro: true }); }
 async function enterCode(e) {
-  e.preventDefault(); const code = $("#ci").value.trim(), ce = $("#ce"); if (!code) return; ce.className = "err"; ce.textContent = "Проверяю…";
+  e.preventDefault(); const code = $("#ci").value.trim(), ce = $("#ce"); if (!code) return; ce.className = "err"; ce.textContent = "Проверяю…"; const bt = $("#cf button"); if (bt?.disabled) return; if (bt) bt.disabled = true;
+  try {
   const r = await fn("unlock", { code });
   if (r.status == 200) { if (r.data.token) { S.token = r.data.token; localStorage.miaToken = r.data.token; } S.rank = Math.max(S.rank, r.data.rank);
     ce.className = "okm"; ce.textContent = "✔ " + T("code_ok"); toast(T("code_ok")); const ret = JSON.parse(localStorage.miaReturn || "{}"); localStorage.removeItem("miaReturn");
@@ -196,9 +211,11 @@ async function enterCode(e) {
   else if (r.status == 429 || r.status == 0) ce.textContent = r.status == 429 ? T("rate_limited") : T("offline");
   else if (!S.user) ce.textContent = T("code_bad");
   else { // не код уровня → может быть код «1 пак на выбор»
-    const q = await sb.rpc("redeem_pick_code", { p_code: code }).catch(() => ({ error: 1 })), er = q.error ? "offline" : q.data?.ok ? null : q.data?.error;
-    if (!er) { S.pick.credit = true; closeModal(false); await render(); window.MiaViewer?.refresh?.(); openModal({ t: "pick" }); if ($("#pci")) $("#pci").value = code; if ($("#pcb")) $("#pcb").disabled = true; const c2 = $("#pce"); if (c2) { c2.className = "okm"; c2.textContent = "✔ Мяу, код принят! У тебя 1 пак на выбор 💕 Выбери любой закрытый пак и нажми «🎁 Мур, открыть этот пак»."; } return; }
-    ce.textContent = { already_used: "Мур, на этом аккаунте «1 пак на выбор» уже был — он даётся один раз 💕", rate_limited: T("rate_limited"), offline: T("offline") }[er] || T("code_bad"); }
+    const er = await redeemPick(code);
+    if (!er) { S.pick.credit = true; closeModal(false); await render(); window.MiaViewer?.refresh?.(); openModal({ t: "pick" }); pickOk(code); return; }
+    ce.textContent = er == "bad_code" ? T("code_bad") : pickMsg(er); }
+  } catch (x) { console.error(x); ce.textContent = "Мяу, что-то пошло не так 🐾 Попробуй ещё раз"; }
+  finally { const b2 = $("#cf button"); if (b2) b2.disabled = false; }
 }
 
 // ---------- like / comments ----------
