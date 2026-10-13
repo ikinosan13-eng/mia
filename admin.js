@@ -133,7 +133,7 @@ async function publish(app) {
     for (let i = 0; i < W.files.length; i++) {
       st.textContent = `Загрузка ${i + 1} из ${W.files.length}…`; bar.style.width = `${(i / W.files.length) * 90}%`;
       const img = W.files[i].img || await Crop.loadImg(W.files[i].f), iid = uuid(); if (i == W.cover) coverImg = img;
-      const orig = await toJpeg(img, 2560, 0.92), prev = tier.rank > 0 ? await toJpeg(img, 48, 0.7, 2) : await toJpeg(img, 480, 0.8);
+      const orig = await toJpeg(img, 2560, 0.92), prev = tier.rank > 0 ? await toJpeg(img, 160, 0.75, 1) : await toJpeg(img, 480, 0.8);
       const op = `${pid}/${iid}.jpg`, pp = `thumbs/${pid}/${iid}.jpg`;
       for (const [b, p, blob] of [["originals", op, orig.blob], ["previews", pp, prev.blob]]) { let r, k = 0; do { r = await sb.storage.from(b).upload(p, blob, { contentType: "image/jpeg", upsert: true }); } while (r.error && ++k < 3); if (r.error) throw new Error(`Арт ${i + 1}: ${r.error.message}`); }
       rows.push({ id: iid, post_id: pid, position: i + 1, preview_path: pp, original_path: op, width: orig.w, height: orig.h });
