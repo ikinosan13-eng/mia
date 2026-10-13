@@ -6,6 +6,29 @@ const uuid = () => crypto.randomUUID();
 const ev = e => M().sb.rpc("admin_event", { e });
 let tiers = [];
 async function loadTiers() { const { data } = await M().sb.from("tiers").select("id,rank,name,price_rub,perks,pay_url,boosty_url,code_version").order("rank"); tiers = data || []; }
+const LOCKED_PREV = 700;
+// «Пересоздать превью»: для закрытых паков заново делает превью из оригиналов (чёткие, ~700px).
+// Новый путь файла (…-s700.jpg), чтобы CDN не отдавал старые размытые; старые файлы удаляются после замены.
+async function regenPreviews(btn, all) {
+  const { sb, toast } = M(); await loadTiers(); const rank = Object.fromEntries(tiers.map(t => [t.id, t.rank]));
+  const lp = all.filter(p => rank[p.tier_id] > 0); if (!lp.length) return toast("Закрытых паков нет");
+  if (!confirm(`Пересоздать превью для ${lp.length} закрытых паков?`)) return;
+  btn.disabled = true; let done = 0, fail = 0;
+  for (const p of lp) {
+    const { data: ims, error } = await sb.from("post_images").select("id,preview_path,original_path").eq("post_id", p.id).order("position"); if (error) { fail++; continue; }
+    for (const im of ims || []) {
+      btn.textContent = `Превью ${++done}…`;
+      try {
+        const { data: blob, error: e1 } = await sb.storage.from("originals").download(im.original_path); if (e1) throw e1;
+        const img = await Crop.loadImg(blob), pr = await toJpeg(img, LOCKED_PREV, 0.85), np = `thumbs/${p.id}/${im.id}-s${LOCKED_PREV}.jpg`;
+        const up = await sb.storage.from("previews").upload(np, pr.blob, { contentType: "image/jpeg", upsert: true }); if (up.error) throw up.error;
+        const u = await sb.from("post_images").update({ preview_path: np }).eq("id", im.id); if (u.error) throw u.error;
+        if (im.preview_path && im.preview_path != np) await sb.storage.from("previews").remove([im.preview_path]);
+      } catch (e) { fail++; console.warn("regen", im.id, e); }
+    }
+  }
+  btn.disabled = false; btn.textContent = "Пересоздать превью"; toast(fail ? `Готово, ошибок: ${fail}` : `Готово: ${done} превью`); await M().load();
+}
 function toJpeg(img, max, q, blur = 0) { const s = Math.min(1, max / Math.max(img.width, img.height)); const c = document.createElement("canvas"); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
   const x = c.getContext("2d"); if (blur) x.filter = `blur(${blur}px)`; x.drawImage(img, 0, 0, c.width, c.height); return new Promise(r => c.toBlob(b => r({ blob: b, w: c.width, h: c.height }), "image/jpeg", q)); }
 const autoThumb = c => { // square from the middle of the cover crop (in fractions, relative to image)
@@ -21,11 +44,12 @@ async function posts(app, filter = "all") {
   const now = Date.now(), all = data || [];
   const kind = p => p.status == "draft" ? "draft" : new Date(p.publish_at) > now ? "sched" : "pub";
   const list = all.filter(p => filter == "all" || kind(p) == filter);
-  app.innerHTML = shell("posts", `<div class="r" style="justify-content:space-between;flex-wrap:wrap"><h2>Публикации</h2><a class="ob" href="#/admin/new">+ Новая публикация</a></div>
+  app.innerHTML = shell("posts", `<div class="r" style="justify-content:space-between;flex-wrap:wrap"><h2>Публикации</h2><span class="r"><button class="gb" id="rgp" title="Один раз: сделать чёткие превью ~700px для всех закрытых паков из оригиналов">Пересоздать превью</button> <a class="ob" href="#/admin/new">+ Новая публикация</a></span></div>
   <div class="r" style="margin-bottom:10px;flex-wrap:wrap">${[["all", "Все", all.length], ["pub", "Опубликованы"], ["sched", "Запланированы"], ["draft", "Черновики"]].map(([k, n]) => `<a class="pill ${k == filter ? "on" : ""}" href="#/admin/posts/${k}">${n} ${k == "all" ? all.length : all.filter(p => kind(p) == k).length}</a>`).join("")}</div>
   <div class="tw"><table><tr><th></th><th>Заголовок</th><th>Уровень</th><th>Арты</th><th>Статус</th><th>❤ / 💬</th><th></th></tr>${list.map(p => `<tr><td><img class="th" src="${pub(p.cover_path)}" style="width:44px;height:44px"></td><td>${esc(p.title)}</td><td><span class="tier ${p.tier_id ? "" : "f"}">${esc(tiers.find(t => t.id == p.tier_id)?.name)}</span></td><td>${p.post_images[0]?.count || 0}</td>
   <td>${p.hidden ? "🙈 Скрыт" : kind(p) == "draft" ? "Черновик" : kind(p) == "sched" ? "⏰ " + fmt(p.publish_at) : "Опубликован " + new Date(p.publish_at).toLocaleDateString("ru-RU")}</td><td>${st[p.id] ? st[p.id].like_count + " / " + st[p.id].comment_count : "—"}</td>
   <td style="white-space:nowrap"><a class="gb sm" data-ed="${p.id}">✏</a> <a class="gb sm" data-hide="${p.id}" title="${p.hidden ? "Показать" : "Скрыть"}">${p.hidden ? "👁" : "🙈"}</a> <a class="gb sm" data-del="${p.id}">🗑</a></td></tr>`).join("") || `<tr><td colspan="7" class="mu">Публикаций нет</td></tr>`}</table></div>`);
+  app.querySelector("#rgp").onclick = e => regenPreviews(e.target, all);
   app.querySelectorAll("[data-hide]").forEach(b => b.onclick = async () => { const p = all.find(x => x.id == b.dataset.hide); await sb.from("posts").update({ hidden: !p.hidden }).eq("id", p.id); await M().load(); posts(app, filter); });
   app.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { if (!confirm("Удалить публикацию и все её арты? Это нельзя отменить.")) return; const id = b.dataset.del, p = all.find(x => x.id == id);
     const { data: imgs } = await sb.from("post_images").select("preview_path,original_path").eq("post_id", id);
@@ -133,7 +157,7 @@ async function publish(app) {
     for (let i = 0; i < W.files.length; i++) {
       st.textContent = `Загрузка ${i + 1} из ${W.files.length}…`; bar.style.width = `${(i / W.files.length) * 90}%`;
       const img = W.files[i].img || await Crop.loadImg(W.files[i].f), iid = uuid(); if (i == W.cover) coverImg = img;
-      const orig = await toJpeg(img, 2560, 0.92), prev = tier.rank > 0 ? await toJpeg(img, 160, 0.8) : await toJpeg(img, 480, 0.8);
+      const orig = await toJpeg(img, 2560, 0.92), prev = await toJpeg(img, tier.rank > 0 ? LOCKED_PREV : 480, tier.rank > 0 ? 0.85 : 0.8); // закрытые паки: чёткое превью ~700px (для превью-показа в кинорежиме)
       const op = `${pid}/${iid}.jpg`, pp = `thumbs/${pid}/${iid}.jpg`;
       for (const [b, p, blob] of [["originals", op, orig.blob], ["previews", pp, prev.blob]]) { let r, k = 0; do { r = await sb.storage.from(b).upload(p, blob, { contentType: "image/jpeg", upsert: true }); } while (r.error && ++k < 3); if (r.error) throw new Error(`Арт ${i + 1}: ${r.error.message}`); }
       rows.push({ id: iid, post_id: pid, position: i + 1, preview_path: pp, original_path: op, width: orig.w, height: orig.h });
