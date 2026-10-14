@@ -63,7 +63,8 @@ async function load(o = {}) {
     const [tiers, posts, media, settings, free] = await Promise.all([api("tiers_public?order=rank"), api("feed_public?order=publish_at.desc"), api("media_public?order=publish_at.desc,position"), api("settings?key=in.(profile,texts,viewer,imgv)"), api("free_images_public?select=post_id,position&order=position").catch(() => [])]);
     S.free = free || [];
     // видео (после sql/video.sql); до миграции view нет → пустые списки, сайт работает как раньше
-    const [pv, mv] = await Promise.all([api("post_video_public?select=post_id,kind,video_count,duration_sec,teaser_path,feed_video_path").catch(() => api("post_video_public?select=post_id,kind,video_count,duration_sec")).catch(() => []), api("media_video_public?select=id,post_id,position,duration_sec,poster_path").catch(() => [])]);
+    const [pv, mv, subs] = await Promise.all([api("post_video_public?select=post_id,kind,video_count,duration_sec,teaser_path,feed_video_path").catch(() => api("post_video_public?select=post_id,kind,video_count,duration_sec")).catch(() => []), api("media_video_public?select=id,post_id,position,duration_sec,poster_path").catch(() => []), api("rpc/subscriber_count").catch(() => null)]);
+    S.subs = typeof subs == "number" ? subs : null; // только число, без личных данных; до SQL функции нет → не показываем
     setVid(pv, mv);
     const st = Object.fromEntries(settings.map(x => [x.key, x.value]));
     Object.assign(S, { tiers, posts, media, profile: st.profile || {}, viewer: st.viewer || {}, imgv: st.imgv?.paths || {}, offline: false }); TX = st.texts || {};
@@ -106,7 +107,7 @@ function hero() {
   const p = S.profile, cover = p.cover ? pub(p.cover) : "", l = p.links || {};
   const links = [["Boosty", l.boosty], ["VK Donut", l.donut], ["Telegram", l.telegram], ["VK", l.vk]].filter(x => x[1]).map(([n, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${n}</a>`).join("");
   return `<div class="hero"><div class="cv">${cover ? `<img ${imgSrc(p.cover, "(min-width:640px) 600px, 100vw")} alt="" fetchpriority="high">` : ""}</div><div class="prof"><span class="ava" style="background-image:url('${p.avatar ? bgSrc(p.avatar, 192) : "avatar.jpg"}')"></span>
-  <h1>${esc(p.name || "Мия")}</h1><div class="mu">${esc(p.tagline || "")}</div><div class="mu small" style="margin-top:4px">${S.posts.length} ${plural(S.posts.length, "пак", "пака", "паков")} · ${S.media.length} ${plural(S.media.length, "арт", "арта", "артов")}</div>${links ? `<div class="links">${links}</div>` : ""}</div></div>`;
+  <h1>${esc(p.name || "Мия")}</h1><div class="mu">${esc(p.tagline || "")}</div><div class="mu small" style="margin-top:4px">${S.posts.length} ${plural(S.posts.length, "пак", "пака", "паков")} · ${S.media.length} ${plural(S.media.length, "арт", "арта", "артов")}${S.subs > 0 ? ` · 🐾 ${S.subs} ${plural(S.subs, "подписчик", "подписчика", "подписчиков")}` : ""}</div>${links ? `<div class="links">${links}</div>` : ""}</div></div>`;
 }
 const tabs = on => `<div class="tabs">${[["ЛЕНТА", "feed"], ["МЕДИА", "media"], ["УРОВНИ", "levels"], ["ОБ АВТОРЕ", "about"]].map(([n, h]) => `<a href="#/${h}" class="${h == on ? "on" : ""}">${n}</a>`).join("")}</div>`;
 const heart = p => `${S.liked.has(p.id) ? "❤" : "♡"} ${p.like_count || 0}`;
@@ -124,6 +125,12 @@ const tzOff = () => matchMedia("(prefers-reduced-motion: reduce)").matches || na
 // открытый видео-пост — полное видео (публичная копия feedvid/), всё закрытое — только 4-секундный тизер
 const tzTag = (p, locked) => { const v = S.pv?.[p.id], t = !locked && v?.feed_video_path || v?.teaser_path; return t && !tzOff() ? `<video class="tz" data-src="${pub(t)}" muted loop playsinline preload="none" disablepictureinpicture aria-hidden="true"></video>` : ""; };
 let tzIO = null;
+// живой аватар/шапка: только после полной загрузки страницы (LCP — картинка), без звука, по кругу; reduced-motion / экономия трафика → только картинка
+function heroVid() { const p = S.profile; if (tzOff() || !(p.avatar_video || p.cover_video)) return;
+  const go = () => [[".hero .cv", p.cover_video], [".hero .prof .ava", p.avatar_video]].forEach(([sel, path]) => { const box = $(sel); if (!box || !path || box.querySelector("video")) return;
+    const v = document.createElement("video"); Object.assign(v, { muted: true, loop: true, playsInline: true, autoplay: true, preload: "auto" }); v.className = "hv"; v.setAttribute("aria-hidden", "true");
+    v.oncanplay = () => v.classList.add("on"); v.src = pub(path); box.append(v); v.play().catch(() => {}); });
+  document.readyState == "complete" ? setTimeout(go, 300) : addEventListener("load", () => setTimeout(go, 300), { once: true }); }
 function tzBind() {
   tzIO?.disconnect(); const vs = $$("video.tz"); if (!vs.length || !("IntersectionObserver" in window)) return;
   tzIO = new IntersectionObserver(es => es.forEach(e => { const v = e.target;
@@ -457,7 +464,7 @@ async function render(o = {}) {
   $$("[data-like]").forEach(b => b.onclick = e => { e.preventDefault(); toggleLike(b.dataset.like); });
   $$("[data-cm]").forEach(a => a.onclick = e => { e.preventDefault(); e.stopPropagation(); openComments(a.dataset.cm); });
   if (v == "media") bindMedia();
-  $$("[data-view]").forEach(a => a.onclick = e => { e.preventDefault(); openViewer(a.dataset.view, 0, false); }); tzBind();
+  $$("[data-view]").forEach(a => a.onclick = e => { e.preventDefault(); openViewer(a.dataset.view, 0, false); }); tzBind(); heroVid();
   $$("[data-vi]").forEach(im => im.onclick = () => openViewer(id, +im.dataset.vi, true));
   if (parts[2] == "c") setTimeout(() => $("#cmts")?.scrollIntoView({ behavior: "smooth" }), 100);
   if ($("#vw")) { $("#fsb").onclick = fullscreen; $("#vw").onclick = e => { if (e.target.tagName == "IMG") go(S.idx + 1); }; swipe($("#vw")); }
