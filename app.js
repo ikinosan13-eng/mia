@@ -4,7 +4,9 @@ const H = { apikey: C.ANON_KEY };
 const sb = supabase.createClient(B, C.ANON_KEY, { auth: { storageKey: "mia-visitor" } });
 const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const pub = (p, b = "previews") => p ? `${B}/storage/v1/object/public/${b}/${p}` : "";
+const PB = (C.PREVIEW_BASE || "").replace(/\/$/, "");
+const pub = (p, b = "previews") => p ? (b == "previews" && PB ? `${PB}/${p}` : `${B}/storage/v1/object/public/${b}/${p}`) : "";
+const abs = u => /^https?:/i.test(u) ? u : B + u; // Яндекс отдаёт абсолютные ссылки, старые функции — /storage/v1/...
 // WebP-варианты публичных картинок (делает админка, кнопка «WebP-версии»). Манифест: settings.imgv → { paths: { "covers/x.jpg": { w: [480, 960], s: 1791... } } }
 // Нет манифеста или пути в нём — грузим исходный файл, как раньше.
 const vUrl = (path, w, st) => pub(`v/${path.replace(/\.[a-z0-9]+$/i, "")}-${w}-${st}.webp`);
@@ -101,7 +103,7 @@ const pickBtn = p => S.pick.credit ? `<button class="ob pko" data-pick="${p.id}"
 // «Пробник»: бесплатные арты внутри закрытого пака
 const freeOf = id => (S.free || []).filter(f => f.post_id == id).map(f => f.position);
 const freeP = {};
-const freeFn = id => freeP[id] || (freeP[id] = fn("free_arts", { post_id: id }).then(r => { if (r.status != 200) { delete freeP[id]; throw new Error(r.status); } return (r.data.images || []).map(i => ({ url: B + i.url, position: i.position })); }));
+const freeFn = id => freeP[id] || (freeP[id] = fn("free_arts", { post_id: id }).then(r => { if (r.status != 200) { delete freeP[id]; throw new Error(r.status); } return (r.data.images || []).map(i => ({ url: abs(i.url), position: i.position })); }));
 const freePlate = p => { const n = Math.max(0, (p.image_count || 0) - freeOf(p.id).length); return `<div class="fcap"><b>Мур, это лишь кусочек 🐾</b><span>Мяу~ в паке ещё ${n} ${plural(n, "арт", "арта", "артов")}, они ждут тебя 💕</span><button class="ob" data-fsub="${p.id}">Открыть полный пак 🐾</button></div>`; };
 document.addEventListener("click", e => { const t = e.target.closest("[data-fsub]"); if (!t) return; e.preventDefault(); e.stopPropagation(); const p = S.posts.find(x => x.id == t.dataset.fsub); if (p) subscribe(p.tier_rank, p.id); }, true);
 function card(p, k = 9) {
@@ -324,7 +326,7 @@ async function postView(id) {
   if (isLocked(p)) return bar() + head + `<div class="cov lk"><img ${imgSrc(p.cover_path, "(min-width:640px) 600px, 100vw")} alt="" fetchpriority="high"><h3>${esc(p.title)}</h3><span class="cnt">${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}</span>${lockPanel(p)}</div>` + ACT(p) + `<div id="pcmw">${await commentsBlock(p)}</div>`;
   const r = await packFn(id);
   if (r.status !== 200) return bar() + head + `<div class="empty">Не удалось открыть: ${esc(r.status == 0 ? T("offline") : r.data.message || r.data.error || r.status)}</div>`;
-  S.imgs = r.data.images.map(i => B + i.url); S.idx = 0; S.imgsFor = id;
+  S.imgs = r.data.images.map(i => abs(i.url)); S.idx = 0; S.imgsFor = id;
   return bar() + head + `<div style="padding:0 14px 10px;font-size:20px;font-weight:700">${esc(p.title)}</div><div class="arts">${(() => { const md = S.media.filter(m => m.post_id == id).sort((a, b) => a.position - b.position), same = md.length == r.data.images.length; return r.data.images.map((im, k) => { const w = im.width || (same && md[k].width), h = im.height || (same && md[k].height); return `<img src="${S.imgs[k]}" alt="" data-vi="${k}" ${w && h ? `width="${w}" height="${h}"` : ""} ${k < 1 ? `fetchpriority="high"` : `loading="lazy"`}>`; }).join(""); })()}</div>
   ${p.body ? `<div class="body">${esc(p.body)}</div>` : ""}` + ACT(p) + `<div id="cmts"></div><div id="pcmw">${await commentsBlock(p)}</div>`;
 }
@@ -386,7 +388,7 @@ function loadImgs(id) {
   S.vc = S.vc || vcLoad(); S.vp = S.vp || {}; id = +id || id;
   const hit = S.vc[id] && Date.now() - S.vc[id].t < VC_TTL ? S.vc[id].u : S.imgsFor == id && S.imgs ? S.imgs : null;
   if (hit) return Promise.resolve(hit); if (S.vp[id]) return S.vp[id];
-  return S.vp[id] = packFn(id).then(r => { if (r.status != 200) throw new Error(r.status); const u = r.data.images.map(i => B + i.url); S.vc[id] = { u, t: Date.now() }; vcSave(); return u; }).finally(() => delete S.vp[id]);
+  return S.vp[id] = packFn(id).then(r => { if (r.status != 200) throw new Error(r.status); const u = r.data.images.map(i => abs(i.url)); S.vc[id] = { u, t: Date.now() }; vcSave(); return u; }).finally(() => delete S.vp[id]);
 }
 function openViewer(id, start, quick, o = {}) {
   const p = S.posts.find(x => x.id == id); if (!p) return;
