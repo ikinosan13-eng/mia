@@ -214,7 +214,7 @@ async function newPost(app, mode = "pack") {
   await loadTiers(); const { esc, toast } = M();
   if (W && (W.mode || "pack") != mode) W = null;
   if (!W) W = { mode, step: 1, files: [], cover: 0, title: "", body: "", tier: tiers[tiers.length - 1]?.id ?? 0, crop: null, thumbMode: "auto", thumbCrop: null, when: "now", at: "" };
-  const steps = ["① Арты", "② Текст и уровень", "③ Превью", "④ Публикация"];
+  const steps = [W.mode == "video" ? "① Видео" : "① Арты", "② Текст и уровень", "③ Превью", "④ Публикация"];
   let body = `<h2>${W.mode == "video" ? "🎬 Видео-пост" : "Новая публикация"}</h2><div class="wiz">${steps.map((s, i) => `<div class="${W.step == i + 1 ? "on" : ""}">${s}</div>`).join("")}</div>`;
   const VP = W.mode == "video";
   if (W.step == 1) body += (VP ? `<p class="mu">🎬 Видео-пост: выберите одно видео mp4 до 300 МБ. Кадр для обложки можно выбрать ниже.</p>` : `<p class="mu">Выберите сразу много артов или видео (mp4 до 300 МБ). ↑↓ — порядок, ★ — сделать обложкой. Оригиналы загрузятся как есть (до 2560px).</p>`)
