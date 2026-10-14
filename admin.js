@@ -29,6 +29,37 @@ async function regenPreviews(btn, all) {
   }
   btn.disabled = false; btn.textContent = "Пересоздать превью"; toast(fail ? `Готово, ошибок: ${fail}` : `Готово: ${done} превью`); await M().load();
 }
+// «WebP-версии»: для публичных картинок (обложки паков, шапка, аватар, превью в «Медиа») делает уменьшенные WebP
+// в previews/v/<путь>-<ширина>-<метка>.webp (кэш на год) и пишет манифест в settings (key "imgv") — сайт берёт srcset из него.
+// Без манифеста сайт грузит исходные файлы, как раньше. Оригиналы платных артов сюда не попадают.
+const VW = { cover: [480, 960], hero: [800, 1600], ava: [192], thumb: [320] };
+async function makeVariants(btn) {
+  const { sb, toast, S, pub } = M(); btn.disabled = true; const t0 = btn.textContent; let done = 0, fail = 0, skip = 0;
+  try {
+    const [{ data: ps }, { data: ims }, { data: st }] = await Promise.all([sb.from("posts").select("cover_path"), sb.from("post_images").select("preview_path"), sb.from("settings").select("value").eq("key", "profile")]);
+    const prof = st?.[0]?.value || {}, jobs = new Map();
+    (ps || []).forEach(p => p.cover_path && jobs.set(p.cover_path, VW.cover)); (ims || []).forEach(i => i.preview_path && jobs.set(i.preview_path, VW.thumb));
+    if (prof.cover) jobs.set(prof.cover, VW.hero); if (prof.avatar) jobs.set(prof.avatar, VW.ava);
+    const { data: ov } = await sb.from("settings").select("value").eq("key", "imgv"), old = ov?.[0]?.value || {};
+    const man = { paths: { ...(old.paths || {}) } }, stamp = Date.now().toString(36);
+    if (!confirm(`Сделать WebP-версии для ${jobs.size} картинок? Уже готовые (${Object.keys(man.paths).length}) будут пропущены.`)) { btn.disabled = false; return; }
+    for (const [path, ws] of jobs) {
+      if (man.paths[path]) { skip++; continue; }
+      btn.textContent = `WebP ${done + skip + fail + 1}/${jobs.size}…`;
+      try {
+        const blob = await fetch(pub(path)).then(r => { if (!r.ok) throw new Error(r.status); return r.blob(); }), img = await createImageBitmap(blob), out = [];
+        for (const w of ws) { if (w > img.width * 1.05 && out.length) continue; const tw = Math.min(w, img.width), c = document.createElement("canvas"); c.width = tw; c.height = Math.round(img.height * tw / img.width);
+          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); const b = await new Promise(r => c.toBlob(r, "image/webp", 0.8));
+          if (!b || b.type != "image/webp") throw new Error("браузер не умеет WebP");
+          const vp = `v/${path.replace(/\.[a-z0-9]+$/i, "")}-${w}-${stamp}.webp`, up = await sb.storage.from("previews").upload(vp, b, { cacheControl: "31536000", contentType: "image/webp", upsert: true }); if (up.error) throw up.error; out.push(w); }
+        man.paths[path] = { w: out, s: stamp }; done++;
+      } catch (e) { console.error(path, e); fail++; }
+    }
+    const mu = await sb.from("settings").upsert({ key: "imgv", value: man });
+    if (mu.error) throw mu.error; ev(`WebP-версии: +${done}, ошибок ${fail}`); toast(fail ? `Готово: ${done}, пропущено ${skip}, ошибок ${fail}` : `Готово: ${done} новых, ${skip} уже были 🐾`); await M().load();
+  } catch (e) { toast("Ошибка: " + (e.message || e)); }
+  btn.disabled = false; btn.textContent = t0;
+}
 function toJpeg(img, max, q, blur = 0) { const s = Math.min(1, max / Math.max(img.width, img.height)); const c = document.createElement("canvas"); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
   const x = c.getContext("2d"); if (blur) x.filter = `blur(${blur}px)`; x.drawImage(img, 0, 0, c.width, c.height); return new Promise(r => c.toBlob(b => r({ blob: b, w: c.width, h: c.height }), "image/jpeg", q)); }
 const autoThumb = c => { // square from the middle of the cover crop (in fractions, relative to image)
@@ -44,12 +75,13 @@ async function posts(app, filter = "all") {
   const now = Date.now(), all = data || [];
   const kind = p => p.status == "draft" ? "draft" : new Date(p.publish_at) > now ? "sched" : "pub";
   const list = all.filter(p => filter == "all" || kind(p) == filter);
-  app.innerHTML = shell("posts", `<div class="r" style="justify-content:space-between;flex-wrap:wrap"><h2>Публикации</h2><span class="r"><button class="gb" id="rgp" title="Один раз: сделать чёткие превью ~700px для всех закрытых паков из оригиналов">Пересоздать превью</button> <a class="ob" href="#/admin/new">+ Новая публикация</a></span></div>
+  app.innerHTML = shell("posts", `<div class="r" style="justify-content:space-between;flex-wrap:wrap"><h2>Публикации</h2><span class="r"><button class="gb" id="mkv" title="Уменьшенные WebP-версии обложек и превью — сайт грузится быстрее">WebP-версии</button><button class="gb" id="rgp" title="Один раз: сделать чёткие превью ~700px для всех закрытых паков из оригиналов">Пересоздать превью</button> <a class="ob" href="#/admin/new">+ Новая публикация</a></span></div>
   <div class="r" style="margin-bottom:10px;flex-wrap:wrap">${[["all", "Все", all.length], ["pub", "Опубликованы"], ["sched", "Запланированы"], ["draft", "Черновики"]].map(([k, n]) => `<a class="pill ${k == filter ? "on" : ""}" href="#/admin/posts/${k}">${n} ${k == "all" ? all.length : all.filter(p => kind(p) == k).length}</a>`).join("")}</div>
   <div class="tw"><table><tr><th></th><th>Заголовок</th><th>Уровень</th><th>Арты</th><th>Статус</th><th>❤ / 💬</th><th></th></tr>${list.map(p => `<tr><td><img class="th" src="${pub(p.cover_path)}" style="width:44px;height:44px"></td><td>${esc(p.title)}</td><td><span class="tier ${p.tier_id ? "" : "f"}">${esc(tiers.find(t => t.id == p.tier_id)?.name)}</span></td><td>${p.post_images[0]?.count || 0}</td>
   <td>${p.hidden ? "🙈 Скрыт" : kind(p) == "draft" ? "Черновик" : kind(p) == "sched" ? "⏰ " + fmt(p.publish_at) : "Опубликован " + new Date(p.publish_at).toLocaleDateString("ru-RU")}</td><td>${st[p.id] ? st[p.id].like_count + " / " + st[p.id].comment_count : "—"}</td>
   <td style="white-space:nowrap"><a class="gb sm" data-ed="${p.id}">✏</a> <a class="gb sm" data-hide="${p.id}" title="${p.hidden ? "Показать" : "Скрыть"}">${p.hidden ? "👁" : "🙈"}</a> <a class="gb sm" data-del="${p.id}">🗑</a></td></tr>`).join("") || `<tr><td colspan="7" class="mu">Публикаций нет</td></tr>`}</table></div>`);
   app.querySelector("#rgp").onclick = e => regenPreviews(e.target, all);
+  app.querySelector("#mkv").onclick = e => makeVariants(e.target);
   app.querySelectorAll("[data-hide]").forEach(b => b.onclick = async () => { const p = all.find(x => x.id == b.dataset.hide); await sb.from("posts").update({ hidden: !p.hidden }).eq("id", p.id); await M().load(); posts(app, filter); });
   app.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { if (!confirm("Удалить публикацию и все её арты? Это нельзя отменить.")) return; const id = b.dataset.del, p = all.find(x => x.id == id);
     const { data: imgs } = await sb.from("post_images").select("preview_path,original_path").eq("post_id", id);
@@ -77,8 +109,8 @@ async function editPost(p, done) {
       const { data: blob, error } = await sb.storage.from("originals").download(im.original_path); if (error) return d.querySelector("#ee").textContent = error.message;
       const img = await Crop.loadImg(blob); d.querySelector("#ee").textContent = "";
       const r = await Crop.open(img, { title: "Обложка для ленты · 1:1", aspect: 1, outW: 1080, outH: 1080, previews: [{ w: 180, h: 180, label: "Карточка в ленте" }, { w: 64, h: 64, label: "Список в админке" }] });
-      if (!r) return; const path = `covers/${p.id}-${Date.now()}.jpg`; const up = await sb.storage.from("previews").upload(path, r.blob, { contentType: "image/jpeg" }); if (up.error) return toast(up.error.message);
-      const th = await squareThumb(img, r.crop); const tp = `thumbs/${p.id}/cover-${Date.now()}.jpg`; await sb.storage.from("previews").upload(tp, th, { contentType: "image/jpeg" });
+      if (!r) return; const path = `covers/${p.id}-${Date.now()}.jpg`; const up = await sb.storage.from("previews").upload(path, r.blob, { cacheControl: "31536000", contentType: "image/jpeg" }); if (up.error) return toast(up.error.message);
+      const th = await squareThumb(img, r.crop); const tp = `thumbs/${p.id}/cover-${Date.now()}.jpg`; await sb.storage.from("previews").upload(tp, th, { cacheControl: "31536000", contentType: "image/jpeg" });
       await sb.from("posts").update({ cover_path: path, cover_image_id: im.id, cover_crop: { image_id: im.id, ...r.crop }, thumb_path: tp }).eq("id", p.id); if (p.cover_path && p.cover_path.startsWith("covers/" + p.id)) sb.storage.from("previews").remove([p.cover_path]); p.cover_path = path; toast("Обложка обновлена"); } };
   const close = () => d.remove(); d.querySelector(".x").onclick = d.querySelector("[data-x]").onclick = close;
   d.querySelector("#es").onclick = async () => {
@@ -162,7 +194,7 @@ async function publish(app) {
       const img = W.files[i].img || await Crop.loadImg(W.files[i].f), iid = uuid(); if (i == W.cover) coverImg = img;
       const orig = await toJpeg(img, 2560, 0.92), prev = await toJpeg(img, tier.rank > 0 ? LOCKED_PREV : 480, tier.rank > 0 ? 0.85 : 0.8); // закрытые паки: чёткое превью ~700px (для превью-показа в кинорежиме)
       const op = `${pid}/${iid}.jpg`, pp = `thumbs/${pid}/${iid}.jpg`;
-      for (const [b, p, blob] of [["originals", op, orig.blob], ["previews", pp, prev.blob]]) { let r, k = 0; do { r = await sb.storage.from(b).upload(p, blob, { contentType: "image/jpeg", upsert: true }); } while (r.error && ++k < 3); if (r.error) throw new Error(`Арт ${i + 1}: ${r.error.message}`); }
+      for (const [b, p, blob] of [["originals", op, orig.blob], ["previews", pp, prev.blob]]) { let r, k = 0; do { r = await sb.storage.from(b).upload(p, blob, { cacheControl: "31536000", contentType: "image/jpeg", upsert: true }); } while (r.error && ++k < 3); if (r.error) throw new Error(`Арт ${i + 1}: ${r.error.message}`); }
       rows.push({ id: iid, post_id: pid, position: i + 1, preview_path: pp, original_path: op, width: orig.w, height: orig.h });
     }
     st.textContent = "Обложка и миниатюра…";
@@ -272,10 +304,10 @@ async function authorTab(app) {
   const save = async v => { const { error } = await sb.from("settings").upsert({ key: "profile", value: v }); toast(error ? "Ошибка: " + error.message : "Сохранено"); if (!error) { await M().load(); authorTab(app); } };
   q("#avf").onchange = async e => { const f = e.target.files[0]; if (!f) return; const img = await Crop.loadImg(f);
     const r = await Crop.open(img, { title: "Аватар автора", aspect: 1, round: true, outW: 400, outH: 400, previews: [{ w: 96, h: 96, round: 1, label: "96 · шапка" }, { w: 40, h: 40, round: 1, label: "40 · комментарий" }, { w: 28, h: 28, round: 1, label: "28 · меню" }] });
-    if (!r) return; const path = `site/avatar-${Date.now()}.jpg`; const up = await sb.storage.from("previews").upload(path, r.blob, { contentType: "image/jpeg" }); if (up.error) return toast(up.error.message); save({ ...p, avatar: path, avatar_crop: r.crop }); };
+    if (!r) return; const path = `site/avatar-${Date.now()}.jpg`; const up = await sb.storage.from("previews").upload(path, r.blob, { cacheControl: "31536000", contentType: "image/jpeg" }); if (up.error) return toast(up.error.message); save({ ...p, avatar: path, avatar_crop: r.crop }); };
   q("#cvf").onchange = async e => { const f = e.target.files[0]; if (!f) return; const img = await Crop.loadImg(f);
     const r = await Crop.open(img, { title: "Шапка профиля · 4:1 (жёлтая рамка — видно на телефоне)", aspect: 4, outW: 1600, outH: 400, safe: 2.4, previews: [{ w: 230, h: 58, label: "ПК" }, { w: 140, h: 58, label: "Телефон (края обрезаются)" }] });
-    if (!r) return; const path = `site/cover-${Date.now()}.jpg`; const up = await sb.storage.from("previews").upload(path, r.blob, { contentType: "image/jpeg" }); if (up.error) return toast(up.error.message); save({ ...p, cover: path, cover_crop: r.crop }); };
+    if (!r) return; const path = `site/cover-${Date.now()}.jpg`; const up = await sb.storage.from("previews").upload(path, r.blob, { cacheControl: "31536000", contentType: "image/jpeg" }); if (up.error) return toast(up.error.message); save({ ...p, cover: path, cover_crop: r.crop }); };
   q("#prf").onsubmit = e => { e.preventDefault(); const v = { ...p, name: q("#pn").value.trim(), tagline: q("#pt").value.trim(), about: q("#pa").value, links: {} }; app.querySelectorAll("[data-l]").forEach(i => v.links[i.dataset.l] = i.value.trim()); save(v); };
 }
 // ---------- texts ----------
