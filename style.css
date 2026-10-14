@@ -319,3 +319,8 @@ body.dark .fcap{background:#2a1f24;border-color:#7a3b55;color:#f3e8ea}body.dark 
 .viewer.frm .vfc .fcap span{color:#f5d0dc}.viewer.frm .vfc .fcap .fbt{margin-top:6px}.viewer.frm .vfc .fcap .fbt button{padding:8px 10px;font-size:13px}
 .ups .fr0,.ups .fr1{position:absolute;left:4px;top:4px;white-space:nowrap;font-size:10px;font-weight:700;padding:3px 7px;border-radius:999px;cursor:pointer;z-index:2}
 .ups .fr0{background:rgba(0,0,0,.55);color:#fff}.ups .fr1{background:#fff;color:#c2410c;box-shadow:0 0 0 2px #f97316}
+/* v2 пробника: закрытая обложка в ленте — размыта; закрытые паки в нижней полосе — размыто + замок */
+.cov.lk{overflow:hidden}.cov.lk img{filter:blur(16px) saturate(.85);transform:scale(1.1)}
+.pstrip .p.lk:before{display:block}
+.fcap{gap:2px;padding:10px 12px}.fcap b{font-size:15px}.fcap span{font-size:13px}.fcap button{margin:8px auto 0;padding:8px 18px;font-size:14px}
+.viewer.frm .vfc{width:min(340px,calc(100% - 40px))}.viewer.frm .vfc .fcap{padding:8px 10px}.viewer.frm .vfc .fcap b{font-size:14px}.viewer.frm .vfc .fcap span{font-size:12px}.viewer.frm .vfc .fcap button{margin-top:6px;padding:6px 14px;font-size:13px}

@@ -90,12 +90,12 @@ const pickBtn = p => S.pick.credit ? `<button class="ob pko" data-pick="${p.id}"
 const freeOf = id => (S.free || []).filter(f => f.post_id == id).map(f => f.position);
 const freeP = {};
 const freeFn = id => freeP[id] || (freeP[id] = fn("free_arts", { post_id: id }).then(r => { if (r.status != 200) { delete freeP[id]; throw new Error(r.status); } return (r.data.images || []).map(i => ({ url: B + i.url, position: i.position })); }));
-const freePlate = p => `<div class="fcap"><b>Это превью, мур 🐾</b><span>Весь пак — по подписке или кодом 💕</span><div class="fbt"><button class="ob" data-fsub="${p.id}">💕 Уровни</button><button class="gb" data-pickcode>🎁 1 пак на выбор</button></div></div>`;
+const freePlate = p => { const n = Math.max(0, (p.image_count || 0) - freeOf(p.id).length); return `<div class="fcap"><b>Мур, это лишь кусочек 🐾</b><span>Мяу~ в паке ещё ${n} ${plural(n, "арт", "арта", "артов")}, они ждут тебя 💕</span><button class="ob" data-fsub="${p.id}">Открыть полный пак 🐾</button></div>`; };
 document.addEventListener("click", e => { const t = e.target.closest("[data-fsub]"); if (!t) return; e.preventDefault(); e.stopPropagation(); const p = S.posts.find(x => x.id == t.dataset.fsub); if (p) subscribe(p.tier_rank, p.id); }, true);
 function card(p) {
   const locked = isLocked(p), n = `${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}`;
   return `<div class="post"><div class="ph"><span>${fmt(p.publish_at)}</span>${p.tier_rank > 0 ? `<span class="tier">${locked ? `<i class="lki"></i>` : ""}${esc(p.tier_name)}</span>` : `<span class="tier f">Открыто всем</span>`}</div>
-  <a href="#/post/${p.id}" class="cov ${locked ? "lk" : ""}" ${locked ? "" : `data-view="${p.id}"`}><img src="${pub(p.cover_path)}" alt="" loading="lazy"><h3>${esc(p.title)}</h3><span class="cnt">${n}</span>${locked && freeOf(p.id).length ? `<span class="frb">🐾 ${freeOf(p.id).length} бесплатно</span>` : ""}${locked ? lockPanel(p) : ""}</a>
+  <a href="#/post/${p.id}" class="cov ${locked ? "lk" : ""}" ${locked ? "" : `data-view="${p.id}"`}><img src="${pub(p.cover_path)}" alt="" loading="lazy"><h3>${esc(p.title)}</h3><span class="cnt">${n}</span>${locked ? lockPanel(p) : ""}</a>
   ${p.body && !locked ? `<div class="body">${esc(p.body.length > 300 ? p.body.slice(0, 300) + "…" : p.body)}</div>` : ""}${ACT(p)}</div>`;
 }
 function levelsHtml() {
@@ -310,7 +310,7 @@ async function postView(id) {
   const p = S.posts.find(x => x.id == id); if (!p) return bar() + `<div class="empty">Публикация не найдена</div>`;
   const head = `<div class="ph" style="padding-top:14px"><a href="#/feed">← Лента</a><span>${fmt(p.publish_at)}</span></div>`;
   if (isLocked(p) && freeOf(p.id).length) { const f = await timeout(freeFn(p.id), 15000).catch(() => []); S.imgs = f.map(x => x.url); S.idx = 0; S.imgsFor = "free:" + id;
-    if (f.length) return bar() + head + `<div style="padding:0 14px 10px;font-size:20px;font-weight:700">${esc(p.title)}</div><div class="arts free">${f.map((im, k) => `<div class="fa"><img src="${im.url}" alt="" data-fvi="${k}" loading="${k < 2 ? "eager" : "lazy"}"><span class="frb">Бесплатно 🐾</span></div>`).join("")}</div>` + freePlate(p)
+    if (f.length) return bar() + head + `<div style="padding:0 14px 10px;font-size:20px;font-weight:700">${esc(p.title)}</div><div class="arts free">${f.map((im, k) => `<div class="fa"><img src="${im.url}" alt="" data-fvi="${k}" loading="${k < 2 ? "eager" : "lazy"}"></div>`).join("")}</div>` + freePlate(p)
       + `<div class="cov lk"><img src="${pub(p.cover_path)}" alt=""><h3>${esc(p.title)}</h3><span class="cnt">ещё ${p.image_count - f.length} ${plural(p.image_count - f.length, "арт", "арта", "артов")} в паке</span>${lockPanel(p)}</div>` + ACT(p) + await commentsBlock(p); }
   if (isLocked(p)) return bar() + head + `<div class="cov lk"><img src="${pub(p.cover_path)}" alt=""><h3>${esc(p.title)}</h3><span class="cnt">${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}</span>${lockPanel(p)}</div>` + ACT(p) + await commentsBlock(p);
   const r = await packFn(id);
