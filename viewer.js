@@ -126,7 +126,7 @@ function lockCard(p) {
   const fr = M.freeOf(p.id), isF = k => pv[k] && fr.includes(pv[k].position);
   el("strip").innerHTML = Array.from({ length: Math.min(n, 12) }, (_, k) => `<div class="tzt${isF(k) ? " fr" : ""}" data-k="${k}"><i${pv[k] ? ` style="background-image:url('${M.pub(pv[k].preview_path)}')"` : ""}></i></div>`).join(""); el("strip").classList.add("on");
   el("strip").querySelectorAll(".tzt").forEach(d => d.onclick = e => { e.stopPropagation(); const k = +d.dataset.k; if (isF(k)) return freeShow(p, fr.indexOf(pv[k].position)); teaser(p); });
-  el("lc").innerHTML = `<div class="lfull"><img src="${M.pub(p.cover_path)}" alt=""><i class="lfz"></i><button class="llock" id="v-llk" title="${M.esc(M.T("btn_subscribe"))}"></button><h3>${M.esc(p.title)}</h3><span class="lcnt">${M.esc(M.cntText ? M.cntText(p, `${n} ${M.plural(n, "арт", "арта", "артов")}`) : `${n} ${M.plural(n, "арт", "арта", "артов")}`)}</span>
+  el("lc").innerHTML = `<div class="lfull"><img src="${M.pub(p.cover_path)}" alt=""><i class="lfz"></i><button class="llock" id="v-llk" title="${M.esc(M.T("btn_subscribe"))}"></button><h3>${M.esc(p.title)}</h3><span class="lcnt${M.S.pv?.[p.id]?.video_count ? " nv" : ""}">${M.cntHtml ? M.cntHtml(p, `${n} ${M.plural(n, "арт", "арта", "артов")}`) : M.esc(`${n} ${M.plural(n, "арт", "арта", "артов")}`)}</span>
     <div class="frost lpan"><span class="mu">${M.esc(M.T("locked_label"))}</span><b>${M.esc(p.tier_name || "")}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><button class="ob" id="v-buy">🔒 ${M.esc(M.T("btn_subscribe"))}</button>${M.pickBtn(p)}${fr.length ? `<button class="gb" id="v-free">🐾 Посмотреть ${fr.length} ${M.plural(fr.length, "арт", "арта", "артов")} бесплатно</button>` : ""}</div></div>`;
   el("buy").onclick = e => { e.stopPropagation(); sub(p); };
   if (el("free")) el("free").onclick = e => { e.stopPropagation(); freeShow(p, 0); };
@@ -150,7 +150,7 @@ function freeShow(p, k = 0) {
   wake();
 }
 function title(post) { el("ttl").querySelector("h2").textContent = post.title; const n = `${post.image_count} ${window.Mia.plural(post.image_count, "арт", "арта", "артов")}`, v = window.Mia.S.pv?.[post.id];
-  el("ttl").querySelector("p").textContent = `${v?.kind == "video" ? "видео · " + window.Mia.cntText(post, n).replace("▶ ", "") : "пак · " + (v ? window.Mia.cntText(post, n) : n)}${post.tier_rank > 0 ? " · " + post.tier_name : ""}`; }
+  el("ttl").querySelector("p").textContent = `${v?.kind == "video" ? "видео · " + window.Mia.cntText(post, n) : "пак · " + (v ? window.Mia.cntText(post, n) : n)}${post.tier_rank > 0 ? " · " + post.tier_name : ""}`; }
 function fill(post, imgsP, then) {
   imgsP.then(imgs => { if (st.post !== post) return; if (!imgs.length) { el("load").textContent = "В паке пока нет артов"; el("load").classList.add("on"); } st.imgs = imgs; el("strip").innerHTML = "";
     imgs.forEach((u, k) => { const d = document.createElement("div"); thumbBg(d, u, post, k); d.style.transitionDelay = (k * .06) + "s"; d.onclick = () => { show(k); hideBar(); }; el("strip").append(d); });
