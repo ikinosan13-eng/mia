@@ -51,7 +51,8 @@ const fn = async (name, body) => { const session = await timeout(sb.auth.getSess
 function setVid(pv, mv) { S.pvList = pv || []; S.mvList = mv || []; S.pv = Object.fromEntries(S.pvList.map(x => [x.post_id, x])); S.mv = Object.fromEntries(S.mvList.map(x => [x.id, x])); }
 const dur = t => { t = Math.max(0, Math.round(+t || 0)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; };
 // подпись счётчика: видео-пост — «▶ 0:12», пак с видео — «4 арта · ▶ 0:12» (или «· ▶ 2»)
-const cntText = (p, n) => { const v = S.pv?.[p.id]; if (!v) return n; const d = v.video_count == 1 && v.duration_sec ? dur(v.duration_sec) : v.video_count; return v.kind == "video" ? `▶ ${v.video_count > 1 ? v.video_count : dur(v.duration_sec)}` : `${n} · ▶ ${d}`; };
+// счётчик: видео-пост «▶ 0:15»; пак видео+арты «🎬 1 · 🖼 2»; только видео «🎬 2»; только арты — как было
+const cntText = (p, n) => { const v = S.pv?.[p.id]; if (!v || !v.video_count) return n; if (v.kind == "video") return `▶ ${v.video_count > 1 ? v.video_count : dur(v.duration_sec)}`; const a = (p.image_count || 0) - v.video_count; return a > 0 ? `🎬 ${v.video_count} · 🖼 ${a}` : `🎬 ${v.video_count}`; };
 const vPlay = `<span class="ib vplay">▶</span>`;
 function fromCache(c) { setVid(c.pv, c.mv); Object.assign(S, { tiers: c.tiers, posts: c.posts, media: c.media, profile: c.st.profile || {}, viewer: c.st.viewer || {}, free: c.free || S.free || [], imgv: c.imgv || S.imgv || {} }); TX = c.st.texts || {}; }
 async function load(o = {}) {
@@ -118,7 +119,7 @@ document.addEventListener("click", e => { const t = e.target.closest("[data-fsub
 function card(p, k = 9) {
   const locked = isLocked(p), n = `${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}`;
   return `<div class="post"><div class="ph"><span>${fmt(p.publish_at)}</span>${p.tier_rank > 0 ? `<span class="tier">${locked ? `<i class="lki"></i>` : ""}${esc(p.tier_name)}</span>` : `<span class="tier f">Открыто всем</span>`}</div>
-  <a href="#/post/${p.id}" class="cov ${locked ? "lk" : ""}" ${locked ? "" : `data-view="${p.id}"`}><img ${imgSrc(p.cover_path, "(min-width:640px) 600px, 100vw")} alt="" ${k < 1 ? `fetchpriority="high"` : `loading="lazy"`}><h3>${esc(p.title)}</h3><span class="cnt">${esc(cntText(p, n))}</span>${!locked && S.pv?.[p.id]?.kind == "video" ? vPlay : ""}${locked ? lockPanel(p) : ""}</a>
+  <a href="#/post/${p.id}" class="cov ${locked ? "lk" : ""}" ${locked ? "" : `data-view="${p.id}"`}><img ${imgSrc(p.cover_path, "(min-width:640px) 600px, 100vw")} alt="" ${k < 1 ? `fetchpriority="high"` : `loading="lazy"`}><h3>${esc(p.title)}</h3><span class="cnt${S.pv?.[p.id]?.video_count ? " nv" : ""}">${esc(cntText(p, n))}</span>${!locked && S.pv?.[p.id]?.kind == "video" ? vPlay : ""}${locked ? lockPanel(p) : ""}</a>
   ${p.body && !locked ? `<div class="body">${esc(p.body.length > 300 ? p.body.slice(0, 300) + "…" : p.body)}</div>` : ""}${ACT(p)}</div>`;
 }
 function levelsHtml() {

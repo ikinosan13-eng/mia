@@ -45,7 +45,7 @@ async function uploadVideo(path, file, onp) {
 }
 // строки с видео-колонками; если video.sql ещё не применён — без них (сайт узнаёт видео по .mp4)
 async function insertRows(rows) { const { sb } = M(); let r = await sb.from("post_images").insert(rows);
-  if (r.error && /kind|duration_sec|poster_path|size_bytes|column/i.test(r.error.message)) r = await sb.from("post_images").insert(rows.map(({ kind, duration_sec, poster_path, size_bytes, ...x }) => x)); return r; }
+  if (r.error && /(kind|duration_sec|poster_path|size_bytes).*(does not exist|schema cache)|Could not find/i.test(r.error.message)) r = await sb.from("post_images").insert(rows.map(({ kind, duration_sec, poster_path, size_bytes, ...x }) => x)); return r; }
 
 let tiers = [];
 async function loadTiers() { const { data } = await M().sb.from("tiers").select("id,rank,name,price_rub,perks,pay_url,boosty_url,code_version").order("rank"); tiers = data || []; }
@@ -299,7 +299,7 @@ async function publish(app) {
       const op = `${pid}/${iid}.jpg`, pp = `thumbs/${pid}/${iid}.jpg`;
       for (const [b, p, blob] of [["originals", op, orig.blob], ["previews", pp, prev.blob]]) { let r, k = 0; do { r = await ys(b).upload(p, blob, { cacheControl: "31536000", contentType: "image/jpeg", upsert: true }); } while (r.error && ++k < 3); if (r.error) throw new Error(`Арт ${i + 1}: ${r.error.message}`); }
       vjobs.push([pp, VW.thumb, prev.blob]);
-      rows.push({ id: iid, post_id: pid, position: i + 1, preview_path: pp, original_path: op, width: orig.w, height: orig.h });
+      rows.push({ id: iid, post_id: pid, position: i + 1, preview_path: pp, original_path: op, width: orig.w, height: orig.h, kind: "image", duration_sec: null, poster_path: null, size_bytes: null }); // все строки с одинаковыми ключами: иначе PostgREST подставит null в kind и вставка упадёт
     }
     st.textContent = "Обложка и миниатюра…";
     const crop = W.crop || null, cv = document.createElement("canvas");
