@@ -157,7 +157,7 @@ function startMusic(c, post) {
   stopMusic(true); if (!c.music_on) return;
   const vol = Math.max(0, Math.min(1, (c.volume ?? 40) / 100)), track = (c.tracks || {})[post.id] || c.track;
   if (track) {
-    audio = new Audio(window.Mia.pub(track, "media")); audio.loop = true; audio.volume = 0; audio.play().catch(() => { audio = null; V.classList.remove("music"); el("mu").classList.remove("act"); });
+    audio = new Audio(window.Mia.pub(track, "media")); { const a0 = audio; a0.addEventListener("error", () => { if (!a0.dataset.fb) { a0.dataset.fb = 1; a0.src = window.Mia.sbPub(track, "media"); a0.play().catch(() => {}); } }); } audio.loop = true; audio.volume = 0; audio.play().catch(() => { audio = null; V.classList.remove("music"); el("mu").classList.remove("act"); });
     let v = 0; clearInterval(fadeT); fadeT = setInterval(() => { if (!audio) return clearInterval(fadeT); v = Math.min(vol, v + vol / 30); audio.volume = v; if (v >= vol) clearInterval(fadeT); }, 80);
   } else {
     try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch { return; }
@@ -219,7 +219,7 @@ function open(post, imgsP, o = {}) {
   try { if (!document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {}); } catch {}
   for (const a of [el("a1"), el("a2")]) { a.classList.toggle("dev", style != "none"); a.classList.remove("show"); a.style.backgroundImage = ""; }
   el("intro").classList.remove("out"); el("hello").innerHTML = ""; el("mia").classList.remove("on"); el("skip").classList.toggle("hide", !c.skip); el("strip").classList.remove("on"); el("ttl").classList.remove("on");
-  el("mia").style.backgroundImage = c.art ? `url("${window.Mia.pub(c.art, "media")}")` : ""; el("mia").classList.toggle("noart", !c.art);
+  el("mia").style.backgroundImage = c.art ? `url("${window.Mia.pub(c.art, "media")}"), url("${window.Mia.sbPub(c.art, "media")}")` : ""; el("mia").classList.toggle("noart", !c.art);
   title(post); el("load").textContent = "Загрузка…"; clearTimeout(hideT);
   el("cnt").textContent = ""; el("strip").innerHTML = ""; el("strip").classList.toggle("hide", !c.strip); drawBot(); drawPacks();
   fill(post, imgsP);
