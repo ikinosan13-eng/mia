@@ -309,9 +309,6 @@ async function openComments(id, onChange) {
 async function postView(id) {
   const p = S.posts.find(x => x.id == id); if (!p) return bar() + `<div class="empty">Публикация не найдена</div>`;
   const head = `<div class="ph" style="padding-top:14px"><a href="#/feed">← Лента</a><span>${fmt(p.publish_at)}</span></div>`;
-  if (isLocked(p) && freeOf(p.id).length) { const f = await timeout(freeFn(p.id), 15000).catch(() => []); S.imgs = f.map(x => x.url); S.idx = 0; S.imgsFor = "free:" + id;
-    if (f.length) return bar() + head + `<div style="padding:0 14px 10px;font-size:20px;font-weight:700">${esc(p.title)}</div><div class="arts free">${f.map((im, k) => `<div class="fa"><img src="${im.url}" alt="" data-fvi="${k}" loading="${k < 2 ? "eager" : "lazy"}"></div>`).join("")}</div>` + freePlate(p)
-      + `<div class="cov lk"><img src="${pub(p.cover_path)}" alt=""><h3>${esc(p.title)}</h3><span class="cnt">ещё ${p.image_count - f.length} ${plural(p.image_count - f.length, "арт", "арта", "артов")} в паке</span>${lockPanel(p)}</div>` + ACT(p) + await commentsBlock(p); }
   if (isLocked(p)) return bar() + head + `<div class="cov lk"><img src="${pub(p.cover_path)}" alt=""><h3>${esc(p.title)}</h3><span class="cnt">${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}</span>${lockPanel(p)}</div>` + ACT(p) + await commentsBlock(p);
   const r = await packFn(id);
   if (r.status !== 200) return bar() + head + `<div class="empty">Не удалось открыть: ${esc(r.status == 0 ? T("offline") : r.data.message || r.data.error || r.status)}</div>`;
@@ -403,7 +400,6 @@ async function render() {
   if (v == "media") bindMedia();
   $$("[data-view]").forEach(a => a.onclick = e => { e.preventDefault(); openViewer(a.dataset.view, 0, false); });
   $$("[data-vi]").forEach(im => im.onclick = () => openViewer(id, +im.dataset.vi, true));
-  $$("[data-fvi]").forEach(im => im.onclick = () => openViewer(id, +im.dataset.fvi, true));
   if (parts[2] == "c") setTimeout(() => $("#cmts")?.scrollIntoView({ behavior: "smooth" }), 100);
   if ($("#vw")) { $("#fsb").onclick = fullscreen; $("#vw").onclick = e => { if (e.target.tagName == "IMG") go(S.idx + 1); }; swipe($("#vw")); }
   if ($("#cmf")) { $("#cmf").onsubmit = async e => { e.preventDefault(); const b = $("#cmt").value.trim(); if (!b) return;
