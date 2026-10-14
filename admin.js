@@ -147,7 +147,7 @@ const autoThumb = c => { // square from the middle of the cover crop (in fractio
 // ---------- posts ----------
 async function posts(app, filter = "all") {
   const { sb, esc, pub, fmt } = M(); await loadTiers();
-  let { data, error } = await sb.from("posts").select("id,title,body,tier_id,cover_path,publish_at,status,hidden").order("publish_at", { ascending: false });
+  let { data, error } = await sb.from("posts").select("id,title,body,tier_id,cover_path,publish_at,status,hidden,kind,cover_image_id").order("publish_at", { ascending: false });
   if (!error) { const { data: ims } = await sb.from("post_images").select("post_id"); const n = {}; (ims || []).forEach(i => n[i.post_id] = (n[i.post_id] || 0) + 1); data.forEach(p => p.post_images = [{ count: n[p.id] || 0 }]); }
   if (error) { app.innerHTML = shell("posts", `<div class="note">Ошибка загрузки списка: ${esc(error.message)} <a class="ob sm" href="#/admin/posts">Повторить</a></div>`); return; }
   const { data: fp } = await sb.from("feed_public").select("id,like_count,comment_count"); const st = Object.fromEntries((fp || []).map(x => [x.id, x]));
@@ -173,22 +173,77 @@ async function posts(app, filter = "all") {
     const { error } = await sb.from("posts").delete().eq("id", id); M().toast(error ? "Ошибка: " + error.message : "Удалено"); if (!error) ev("Удалена публикация «" + p.title + "»"); await M().load(); posts(app, filter); });
   app.querySelectorAll("[data-ed]").forEach(b => b.onclick = () => editPost(all.find(x => x.id == b.dataset.ed), () => posts(app, filter)));
 }
+// «🎬 Сделать тизер» для уже загруженных видео: тизер 4 с из оригинала (+ для открытого видео-поста — сжатая публичная копия для ленты)
+// один арт/видео в существующий пост — как в publish(): видео сжимается (WebCodecs), тизер, постер; арт — оригинал 2560 + превью
+async function uploadItem(pid, F, rank, position, onst) {
+  const iid = uuid(), img = F.img || await Crop.loadImg(F.f);
+  if (F.video) { const VC = await import("./vcomp.js?v=37").catch(() => null), vp = `videos/${pid}/${iid}.mp4`, pp = `posters/${pid}/${iid}.jpg`;
+    const prev = await toJpeg(img, rank > 0 ? LOCKED_PREV : 720, .85); let r = await ys("previews").upload(pp, prev.blob, { contentType: "image/jpeg", upsert: true }); if (r.error) throw r.error;
+    let up = F.f, tp = null;
+    if (VC?.supported()) { try { up = (await VC.compress(F.f, x => onst(`сжимаю ${Math.round(x * 100)}%`))).blob; } catch (e) { console.warn(e); }
+      try { onst("тизер…"); tp = `teasers/${pid}/${iid}.mp4`; const r2 = await ys("previews").upload(tp, await VC.teaser(F.f, F.t || 0), { contentType: "video/mp4", upsert: true }); if (r2.error) tp = null; } catch { tp = null; } }
+    await uploadVideo(vp, up, x => onst(`видео ${Math.round(x * 100)}%`)); autoVariants([[pp, VW.thumb, prev.blob]]);
+    return { id: iid, post_id: pid, position, preview_path: pp, original_path: vp, width: F.w, height: F.h, kind: "video", duration_sec: Math.round(F.dur * 10) / 10, poster_path: pp, size_bytes: up.size, teaser_path: tp }; }
+  onst("арт…"); const orig = await toJpeg(img, 2560, 0.92), prev = await toJpeg(img, rank > 0 ? LOCKED_PREV : 480, rank > 0 ? 0.85 : 0.8), op = `${pid}/${iid}.jpg`, pp = `thumbs/${pid}/${iid}.jpg`;
+  for (const [b, path, blob] of [["originals", op, orig.blob], ["previews", pp, prev.blob]]) { let r, k = 0; do { r = await ys(b).upload(path, blob, { cacheControl: "31536000", contentType: "image/jpeg", upsert: true }); } while (r.error && ++k < 3); if (r.error) throw r.error; }
+  autoVariants([[pp, VW.thumb, prev.blob]]);
+  return { id: iid, post_id: pid, position, preview_path: pp, original_path: op, width: orig.w, height: orig.h, kind: "image", duration_sec: null, poster_path: null, size_bytes: null, teaser_path: null };
+}
+async function makeTeasers(p, imgs, btn, out) {
+  const { sb, toast } = M(), VC = await import("./vcomp.js?v=37").catch(() => null);
+  if (!VC?.supported()) return out.textContent = "Этот браузер не умеет WebCodecs — откройте админку в Chrome/Edge/Safari 16.4+";
+  btn.disabled = true; const open = (tiers.find(t => t.id == p.tier_id)?.rank || 0) == 0;
+  try {
+    for (const im of imgs.filter(x => /^videos\//.test(x.original_path))) {
+      out.textContent = "Скачиваю оригинал…"; const { data: f, error } = await ys("originals").download(im.original_path); if (error || !f) throw new Error("не удалось скачать оригинал");
+      out.textContent = "Делаю тизер…"; const tp = `teasers/${p.id}/${im.id}.mp4`, r = await ys("previews").upload(tp, await VC.teaser(f, 1), { contentType: "video/mp4", upsert: true }); if (r.error) throw r.error;
+      await sb.from("post_images").update({ teaser_path: tp }).eq("id", im.id);
+      const isCover = p.kind == "video" || p.cover_image_id == im.id;
+      let fp = null;
+      if (open && p.kind == "video") { fp = `feedvid/${p.id}/${im.id}.mp4`; const c = await VC.compress(f, x => out.textContent = `Сжимаю для ленты ${Math.round(x * 100)}%`);
+        await uploadVideo(fp, c.blob, x => out.textContent = `Видео для ленты · ${Math.round(x * 100)}%`, "previews"); }
+      if (isCover || fp) await sb.from("posts").update({ ...(isCover ? { cover_teaser_path: tp } : {}), ...(fp ? { feed_video_path: fp } : {}) }).eq("id", p.id);
+    }
+    out.textContent = "Готово 🐾"; toast("Тизер готов"); await M().load();
+  } catch (e) { out.textContent = "Ошибка: " + (e.message || e); } finally { btn.disabled = false; }
+}
 async function editPost(p, done) {
   const { sb, esc, pub, toast } = M();
-  const { data: imgs } = await sb.from("post_images").select("id,position,preview_path,original_path,is_free").eq("post_id", p.id).order("position");
+  let { data: imgs, error: ie } = await sb.from("post_images").select("id,position,preview_path,original_path,is_free,kind,teaser_path,poster_path").eq("post_id", p.id).order("position");
+  if (ie) ({ data: imgs } = await sb.from("post_images").select("id,position,preview_path,original_path,is_free").eq("post_id", p.id).order("position")); imgs = imgs || [];
   const d = document.createElement("div"); d.className = "ov"; d.innerHTML = `<div class="sheet wide-sheet"><a class="x">✕</a><h2>Редактировать</h2>
   <label>Заголовок</label><input type="text" id="et" value="${esc(p.title)}"><label>Текст</label><textarea id="eb" rows="3">${esc(p.body || "")}</textarea>
   <label>Уровень</label><select id="etr">${tiers.map(t => `<option value="${t.id}" ${t.id == p.tier_id ? "selected" : ""}>${esc(t.name)}</option>`).join("")}</select>
-  <label>Порядок артов (↑↓) · ★ — сделать обложкой · «Бесплатно 🐾» — арт виден всем как пробник</label><div class="ups" id="eu"></div><div class="row-btn"><button class="gb" data-x>Отмена</button><button class="ob" id="es">Сохранить</button></div><div class="err" id="ee"></div></div>`;
-  document.body.append(d); let order = imgs.slice();
-  const draw = () => d.querySelector("#eu").innerHTML = order.map((im, i) => `<div style="background-image:url('${pub(im.preview_path)}')"><span class="o">${i + 1}</span><b class="fr${im.is_free ? 1 : 0}" data-fr="${i}">${im.is_free ? "✓ 🐾 Бесплатно" : "Бесплатно?"}</b><span class="ctl"><b data-m="-1" data-i="${i}">↑</b><b data-cv="${i}">★</b><b data-m="1" data-i="${i}">↓</b></span></div>`).join("");
+  <label>Порядок (↑↓) · ★ — сделать обложкой · ✕ — удалить · ＋ — добавить арты или видео · «Бесплатно 🐾» — арт виден всем как пробник</label><div class="ups" id="eu"></div><input type="file" id="eaf" accept="image/*,video/mp4" multiple class="hide"><div class="mu small" id="eus"></div>${imgs.some(im => /^videos\//.test(im.original_path)) ? `<button class="gb sm" id="etz" style="margin-top:8px">🎬 Сделать тизер</button><div class="mu small" id="etzs"></div>` : ""}<div class="row-btn"><button class="gb" data-x>Отмена</button><button class="ob" id="es">Сохранить</button></div><div class="err" id="ee"></div></div>`;
+  document.body.append(d); let order = imgs.slice(); const del = []; // del — удаляются при «Сохранить»; новые (im.f) загружаются при «Сохранить»
+  const isV = im => im.video || im.kind == "video" || /^videos\//.test(im.original_path || "");
+  const draw = () => d.querySelector("#eu").innerHTML = order.map((im, i) => `<div style="background-image:url('${im.f ? im.url : pub(im.preview_path)}')"><span class="o">${i + 1}</span>${isV(im) || im.f ? `<span class="o" style="top:auto;bottom:24px">${isV(im) ? "▶ видео" : ""}${isV(im) && im.f ? " · " : ""}${im.f ? "новый" : ""}</span>` : ""}${im.id && im.id == p.cover_image_id ? `<span class="cvb">обложка</span>` : `<b class="fr${im.is_free ? 1 : 0}" data-fr="${i}">${im.is_free ? "✓ 🐾 Бесплатно" : "Бесплатно?"}</b>`}<span class="ctl"><b data-m="-1" data-i="${i}">↑</b>${im.f ? "" : `<b data-cv="${i}">★</b>`}<b data-rm="${i}">✕</b><b data-m="1" data-i="${i}">↓</b></span></div>`).join("") + `<div class="add" id="eadd">＋</div>`;
   draw();
+  if (d.querySelector("#etz")) d.querySelector("#etz").onclick = e => makeTeasers(p, imgs, e.target, d.querySelector("#etzs"));
   const free0 = new Map(imgs.map(im => [im.id, !!im.is_free]));
+  d.querySelector("#eaf").onchange = async e => { const st = d.querySelector("#eus");
+    for (const f of e.target.files) { if (isMp4(f)) { if (f.size > VMAX) { st.textContent = VBAD; continue; } try { order.push(await addVideo(f)); } catch { st.textContent = VBAD; } }
+      else if (/^image\//.test(f.type)) order.push({ f, url: URL.createObjectURL(f) }); else st.textContent = VBAD; }
+    e.target.value = ""; draw(); };
   d.querySelector("#eu").onclick = async e => { const t = e.target;
+    if (t.id == "eadd") return d.querySelector("#eaf").click();
+    if (t.dataset.rm) { const i = +t.dataset.rm, im = order[i], ee = d.querySelector("#ee"); ee.textContent = "";
+      if (im.id && im.id == p.cover_image_id) return ee.textContent = "Мяу, это обложка 🐾 Сначала сделайте обложкой другой арт (★), потом удаляйте";
+      if (order.length < 2) return ee.textContent = "В публикации должен остаться хотя бы один арт 🐾";
+      if (!im.f && !confirm(`Удалить ${isV(im) ? "видео" : "арт"} №${i + 1}? Файлы удалятся из хранилища после «Сохранить». Это нельзя отменить.`)) return;
+      order.splice(i, 1); if (!im.f) del.push(im); draw(); return; }
     if (t.dataset.fr) { const im = order[+t.dataset.fr]; im.is_free = !im.is_free; draw(); return; }
     if (t.dataset.m) { const i = +t.dataset.i, j = i + +t.dataset.m; if (j < 0 || j >= order.length) return; [order[i], order[j]] = [order[j], order[i]]; draw(); }
     if (t.dataset.cv) { const im = order[+t.dataset.cv]; d.querySelector("#ee").textContent = "Загружаю оригинал…";
       const { data: blob, error } = await ys("originals").download(im.original_path); if (error) return d.querySelector("#ee").textContent = error.message;
+      if (isV(im)) { d.querySelector("#ee").textContent = ""; // обложка-видео: квадратная рамка + живое превью, обложка = кадр, тизер = 4 с из выбранного места и кадрирования
+        const VC = await import("./vcomp.js?v=37").catch(() => null); if (!VC?.supported()) return d.querySelector("#ee").textContent = "Нужен браузер с WebCodecs";
+        const r = await videoCrop(blob, { title: "Обложка-видео для ленты · 1:1 · тизер 4 с", aspect: 1, dur: 4, outW: 1080, outH: 1080, ok: "Сделать обложкой", previews: [{ w: 180, h: 180, label: "Карточка в ленте" }, { w: 64, h: 64, label: "Список в админке" }] });
+        if (!r) return; const ts = Date.now(), path = `covers/${p.id}-${ts}.jpg`, tzp = `teasers/${p.id}/cover-${ts}.mp4`;
+        const up = await ys("previews").upload(path, r.frame, { cacheControl: "31536000", contentType: "image/jpeg" }); if (up.error) return toast(up.error.message);
+        const tzb = await VC.clip(blob, r.start, 4, 720, 720, 6e5, r.crop), u2 = await ys("previews").upload(tzp, tzb, { contentType: "video/mp4" }); if (u2.error) return toast(u2.error.message);
+        await sb.from("posts").update({ cover_path: path, cover_image_id: im.id, cover_teaser_path: tzp }).eq("id", p.id); p.cover_image_id = im.id; draw();
+        if (p.cover_path && p.cover_path.startsWith("covers/" + p.id)) ys("previews").remove([p.cover_path]); p.cover_path = path; toast("Обложка-видео обновлена"); autoVariants([[path, VW.cover, r.frame]]); return; }
       const img = await Crop.loadImg(blob); d.querySelector("#ee").textContent = "";
       const r = await Crop.open(img, { title: "Обложка для ленты · 1:1", aspect: 1, outW: 1080, outH: 1080, previews: [{ w: 180, h: 180, label: "Карточка в ленте" }, { w: 64, h: 64, label: "Список в админке" }] });
       if (!r) return; const path = `covers/${p.id}-${Date.now()}.jpg`; const up = await ys("previews").upload(path, r.blob, { cacheControl: "31536000", contentType: "image/jpeg" }); if (up.error) return toast(up.error.message);
@@ -202,6 +257,21 @@ async function editPost(p, done) {
     if (!error && (tiers.find(t => t.id == ntier)?.rank || 0) > 0) { const { data: fv } = await sb.from("posts").select("feed_video_path").eq("id", p.id).maybeSingle();
       if (fv?.feed_video_path) { await ys("previews").remove([fv.feed_video_path]); await sb.from("posts").update({ feed_video_path: null }).eq("id", p.id); } }
     if (error) return d.querySelector("#ee").textContent = error.message;
+    const est = d.querySelector("#eus"), bt = d.querySelector("#es"); bt.disabled = true;
+    try {
+      // 1) новые арты/видео — тот же путь, что в мастере (сжатие, тизер, постер, превью); позиции после существующих, потом общий пересчёт
+      const rank = tiers.find(t => t.id == ntier)?.rank || 0, nw = order.filter(x => x.f);
+      for (let k = 0; k < nw.length; k++) { const row = await uploadItem(p.id, nw[k], rank, 2000 + k, s => est.textContent = `Новый ${k + 1} из ${nw.length}: ${s}`);
+        const r = await insertRows([row]); if (r.error) throw r.error; Object.assign(nw[k], { id: row.id, f: null, preview_path: row.preview_path, original_path: row.original_path, kind: row.kind }); }
+      // 2) удаление: сначала строка (сайт перестаёт ссылаться), потом файлы в privat / mia-previews (превью, постер, тизер, публичная копия)
+      if (del.length) { est.textContent = "Удаляю…"; const { data: fv } = await sb.from("posts").select("feed_video_path").eq("id", p.id).maybeSingle();
+        for (const im of del) { const r = await sb.from("post_images").delete().eq("id", im.id); if (r.error) throw r.error;
+          await ys("originals").remove([im.original_path]);
+          const fp = fv?.feed_video_path && fv.feed_video_path.includes(im.id) ? fv.feed_video_path : null;
+          await ys("previews").remove([im.preview_path, im.poster_path, im.teaser_path, fp, ...((e => e?.w ? e.w.map(w => `v/${im.preview_path.replace(/\.[a-z0-9]+$/i, "")}-${w}-${e.s}.webp`) : [])(M().S.imgv?.[im.preview_path]))].filter((x, j, a) => x && a.indexOf(x) == j));
+          if (fp) await sb.from("posts").update({ feed_video_path: null }).eq("id", p.id); } }
+      est.textContent = "";
+    } catch (e2) { bt.disabled = false; return d.querySelector("#ee").textContent = "Мяу, не получилось: " + (e2.message || e2); }
     for (let i = 0; i < order.length; i++) await sb.from("post_images").update({ position: 1000 + i }).eq("id", order[i].id);
     for (let i = 0; i < order.length; i++) await sb.from("post_images").update({ position: i + 1 }).eq("id", order[i].id);
     for (const im of order) if (!!im.is_free != free0.get(im.id)) { const u = await sb.from("post_images").update({ is_free: !!im.is_free }).eq("id", im.id); if (u.error) return d.querySelector("#ee").textContent = "Мяу, не сохранилось «Бесплатно»: " + u.error.message; }
@@ -292,7 +362,7 @@ async function publish(app) {
   const publish_at = W.when == "later" ? new Date(W.at).toISOString() : new Date().toISOString();
   try {
     let coverImg = null; const vjobs = [], vx = {}; // vx: тизер обложки и публичная копия видео для открытого видео-поста
-    const VC = W.files.some(f => f.video) ? await import("./vcomp.js?v=35").catch(() => null) : null;
+    const VC = W.files.some(f => f.video) ? await import("./vcomp.js?v=37").catch(() => null) : null;
     for (let i = 0; i < W.files.length; i++) {
       st.textContent = `Загрузка ${i + 1} из ${W.files.length}…`; bar.style.width = `${(i / W.files.length) * 90}%`;
       const img = W.files[i].img || await Crop.loadImg(W.files[i].f), iid = uuid(); if (i == W.cover) coverImg = img;
@@ -418,10 +488,52 @@ async function usersTab(app, qs = "") {
     const r = await fn("login", { action: "temp_password", user_id: b.dataset.tmp }); if (r.status != 200) return toast("Ошибка"); prompt("Временный пароль (передайте пользователю, пусть сменит в профиле):", r.data.password); });
 }
 // ---------- author ----------
+// видео профиля: mp4 → 6 с с выбранного места, без звука, H.264 (аватар 320×320, шапка 1280×320), публично mia-previews/profile/; картинка остаётся постером
+const pvid = (k, path, title) => `<div class="r" style="margin-top:10px;flex-wrap:wrap;gap:8px">${path ? `<video src="${M().pub(path)}" muted loop autoplay playsinline style="width:${k == "av" ? "48px;height:48px;border-radius:50%" : "120px;height:30px;border-radius:6px"};object-fit:cover"></video>` : ""}<label class="gb sm" style="margin:0;color:var(--fg)">🎬 ${title}<input type="file" id="${k}v" accept="video/mp4" class="hide"></label>${path ? `<a class="gb sm" id="${k}vdel">Убрать видео</a>` : ""}</div>`;
+// кадрирование видео: рамка нужной формы (круг — аватар, прямоугольник — шапка/обложка), перетаскивание = положение, ползунок = начало 6/4-секундного куска,
+// превью вживую крутят именно выбранный кусок. Возвращает { start, crop:{left,top,width,height} в пикселях исходника, frame: Blob jpeg кадра-постера } или null
+function videoCrop(f, o) {
+  const url = typeof f == "string" ? f : URL.createObjectURL(f), d = document.createElement("div"); d.className = "ov"; let fx = .5, fy = .5;
+  const pv = (o.previews || []).map((p, k) => `<div style="text-align:center"><div style="width:${p.w}px;height:${p.h}px;border-radius:${p.round ? "50%" : "6px"};overflow:hidden;background:#000"><video data-pv="${k}" src="${url}" muted playsinline style="width:100%;height:100%;object-fit:cover"></video></div><div class="mu small">${p.label}</div></div>`).join("");
+  d.innerHTML = `<div class="sheet wide-sheet"><a class="x">✕</a><h2>${o.title}</h2>
+    <div id="vcf" style="position:relative;width:100%;max-width:${o.round ? 360 : 640}px;margin:0 auto;aspect-ratio:${o.aspect};border-radius:${o.round ? "50%" : "10px"};overflow:hidden;background:#000;cursor:grab;touch-action:none;outline:3px solid var(--ac);outline-offset:2px">
+      <video id="vcv" src="${url}" muted playsinline style="width:100%;height:100%;object-fit:cover;pointer-events:none"></video>${o.safe ? `<i style="position:absolute;top:0;bottom:0;left:${50 - 50 * o.safe / o.aspect}%;right:${50 - 50 * o.safe / o.aspect}%;border:2px dashed #ffd400;pointer-events:none"></i>` : ""}</div>
+    <div class="mu small" style="text-align:center;margin-top:6px">Перетащите, чтобы выбрать, что попадёт в ${o.round ? "круг" : "рамку"}</div>
+    <label>Начало: <b id="vcs">0.0</b> с · кусок ${o.dur} с, без звука, по кругу</label><input type="range" id="vcr" min="0" max="0" step="0.1" value="0" style="width:100%">
+    ${pv ? `<div class="r" style="gap:14px;margin-top:10px;flex-wrap:wrap;align-items:flex-end">${pv}</div>` : ""}<div class="mu small" id="vct"></div>
+    <div class="row-btn"><button class="gb" data-x>Отмена</button><button class="ob" id="vcok">${o.ok || "Готово"}</button></div></div>`;
+  document.body.append(d);
+  const v = d.querySelector("#vcv"), all = [v, ...d.querySelectorAll("[data-pv]")], rg = d.querySelector("#vcr"), box = d.querySelector("#vcf");
+  const pos = () => all.forEach(x => x.style.objectPosition = `${fx * 100}% ${fy * 100}%`);
+  const loop = () => { const s = +rg.value; all.forEach(x => { if (x.currentTime < s || x.currentTime > s + o.dur) x.currentTime = s; }); };
+  all.forEach(x => { x.loop = false; x.ontimeupdate = loop; x.onended = () => { x.currentTime = +rg.value; x.play().catch(() => {}); }; x.oncanplay = () => x.play().catch(() => {}); });
+  v.onloadedmetadata = () => { rg.max = Math.max(0, v.duration - o.dur).toFixed(1); };
+  rg.oninput = () => { d.querySelector("#vcs").textContent = (+rg.value).toFixed(1); all.forEach(x => x.currentTime = +rg.value); };
+  let drag = null; box.onpointerdown = e => { drag = { x: e.clientX, y: e.clientY, fx, fy }; box.setPointerCapture(e.pointerId); box.style.cursor = "grabbing"; };
+  box.onpointermove = e => { if (!drag) return; const r = box.getBoundingClientRect(), W = v.videoWidth, H = v.videoHeight, k = Math.max(r.width / W, r.height / H), ex = W * k - r.width, ey = H * k - r.height;
+    if (ex > 1) fx = Math.min(1, Math.max(0, drag.fx - (e.clientX - drag.x) / ex)); if (ey > 1) fy = Math.min(1, Math.max(0, drag.fy - (e.clientY - drag.y) / ey)); pos(); };
+  box.onpointerup = () => { drag = null; box.style.cursor = "grab"; }; pos();
+  const close = () => { d.remove(); if (typeof f != "string") URL.revokeObjectURL(url); };
+  return new Promise(ok => { d.querySelector(".x").onclick = d.querySelector("[data-x]").onclick = () => { close(); ok(null); };
+    d.querySelector("#vcok").onclick = async () => { const W = v.videoWidth, H = v.videoHeight, A = o.aspect; let cw = W, ch = H; if (W / H > A) cw = Math.round(H * A); else ch = Math.round(W / A);
+      const crop = { left: Math.round(fx * (W - cw)), top: Math.round(fy * (H - ch)), width: cw, height: ch }, start = +rg.value;
+      v.pause(); v.currentTime = start; await new Promise(r => v.onseeked = r); const c = document.createElement("canvas"); c.width = o.outW; c.height = o.outH; c.getContext("2d").drawImage(v, crop.left, crop.top, cw, ch, 0, 0, o.outW, o.outH);
+      const frame = await new Promise(r => c.toBlob(r, "image/jpeg", .88)); close(); ok({ start, crop, frame }); }; });
+}
+async function profileClip(f, kind) {
+  const { toast } = M(); if (!isMp4(f) || f.size > VMAX) return toast(VBAD);
+  const VC = await import("./vcomp.js?v=37").catch(() => null); if (!VC?.supported()) return toast("Этот браузер не умеет WebCodecs — откройте админку в Chrome/Edge/Safari 16.4+");
+  const av = kind == "av", r = await videoCrop(f, av ? { title: "Видео-аватар · круг · 6 с", aspect: 1, round: true, dur: 6, outW: 400, outH: 400, ok: "Сделать клип", previews: [{ w: 96, h: 96, round: 1, label: "96 · шапка" }, { w: 40, h: 40, round: 1, label: "40 · комментарий" }] }
+    : { title: "Видео-шапка · 4:1 · 6 с (жёлтая рамка — видно на телефоне)", aspect: 4, safe: 2.4, dur: 6, outW: 1600, outH: 400, ok: "Сделать клип", previews: [{ w: 230, h: 58, label: "ПК" }, { w: 140, h: 58, label: "Телефон (края обрезаются)" }] });
+  if (!r) return null; toast("Режу и сжимаю…");
+  const blob = av ? await VC.clip(f, r.start, 6, 320, 320, 6e5, r.crop) : await VC.clip(f, r.start, 6, 1280, 320, 1.2e6, r.crop);
+  const path = `profile/${av ? "avatar" : "cover"}-${Date.now()}.mp4`, up = await ys("previews").upload(path, blob, { contentType: "video/mp4" }); if (up.error) { toast(up.error.message); return null; }
+  toast(`Клип ${(blob.size / 1024).toFixed(0)} КБ загружен`); return path;
+}
 async function authorTab(app) {
   const { sb, esc, pub, toast } = M(); const { data } = await sb.from("settings").select("value").eq("key", "profile"); const p = data?.[0]?.value || {}, l = p.links || {};
-  app.innerHTML = shell("author", `<h2>Профиль автора</h2><div class="two"><div class="card"><b>Аватар · круг</b><div class="r" style="margin-top:10px"><span class="ava" style="width:96px;height:96px;background-image:url('${p.avatar ? pub(p.avatar) : "avatar.jpg"}')"></span><label class="gb" style="margin:0;color:var(--fg)">Загрузить и обрезать<input type="file" id="avf" accept="image/*" class="hide"></label></div></div>
-  <div class="card"><b>Шапка · 4:1</b><div class="hero" style="margin-top:10px"><div class="cv" style="border-radius:8px">${p.cover ? `<img src="${pub(p.cover)}" alt="">` : ""}</div></div><label class="gb" style="margin:10px 0 0;color:var(--fg)">Загрузить и обрезать<input type="file" id="cvf" accept="image/*" class="hide"></label></div></div>
+  app.innerHTML = shell("author", `<h2>Профиль автора</h2><div class="two"><div class="card"><b>Аватар · круг</b><div class="r" style="margin-top:10px"><span class="ava" style="width:96px;height:96px;background-image:url('${p.avatar ? pub(p.avatar) : "avatar.jpg"}')"></span><label class="gb" style="margin:0;color:var(--fg)">Загрузить и обрезать<input type="file" id="avf" accept="image/*" class="hide"></label></div>${pvid("av", p.avatar_video, "Видео-аватар · 6 с")}</div>
+  <div class="card"><b>Шапка · 4:1</b><div class="hero" style="margin-top:10px"><div class="cv" style="border-radius:8px">${p.cover ? `<img src="${pub(p.cover)}" alt="">` : ""}</div></div><label class="gb" style="margin:10px 0 0;color:var(--fg)">Загрузить и обрезать<input type="file" id="cvf" accept="image/*" class="hide"></label>${pvid("cv", p.cover_video, "Видео-шапка · 6 с")}</div></div>
   <form class="card" id="prf"><label>Имя</label><input type="text" id="pn" value="${esc(p.name || "Мия")}"><label>Подзаголовок</label><input type="text" id="pt" value="${esc(p.tagline)}"><label>Об авторе</label><textarea id="pa" rows="5">${esc(p.about)}</textarea>
   ${[["boosty", "Boosty"], ["donut", "VK Donut"], ["telegram", "Telegram"], ["vk", "VK (сюда же ведёт «Забыли пароль?»)"]].map(([k, n]) => `<label>${n}</label><input type="url" data-l="${k}" value="${esc(l[k])}" placeholder="https://">`).join("")}<div style="margin-top:12px"><button class="ob" type="submit">Сохранить</button></div></form>`);
   const q = s => app.querySelector(s);
@@ -432,6 +544,9 @@ async function authorTab(app) {
   q("#cvf").onchange = async e => { const f = e.target.files[0]; if (!f) return; const img = await Crop.loadImg(f);
     const r = await Crop.open(img, { title: "Шапка профиля · 4:1 (жёлтая рамка — видно на телефоне)", aspect: 4, outW: 1600, outH: 400, safe: 2.4, previews: [{ w: 230, h: 58, label: "ПК" }, { w: 140, h: 58, label: "Телефон (края обрезаются)" }] });
     if (!r) return; const path = `site/cover-${Date.now()}.jpg`; const up = await ys("previews").upload(path, r.blob, { cacheControl: "31536000", contentType: "image/jpeg" }); if (up.error) return toast(up.error.message); autoVariants([[path, VW.hero, r.blob]]); save({ ...p, cover: path, cover_crop: r.crop }); };
+  for (const k of ["av", "cv"]) { const key = k == "av" ? "avatar_video" : "cover_video";
+    q(`#${k}v`).onchange = async e => { const f = e.target.files[0]; e.target.value = ""; if (!f) return; const path = await profileClip(f, k); if (path) { if (p[key]) ys("previews").remove([p[key]]); save({ ...p, [key]: path }); } };
+    if (q(`#${k}vdel`)) q(`#${k}vdel`).onclick = () => { if (!confirm("Убрать видео? Останется картинка.")) return; ys("previews").remove([p[key]]); const v = { ...p }; delete v[key]; save(v); }; }
   q("#prf").onsubmit = e => { e.preventDefault(); const v = { ...p, name: q("#pn").value.trim(), tagline: q("#pt").value.trim(), about: q("#pa").value, links: {} }; app.querySelectorAll("[data-l]").forEach(i => v.links[i.dataset.l] = i.value.trim()); save(v); };
 }
 // ---------- texts ----------

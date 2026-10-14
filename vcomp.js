@@ -29,3 +29,12 @@ export async function teaser(file, start = 0, dur = 4) {
   const d = await inp(file).computeDuration(), s0 = Math.max(0, Math.min(start, d - dur));
   return (await run(file, { short: 720, bitrate: 6e5, fps: 24, trim: { start: s0, end: Math.min(d, s0 + dur) }, audio: false })).blob;
 }
+// клип для профиля: dur с, с start, без звука, кадрирование по центру в w×h (аватар 320×320, шапка 1280×320)
+export async function clip(file, start, dur, w, h, bitrate, crop) {
+  const input = inp(file), d = await input.computeDuration(), s0 = Math.max(0, Math.min(start, d - dur));
+  const output = new MB.Output({ format: new MB.Mp4OutputFormat({ fastStart: "in-memory" }), target: new MB.BufferTarget() });
+  const conv = await MB.Conversion.init({ input, output, trim: { start: s0, end: Math.min(d, s0 + dur) },
+    video: { codec: "avc", width: w, height: h, fit: crop ? "fill" : "cover", ...(crop ? { crop } : {}), bitrate, forceTranscode: true, keyFrameInterval: 2, frameRate: 24 }, audio: { discard: true } });
+  if (!conv.isValid) throw new Error("браузер не умеет кодировать H.264");
+  await conv.execute(); return new Blob([output.target.buffer], { type: "video/mp4" });
+}

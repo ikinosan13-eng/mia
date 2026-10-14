@@ -344,3 +344,6 @@ body.dark .fcap{background:#2a1f24;border-color:#7a3b55;color:#f3e8ea}body.dark 
 .cov video.tz{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .4s;pointer-events:none}
 .cov video.tz.on{opacity:1}
 .cov video.tz.on~.vplay{opacity:0;transition:opacity .4s}
+.hero .prof .ava{overflow:hidden}
+.hero video.hv{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:inherit;opacity:0;transition:opacity .5s;pointer-events:none}
+.hero video.hv.on{opacity:1}
