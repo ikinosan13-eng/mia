@@ -57,6 +57,23 @@ function autoVariants(items) {
     if (fail) toast(`Мяу, WebP-версии не получились (${fail}) 🐾 Картинка загружена, сайт покажет обычную. Можно повторить кнопкой «WebP-версии»`);
   })().catch(e => { console.error(e); toast("Мяу, WebP-версии не получились 🐾 Картинка загружена — можно повторить кнопкой «WebP-версии»"); });
 }
+// «Перенести в Яндекс»: зовёт функцию yc_migrate пачками по 20, пока remaining не станет 0. Повторный запуск пропускает готовое.
+async function ycMigrate(btn) {
+  const { sb, toast } = M(); if (!confirm("Мур, перенести оригиналы (и музыку вступления) в Яндекс? Уже перенесённые пропущу 🐾")) return;
+  const t0 = btn.textContent; btn.disabled = true; let from = 0, c = 0, s = 0, f = [], total = "…";
+  try {
+    for (;;) {
+      btn.textContent = `Мур, переношу… ${from}/${total} 🐾`;
+      const { data, error } = await sb.functions.invoke("yc_migrate", { body: { from, size: 20, media: true } });
+      if (error) { let m = error.message; try { m = (await error.context.json()).error || m; } catch {} throw new Error(m); }
+      c += data.copied; s += data.skipped; f = f.concat(data.failed); total = data.total; from = data.next;
+      if (!data.remaining) break;
+    }
+    toast(f.length ? `Мяу, перенесла ${c}, уже были ${s}, не вышло ${f.length} 🐾 Нажми ещё раз — повторю` : `Готово, мур! Перенесла ${c}, уже были ${s} 💕`);
+    if (f.length) console.warn("yc_migrate failed", f);
+  } catch (e) { toast(`Мяу, перенос остановился: ${e.message} 🐾`); }
+  finally { btn.disabled = false; btn.textContent = t0; }
+}
 async function makeVariants(btn) {
   const { sb, toast, S, pub } = M(); btn.disabled = true; const t0 = btn.textContent; let done = 0, fail = 0, skip = 0;
   try {
@@ -94,13 +111,14 @@ async function posts(app, filter = "all") {
   const now = Date.now(), all = data || [];
   const kind = p => p.status == "draft" ? "draft" : new Date(p.publish_at) > now ? "sched" : "pub";
   const list = all.filter(p => filter == "all" || kind(p) == filter);
-  app.innerHTML = shell("posts", `<div class="r" style="justify-content:space-between;flex-wrap:wrap"><h2>Публикации</h2><span class="r"><button class="gb" id="mkv" title="Уменьшенные WebP-версии обложек и превью — сайт грузится быстрее">WebP-версии</button><button class="gb" id="rgp" title="Один раз: сделать чёткие превью ~700px для всех закрытых паков из оригиналов">Пересоздать превью</button> <a class="ob" href="#/admin/new">+ Новая публикация</a></span></div>
+  app.innerHTML = shell("posts", `<div class="r" style="justify-content:space-between;flex-wrap:wrap"><h2>Публикации</h2><span class="r" style="flex-wrap:wrap!important;gap:6px"><button class="gb" id="ycm" title="Перенести оригиналы и музыку вступления в Yandex Object Storage (можно жать повторно — готовое пропускается)">Перенести в Яндекс</button><button class="gb" id="mkv" title="Уменьшенные WebP-версии обложек и превью — сайт грузится быстрее">WebP-версии</button><button class="gb" id="rgp" title="Один раз: сделать чёткие превью ~700px для всех закрытых паков из оригиналов">Пересоздать превью</button> <a class="ob" href="#/admin/new">+ Новая публикация</a></span></div>
   <div class="r" style="margin-bottom:10px;flex-wrap:wrap">${[["all", "Все", all.length], ["pub", "Опубликованы"], ["sched", "Запланированы"], ["draft", "Черновики"]].map(([k, n]) => `<a class="pill ${k == filter ? "on" : ""}" href="#/admin/posts/${k}">${n} ${k == "all" ? all.length : all.filter(p => kind(p) == k).length}</a>`).join("")}</div>
   <div class="tw"><table><tr><th></th><th>Заголовок</th><th>Уровень</th><th>Арты</th><th>Статус</th><th>❤ / 💬</th><th></th></tr>${list.map(p => `<tr><td><img class="th" src="${pub(p.cover_path)}" style="width:44px;height:44px"></td><td>${esc(p.title)}</td><td><span class="tier ${p.tier_id ? "" : "f"}">${esc(tiers.find(t => t.id == p.tier_id)?.name)}</span></td><td>${p.post_images[0]?.count || 0}</td>
   <td>${p.hidden ? "🙈 Скрыт" : kind(p) == "draft" ? "Черновик" : kind(p) == "sched" ? "⏰ " + fmt(p.publish_at) : "Опубликован " + new Date(p.publish_at).toLocaleDateString("ru-RU")}</td><td>${st[p.id] ? st[p.id].like_count + " / " + st[p.id].comment_count : "—"}</td>
   <td style="white-space:nowrap"><a class="gb sm" data-ed="${p.id}">✏</a> <a class="gb sm" data-hide="${p.id}" title="${p.hidden ? "Показать" : "Скрыть"}">${p.hidden ? "👁" : "🙈"}</a> <a class="gb sm" data-del="${p.id}">🗑</a></td></tr>`).join("") || `<tr><td colspan="7" class="mu">Публикаций нет</td></tr>`}</table></div>`);
   app.querySelector("#rgp").onclick = e => regenPreviews(e.target, all);
   app.querySelector("#mkv").onclick = e => makeVariants(e.target);
+  app.querySelector("#ycm").onclick = e => ycMigrate(e.target);
   app.querySelectorAll("[data-hide]").forEach(b => b.onclick = async () => { const p = all.find(x => x.id == b.dataset.hide); await sb.from("posts").update({ hidden: !p.hidden }).eq("id", p.id); await M().load(); posts(app, filter); });
   app.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => { if (!confirm("Удалить публикацию и все её арты? Это нельзя отменить.")) return; const id = b.dataset.del, p = all.find(x => x.id == id);
     const { data: imgs } = await sb.from("post_images").select("preview_path,original_path").eq("post_id", id);
