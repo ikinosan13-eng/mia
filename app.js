@@ -29,15 +29,19 @@ if (localStorage.miaTheme === "dark") document.body.classList.add("dark");
 
 const rpcT = (n, a, ms = 12000) => timeout(sb.rpc(n, a), ms).catch(e => ({ error: e, timeout: e?.message == "timeout" }));
 function timeout(p, ms = 10000) { return Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error("timeout")), ms))]); }
-const api = p => timeout(fetch(`${B}/rest/v1/${p}`, { headers: H })).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+// admin.js / crop.js — только по требованию (админка, кадрирование аватара)
+const scriptP = {};
+const need = (src, g) => window[g] ? Promise.resolve() : (scriptP[src] = scriptP[src] || new Promise((ok, no) => { const e = document.createElement("script"); e.src = `${src}?v=${window.MIA_VERSION || ""}`; e.onload = ok; e.onerror = () => { delete scriptP[src]; no(new Error("load " + src)); }; document.head.append(e); }));
+const preTake = p => { const P = window.__pre; if (!P || !P[p]) return null; const r = P[p]; delete P[p]; return r; };
+const api = p => timeout(preTake(p) || fetch(`${B}/rest/v1/${p}`, { headers: H })).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
 const fn = async (name, body) => { const session = await timeout(sb.auth.getSession(), 5000).then(r => r.data.session).catch(() => null);
   try { const r = await timeout(fetch(`${B}/functions/v1/${name}`, { method: "POST", headers: { ...H, "Content-Type": "application/json", ...(session ? { Authorization: "Bearer " + session.access_token } : {}) }, body: JSON.stringify(body) }), 15000); return { status: r.status, data: await timeout(r.json(), 5000).catch(() => ({})) }; }
   catch { return { status: 0, data: { error: "offline" } }; } };
 
-async function load() {
+async function load(o = {}) {
   try {
-    const [tiers, posts, media, settings] = await Promise.all([api("tiers_public?order=rank"), api("feed_public?order=publish_at.desc"), api("media_public?order=publish_at.desc,position"), api("settings?key=in.(profile,texts,viewer)")]);
-    S.free = await api("free_images_public?select=post_id,position&order=position").catch(() => []);
+    const [tiers, posts, media, settings, free] = await Promise.all([api("tiers_public?order=rank"), api("feed_public?order=publish_at.desc"), api("media_public?order=publish_at.desc,position"), api("settings?key=in.(profile,texts,viewer)"), api("free_images_public?select=post_id,position&order=position").catch(() => [])]);
+    S.free = free || [];
     const st = Object.fromEntries(settings.map(x => [x.key, x.value]));
     Object.assign(S, { tiers, posts, media, profile: st.profile || {}, viewer: st.viewer || {}, offline: false }); TX = st.texts || {};
     localStorage.miaCache = JSON.stringify({ tiers, posts, media, st });
@@ -45,7 +49,7 @@ async function load() {
     const c = JSON.parse(localStorage.miaCache || "null"); S.offline = true;
     if (!c) throw e; Object.assign(S, { tiers: c.tiers, posts: c.posts, media: c.media, profile: c.st.profile || {}, viewer: c.st.viewer || {} }); TX = c.st.texts || {};
   }
-  if (!S.offline) await loadUser();
+  if (!S.offline && !o.bgUser) await loadUser();
 }
 async function loadUser() {
   const { data: { session } } = await sb.auth.getSession(); S.user = null; S.liked = new Set(); S.rank = 0; S.pick = { credit: false, unlocked: new Set() };
@@ -78,7 +82,7 @@ function bar() {
 function hero() {
   const p = S.profile, cover = p.cover ? pub(p.cover) : "", l = p.links || {};
   const links = [["Boosty", l.boosty], ["VK Donut", l.donut], ["Telegram", l.telegram], ["VK", l.vk]].filter(x => x[1]).map(([n, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${n}</a>`).join("");
-  return `<div class="hero"><div class="cv">${cover ? `<img src="${cover}" alt="">` : ""}</div><div class="prof"><span class="ava" style="background-image:url('${p.avatar ? pub(p.avatar) : "avatar.jpg"}')"></span>
+  return `<div class="hero"><div class="cv">${cover ? `<img src="${cover}" alt="" fetchpriority="high">` : ""}</div><div class="prof"><span class="ava" style="background-image:url('${p.avatar ? pub(p.avatar) : "avatar.jpg"}')"></span>
   <h1>${esc(p.name || "Мия")}</h1><div class="mu">${esc(p.tagline || "")}</div><div class="mu small" style="margin-top:4px">${S.posts.length} ${plural(S.posts.length, "пак", "пака", "паков")} · ${S.media.length} ${plural(S.media.length, "арт", "арта", "артов")}</div>${links ? `<div class="links">${links}</div>` : ""}</div></div>`;
 }
 const tabs = on => `<div class="tabs">${[["ЛЕНТА", "feed"], ["МЕДИА", "media"], ["УРОВНИ", "levels"], ["ОБ АВТОРЕ", "about"]].map(([n, h]) => `<a href="#/${h}" class="${h == on ? "on" : ""}">${n}</a>`).join("")}</div>`;
@@ -92,10 +96,10 @@ const freeP = {};
 const freeFn = id => freeP[id] || (freeP[id] = fn("free_arts", { post_id: id }).then(r => { if (r.status != 200) { delete freeP[id]; throw new Error(r.status); } return (r.data.images || []).map(i => ({ url: B + i.url, position: i.position })); }));
 const freePlate = p => { const n = Math.max(0, (p.image_count || 0) - freeOf(p.id).length); return `<div class="fcap"><b>Мур, это лишь кусочек 🐾</b><span>Мяу~ в паке ещё ${n} ${plural(n, "арт", "арта", "артов")}, они ждут тебя 💕</span><button class="ob" data-fsub="${p.id}">Открыть полный пак 🐾</button></div>`; };
 document.addEventListener("click", e => { const t = e.target.closest("[data-fsub]"); if (!t) return; e.preventDefault(); e.stopPropagation(); const p = S.posts.find(x => x.id == t.dataset.fsub); if (p) subscribe(p.tier_rank, p.id); }, true);
-function card(p) {
+function card(p, k = 9) {
   const locked = isLocked(p), n = `${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}`;
   return `<div class="post"><div class="ph"><span>${fmt(p.publish_at)}</span>${p.tier_rank > 0 ? `<span class="tier">${locked ? `<i class="lki"></i>` : ""}${esc(p.tier_name)}</span>` : `<span class="tier f">Открыто всем</span>`}</div>
-  <a href="#/post/${p.id}" class="cov ${locked ? "lk" : ""}" ${locked ? "" : `data-view="${p.id}"`}><img src="${pub(p.cover_path)}" alt="" loading="lazy"><h3>${esc(p.title)}</h3><span class="cnt">${n}</span>${locked ? lockPanel(p) : ""}</a>
+  <a href="#/post/${p.id}" class="cov ${locked ? "lk" : ""}" ${locked ? "" : `data-view="${p.id}"`}><img src="${pub(p.cover_path)}" alt="" ${k < 1 ? `fetchpriority="high"` : `loading="lazy"`}><h3>${esc(p.title)}</h3><span class="cnt">${n}</span>${locked ? lockPanel(p) : ""}</a>
   ${p.body && !locked ? `<div class="body">${esc(p.body.length > 300 ? p.body.slice(0, 300) + "…" : p.body)}</div>` : ""}${ACT(p)}</div>`;
 }
 function levelsHtml() {
@@ -313,7 +317,7 @@ async function postView(id) {
   const r = await packFn(id);
   if (r.status !== 200) return bar() + head + `<div class="empty">Не удалось открыть: ${esc(r.status == 0 ? T("offline") : r.data.message || r.data.error || r.status)}</div>`;
   S.imgs = r.data.images.map(i => B + i.url); S.idx = 0; S.imgsFor = id;
-  return bar() + head + `<div style="padding:0 14px 10px;font-size:20px;font-weight:700">${esc(p.title)}</div><div class="arts">${r.data.images.map((im, k) => `<img src="${S.imgs[k]}" alt="" data-vi="${k}" ${im.width && im.height ? `width="${im.width}" height="${im.height}"` : ""} loading="${k < 2 ? "eager" : "lazy"}">`).join("")}</div>
+  return bar() + head + `<div style="padding:0 14px 10px;font-size:20px;font-weight:700">${esc(p.title)}</div><div class="arts">${(() => { const md = S.media.filter(m => m.post_id == id).sort((a, b) => a.position - b.position), same = md.length == r.data.images.length; return r.data.images.map((im, k) => { const w = im.width || (same && md[k].width), h = im.height || (same && md[k].height); return `<img src="${S.imgs[k]}" alt="" data-vi="${k}" ${w && h ? `width="${w}" height="${h}"` : ""} ${k < 1 ? `fetchpriority="high"` : `loading="lazy"`}>`; }).join(""); })()}</div>
   ${p.body ? `<div class="body">${esc(p.body)}</div>` : ""}` + ACT(p) + `<div id="cmts"></div>` + await commentsBlock(p);
 }
 function go(i) { const n = S.imgs.length; S.idx = (i + n) % n; $("#sl") && ($("#sl").style.transform = `translateX(${-100 * S.idx}%)`); $("#ctr") && ($("#ctr").textContent = `${S.idx + 1} / ${n}`); $$("#dots i").forEach((d, k) => d.className = k == S.idx ? "on" : ""); const f = $("#fsi"); if (f) { f.src = S.imgs[S.idx]; $("#fsc").textContent = `${S.idx + 1} / ${n}`; } }
@@ -344,7 +348,7 @@ async function userView(id) {
 function bindMe() {
   const out = async scope => { await sb.auth.signOut(scope ? { scope } : undefined); S.token = ""; localStorage.removeItem("miaToken"); await loadUser(); toast("Вы вышли"); location.hash = "#/feed"; };
   $("#lout") && ($("#lout").onclick = () => out()); $("#lout2") && ($("#lout2").onclick = () => out()); $("#loutall") && ($("#loutall").onclick = () => out("global"));
-  $("#avf") && ($("#avf").onchange = async e => { const f = e.target.files[0]; if (!f) return; const img = await Crop.loadImg(f);
+  $("#avf") && ($("#avf").onchange = async e => { const f = e.target.files[0]; if (!f) return; try { await need("crop.js", "Crop"); } catch { return toast(T("offline")); } const img = await Crop.loadImg(f);
     const r = await Crop.open(img, { title: "Аватар", aspect: 1, round: true, outW: 256, outH: 256, previews: [{ w: 96, h: 96, round: 1, label: "96 · профиль" }, { w: 40, h: 40, round: 1, label: "40 · комментарий" }, { w: 28, h: 28, round: 1, label: "28 · меню" }] });
     if (!r) return; const path = `${S.user.id}/${Date.now()}.jpg`;
     const up = await sb.storage.from("avatars").upload(path, r.blob, { contentType: "image/jpeg" }); if (up.error) return toast("Ошибка: " + up.error.message);
@@ -377,16 +381,15 @@ function openViewer(id, start, quick, o = {}) {
 }
 // «Медиа»: открытые плитки подгружают полные арты лениво, пока показано превью
 function bindMedia() {
-  const io = "IntersectionObserver" in window ? new IntersectionObserver(es => es.forEach(e => { if (!e.isIntersecting) return; io.unobserve(e.target); sharpen(e.target); }), { rootMargin: "300px" }) : null;
-  const sharpen = t => loadImgs(t.dataset.mp).then(u => { const src = u[+t.dataset.mi]; if (!src) return; const i = new Image(); i.onload = () => { t.style.backgroundImage = `url("${src}")`; t.classList.add("sharp"); }; i.src = src; }).catch(() => {});
-  $$(".mgrid a[data-mp]").forEach(t => { io ? io.observe(t) : sharpen(t); t.onclick = e => { if (e.target.closest("[data-cm]")) return; e.preventDefault(); openViewer(t.dataset.mp, +t.dataset.mi, false); }; });
+  // плитки показывают превью 700px; полные оригиналы грузятся только в кинорежиме
+  $$(".mgrid a[data-mp]").forEach(t => { t.onclick = e => { if (e.target.closest("[data-cm]")) return; e.preventDefault(); openViewer(t.dataset.mp, +t.dataset.mi, false); }; });
 }
 // ---------- render ----------
 async function render() {
   const parts = (location.hash || "#/feed").slice(2).split("/"), [v, id] = parts, app = $("#app");
   app.className = "app" + (v == "admin" ? " wide" : "");
   try {
-    if (v == "admin") { if (!S.user?.admin) { location.hash = "#/feed"; return; } await window.MiaAdmin.render(id || "posts", parts[2]); }
+    if (v == "admin") { if (!S.user?.admin) { location.hash = "#/feed"; return; } await need("crop.js", "Crop"); await need("admin.js", "MiaAdmin"); await window.MiaAdmin.render(id || "posts", parts[2]); }
     else app.innerHTML = v == "post" ? await postView(id) : v == "me" ? await meView(id) : v == "u" ? await userView(id) : (views[v] || views.feed)();
   } catch (e) { console.error(e); app.innerHTML = `<div class="empty">📡 ${esc(T("offline"))}<br><br><button class="ob" onclick="location.reload()">Повторить</button></div>`; }
   if (!["post"].includes(v) || parts[2] != "c") window.scrollTo(0, 0);
@@ -415,5 +418,6 @@ window.Mia = { freeOf, freeFn, freePlate, isLocked, pickOpen, pickBtn, openComme
 window.addEventListener("hashchange", () => { if (window.MiaViewer?.isOpen()) window.MiaViewer.close(); if (S.modal) { S.modal = null; $("#modal")?.remove(); } closeComments(true); render(); });
 $("#app").innerHTML = `<div style="padding:14px"><div class="sk" style="height:120px"></div><div class="sk" style="height:300px;margin-top:14px"></div><div class="sk" style="height:16px;margin-top:10px;width:60%"></div></div>`;
 fetch("version.txt?" + Date.now(), { cache: "no-store" }).then(r => r.text()).then(v => { v = v.trim(); if (v && v != window.MIA_VERSION && !sessionStorage.miaReloaded) { sessionStorage.miaReloaded = 1; location.reload(); } }).catch(() => {});
-load().then(render).catch(() => { $("#app").innerHTML = `<div class="empty">📡 ${esc(T("offline"))}<br><br><button class="ob" onclick="location.reload()">Повторить</button></div>`; });
+const hasAuth = () => { try { return !!(S.token || localStorage.getItem("mia-visitor")); } catch { return true; } };
+(hasAuth() ? load().then(render) : load({ bgUser: true }).then(async () => { await render(); if (S.offline) return; await loadUser().catch(() => {}); if (S.user || S.rank > 0) render(); })).catch(() => { $("#app").innerHTML = `<div class="empty">📡 ${esc(T("offline"))}<br><br><button class="ob" onclick="location.reload()">Повторить</button></div>`; });
 })();
