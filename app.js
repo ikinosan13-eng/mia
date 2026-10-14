@@ -63,7 +63,7 @@ async function load(o = {}) {
     const [tiers, posts, media, settings, free] = await Promise.all([api("tiers_public?order=rank"), api("feed_public?order=publish_at.desc"), api("media_public?order=publish_at.desc,position"), api("settings?key=in.(profile,texts,viewer,imgv)"), api("free_images_public?select=post_id,position&order=position").catch(() => [])]);
     S.free = free || [];
     // видео (после sql/video.sql); до миграции view нет → пустые списки, сайт работает как раньше
-    const [pv, mv] = await Promise.all([api("post_video_public?select=post_id,kind,video_count,duration_sec").catch(() => []), api("media_video_public?select=id,post_id,position,duration_sec,poster_path").catch(() => [])]);
+    const [pv, mv] = await Promise.all([api("post_video_public?select=post_id,kind,video_count,duration_sec,teaser_path,feed_video_path").catch(() => api("post_video_public?select=post_id,kind,video_count,duration_sec")).catch(() => []), api("media_video_public?select=id,post_id,position,duration_sec,poster_path").catch(() => [])]);
     setVid(pv, mv);
     const st = Object.fromEntries(settings.map(x => [x.key, x.value]));
     Object.assign(S, { tiers, posts, media, profile: st.profile || {}, viewer: st.viewer || {}, imgv: st.imgv?.paths || {}, offline: false }); TX = st.texts || {};
@@ -121,7 +121,8 @@ const freePlate = p => { const n = Math.max(0, (p.image_count || 0) - freeOf(p.i
 document.addEventListener("click", e => { const t = e.target.closest("[data-fsub]"); if (!t) return; e.preventDefault(); e.stopPropagation(); const p = S.posts.find(x => x.id == t.dataset.fsub); if (p) subscribe(p.tier_rank, p.id); }, true);
 // тизер обложки (3–5 с, ~480p, без звука, публичный mia-previews/teasers/): играет только в зоне видимости
 const tzOff = () => matchMedia("(prefers-reduced-motion: reduce)").matches || navigator.connection?.saveData;
-const tzTag = p => { const t = S.pv?.[p.id]?.teaser_path; return t && !tzOff() ? `<video class="tz" data-src="${pub(t)}" muted loop playsinline preload="none" disablepictureinpicture aria-hidden="true"></video>` : ""; };
+// открытый видео-пост — полное видео (публичная копия feedvid/), всё закрытое — только 4-секундный тизер
+const tzTag = (p, locked) => { const v = S.pv?.[p.id], t = !locked && v?.feed_video_path || v?.teaser_path; return t && !tzOff() ? `<video class="tz" data-src="${pub(t)}" muted loop playsinline preload="none" disablepictureinpicture aria-hidden="true"></video>` : ""; };
 let tzIO = null;
 function tzBind() {
   tzIO?.disconnect(); const vs = $$("video.tz"); if (!vs.length || !("IntersectionObserver" in window)) return;
@@ -133,7 +134,7 @@ function tzBind() {
 function card(p, k = 9) {
   const locked = isLocked(p), n = `${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}`;
   return `<div class="post"><div class="ph"><span>${fmt(p.publish_at)}</span>${p.tier_rank > 0 ? `<span class="tier">${locked ? `<i class="lki"></i>` : ""}${esc(p.tier_name)}</span>` : `<span class="tier f">Открыто всем</span>`}</div>
-  <a href="#/post/${p.id}" class="cov ${locked ? "lk" : ""}" ${locked ? "" : `data-view="${p.id}"`}><img ${imgSrc(p.cover_path, "(min-width:640px) 600px, 100vw")} alt="" ${k < 1 ? `fetchpriority="high"` : `loading="lazy"`}>${tzTag(p)}<h3>${esc(p.title)}</h3><span class="cnt${S.pv?.[p.id]?.video_count ? " nv" : ""}">${cntHtml(p, n)}</span>${!locked && S.pv?.[p.id]?.kind == "video" ? vPlay : ""}${locked ? lockPanel(p) : ""}</a>
+  <a href="#/post/${p.id}" class="cov ${locked ? "lk" : ""}" ${locked ? "" : `data-view="${p.id}"`}><img ${imgSrc(p.cover_path, "(min-width:640px) 600px, 100vw")} alt="" ${k < 1 ? `fetchpriority="high"` : `loading="lazy"`}>${tzTag(p, locked)}<h3>${esc(p.title)}</h3><span class="cnt${S.pv?.[p.id]?.video_count ? " nv" : ""}">${cntHtml(p, n)}</span>${!locked && S.pv?.[p.id]?.kind == "video" ? vPlay : ""}${locked ? lockPanel(p) : ""}</a>
   ${p.body && !locked ? `<div class="body">${esc(p.body.length > 300 ? p.body.slice(0, 300) + "…" : p.body)}</div>` : ""}${ACT(p)}</div>`;
 }
 function levelsHtml() {

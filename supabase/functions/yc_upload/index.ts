@@ -17,7 +17,8 @@ const MAP: Record<string, { bucket: string; prefix: string; pub: boolean }> = {
 };
 const EXP: Record<string, number> = { put: 600, get: 600, delete: 300 };
 const MAX_VIDEO = 300 * 1024 * 1024, PART = 16 * 1024 * 1024;
-const okVideo = (b: string, p: string) => b == "originals" && /^videos\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.mp4$/.test(p);
+// multipart: originals/videos/<post>/<id>.mp4 (приватно) и previews/feedvid/<post>/<id>.mp4 (публичная копия ТОЛЬКО для открытых видео-постов, решает админка)
+const okVideo = (b: string, p: string) => (b == "originals" && /^videos\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.mp4$/.test(p)) || (b == "previews" && /^feedvid\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.mp4$/.test(p));
 const tag = (x: string, t: string) => [...x.matchAll(new RegExp(`<${t}>([^<]*)</${t}>`, "g"))].map(m => m[1]);
 const okPath = (p: unknown): p is string => typeof p == "string" && p.length > 0 && p.length < 400 && !p.startsWith("/") && !p.split("/").some(s => s == ".." || s == ".") && !/[\0-\x1f\\]/.test(p);
 Deno.serve(async req => {
@@ -52,13 +53,13 @@ async function multipart(b: any): Promise<[number, unknown]> {
   const { action, bucket, path, uploadId } = b;
   if (!okVideo(bucket, path)) return [400, { error: "bad_video_path" }];
   const yc = new AwsClient({ accessKeyId: Deno.env.get("YC_KEY_ID")!, secretAccessKey: Deno.env.get("YC_SECRET")!, service: "s3", region: "ru-central1" });
-  const m = MAP.originals, u = `https://storage.yandexcloud.net/${m.bucket}/${m.prefix}${path}`;
+  const m = MAP[bucket], u = `https://storage.yandexcloud.net/${m.bucket}/${m.prefix}${path}`;
   const call = async (q: string, init: RequestInit = {}) => { const r = await yc.fetch(`${u}?${q}`, { ...init, signal: AbortSignal.timeout(20000) }); const t = await r.text(); if (!r.ok) throw new Error(`yc ${r.status} ${tag(t, "Code")[0] || ""}`); return t; };
   if (action == "mp_create") {
     const size = Number(b.size);
     if (b.contentType != "video/mp4") return [400, { error: "only_mp4" }];
     if (!(size > 0 && size <= MAX_VIDEO)) return [400, { error: "too_big", max: MAX_VIDEO }];
-    const id = tag(await call("uploads", { method: "POST", headers: { "content-type": "video/mp4" } }), "UploadId")[0];
+    const id = tag(await call("uploads", { method: "POST", headers: { "content-type": "video/mp4", ...(m.pub ? { "cache-control": "public,max-age=31536000,immutable" } : {}) } }), "UploadId")[0];
     if (!id) return [500, { error: "no_upload_id" }];
     const n = Math.ceil(size / PART), parts = [];
     for (let k = 1; k <= n; k++) parts.push({ n: k, url: (await yc.sign(`${u}?partNumber=${k}&uploadId=${encodeURIComponent(id)}&X-Amz-Expires=3600`, { method: "PUT", aws: { signQuery: true } })).url });
