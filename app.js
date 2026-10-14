@@ -119,10 +119,21 @@ const freeP = {};
 const freeFn = id => freeP[id] || (freeP[id] = fn("free_arts", { post_id: id }).then(r => { if (r.status != 200) { delete freeP[id]; throw new Error(r.status); } return (r.data.images || []).map(i => ({ url: abs(i.url), position: i.position })); }));
 const freePlate = p => { const n = Math.max(0, (p.image_count || 0) - freeOf(p.id).length); return `<div class="fcap"><b>Мур, это лишь кусочек 🐾</b><span>Мяу~ в паке ещё ${n} ${plural(n, "арт", "арта", "артов")}, они ждут тебя 💕</span><button class="ob" data-fsub="${p.id}">Открыть полный пак 🐾</button></div>`; };
 document.addEventListener("click", e => { const t = e.target.closest("[data-fsub]"); if (!t) return; e.preventDefault(); e.stopPropagation(); const p = S.posts.find(x => x.id == t.dataset.fsub); if (p) subscribe(p.tier_rank, p.id); }, true);
+// тизер обложки (3–5 с, ~480p, без звука, публичный mia-previews/teasers/): играет только в зоне видимости
+const tzOff = () => matchMedia("(prefers-reduced-motion: reduce)").matches || navigator.connection?.saveData;
+const tzTag = p => { const t = S.pv?.[p.id]?.teaser_path; return t && !tzOff() ? `<video class="tz" data-src="${pub(t)}" muted loop playsinline preload="none" disablepictureinpicture aria-hidden="true"></video>` : ""; };
+let tzIO = null;
+function tzBind() {
+  tzIO?.disconnect(); const vs = $$("video.tz"); if (!vs.length || !("IntersectionObserver" in window)) return;
+  tzIO = new IntersectionObserver(es => es.forEach(e => { const v = e.target;
+    if (e.isIntersecting && e.intersectionRatio >= .5) { if (!v.src) { v.src = v.dataset.src; v.oncanplay = () => v.classList.add("on"); } v.muted = true; v.play().catch(() => {}); }
+    else v.pause(); }), { threshold: [0, .5] });
+  vs.forEach(v => tzIO.observe(v));
+}
 function card(p, k = 9) {
   const locked = isLocked(p), n = `${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}`;
   return `<div class="post"><div class="ph"><span>${fmt(p.publish_at)}</span>${p.tier_rank > 0 ? `<span class="tier">${locked ? `<i class="lki"></i>` : ""}${esc(p.tier_name)}</span>` : `<span class="tier f">Открыто всем</span>`}</div>
-  <a href="#/post/${p.id}" class="cov ${locked ? "lk" : ""}" ${locked ? "" : `data-view="${p.id}"`}><img ${imgSrc(p.cover_path, "(min-width:640px) 600px, 100vw")} alt="" ${k < 1 ? `fetchpriority="high"` : `loading="lazy"`}><h3>${esc(p.title)}</h3><span class="cnt${S.pv?.[p.id]?.video_count ? " nv" : ""}">${cntHtml(p, n)}</span>${!locked && S.pv?.[p.id]?.kind == "video" ? vPlay : ""}${locked ? lockPanel(p) : ""}</a>
+  <a href="#/post/${p.id}" class="cov ${locked ? "lk" : ""}" ${locked ? "" : `data-view="${p.id}"`}><img ${imgSrc(p.cover_path, "(min-width:640px) 600px, 100vw")} alt="" ${k < 1 ? `fetchpriority="high"` : `loading="lazy"`}>${tzTag(p)}<h3>${esc(p.title)}</h3><span class="cnt${S.pv?.[p.id]?.video_count ? " nv" : ""}">${cntHtml(p, n)}</span>${!locked && S.pv?.[p.id]?.kind == "video" ? vPlay : ""}${locked ? lockPanel(p) : ""}</a>
   ${p.body && !locked ? `<div class="body">${esc(p.body.length > 300 ? p.body.slice(0, 300) + "…" : p.body)}</div>` : ""}${ACT(p)}</div>`;
 }
 function levelsHtml() {
@@ -445,7 +456,7 @@ async function render(o = {}) {
   $$("[data-like]").forEach(b => b.onclick = e => { e.preventDefault(); toggleLike(b.dataset.like); });
   $$("[data-cm]").forEach(a => a.onclick = e => { e.preventDefault(); e.stopPropagation(); openComments(a.dataset.cm); });
   if (v == "media") bindMedia();
-  $$("[data-view]").forEach(a => a.onclick = e => { e.preventDefault(); openViewer(a.dataset.view, 0, false); });
+  $$("[data-view]").forEach(a => a.onclick = e => { e.preventDefault(); openViewer(a.dataset.view, 0, false); }); tzBind();
   $$("[data-vi]").forEach(im => im.onclick = () => openViewer(id, +im.dataset.vi, true));
   if (parts[2] == "c") setTimeout(() => $("#cmts")?.scrollIntoView({ behavior: "smooth" }), 100);
   if ($("#vw")) { $("#fsb").onclick = fullscreen; $("#vw").onclick = e => { if (e.target.tagName == "IMG") go(S.idx + 1); }; swipe($("#vw")); }
