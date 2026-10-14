@@ -5,7 +5,8 @@ const sb = supabase.createClient(B, C.ANON_KEY, { auth: { storageKey: "mia-visit
 const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const PB = (C.PREVIEW_BASE || "").replace(/\/$/, "");
-const pub = (p, b = "previews") => p ? (b == "previews" && PB ? `${PB}/${p}` : `${B}/storage/v1/object/public/${b}/${p}`) : "";
+const sbPub = (p, b) => `${B}/storage/v1/object/public/${b}/${p}`; // старый Supabase Storage (запасной путь)
+const pub = (p, b = "previews") => !p ? "" : PB && b == "previews" ? `${PB}/${p}` : PB && b == "media" ? `${PB}/media/${p}` : sbPub(p, b);
 const abs = u => /^https?:/i.test(u) ? u : B + u; // Яндекс отдаёт абсолютные ссылки, старые функции — /storage/v1/...
 // WebP-варианты публичных картинок (делает админка, кнопка «WebP-версии»). Манифест: settings.imgv → { paths: { "covers/x.jpg": { w: [480, 960], s: 1791... } } }
 // Нет манифеста или пути в нём — грузим исходный файл, как раньше.
@@ -436,7 +437,7 @@ async function render(o = {}) {
   if (v == "me") bindMe();
   if (S.modal) drawModal();
 }
-window.Mia = { imgSrc, bgSrc, vOf, freeOf, freeFn, freePlate, isLocked, pickOpen, pickBtn, openComments, closeComments, loadImgs, subscribe, openViewer, toggleLike, sb, S, $, $$, esc, pub, fmt, toast, T, DEF, fn, load, render, B, plural, setTexts: t => TX = t };
+window.Mia = { sbPub, imgSrc, bgSrc, vOf, freeOf, freeFn, freePlate, isLocked, pickOpen, pickBtn, openComments, closeComments, loadImgs, subscribe, openViewer, toggleLike, sb, S, $, $$, esc, pub, fmt, toast, T, DEF, fn, load, render, B, plural, setTexts: t => TX = t };
 window.addEventListener("hashchange", () => { if (window.MiaViewer?.isOpen()) window.MiaViewer.close(); if (S.modal) { S.modal = null; $("#modal")?.remove(); } closeComments(true); render(); });
 $("#app").innerHTML = `<div style="padding:14px"><div class="sk" style="height:120px"></div><div class="sk" style="height:300px;margin-top:14px"></div><div class="sk" style="height:16px;margin-top:10px;width:60%"></div></div>`;
 fetch("version.txt?" + Date.now(), { cache: "no-store" }).then(r => r.text()).then(v => { v = v.trim(); if (v && v != window.MIA_VERSION && !sessionStorage.miaReloaded) { sessionStorage.miaReloaded = 1; location.reload(); } }).catch(() => {});

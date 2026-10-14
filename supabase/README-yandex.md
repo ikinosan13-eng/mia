@@ -37,3 +37,12 @@
 - Функции: вставить старый unlock из git `66d60a5:supabase/functions/unlock/index.ts` (Supabase sign); pack_images/free_arts — из main до переезда (createSignedUrls).
 - Сайт: убрать PREVIEW_BASE или поставить "" и откатить app.js abs/pub; version bump.
 - Файлы в Яндексе и Supabase не удалять.
+
+## v31 (ветка yandex-uploads): загрузки админки в Яндекс
+- Функция yc_upload (Verify JWT: ВКЛ, только админ): { action: put|get|delete, items: [{ bucket: originals|previews|media, path, contentType }] } → подписанные ссылки (put/get 10 мин, delete 5 мин).
+  originals → privat/originals/<path>, previews → mia-previews/<path>, media → mia-previews/media/<path>. mia31313 не используется.
+- admin.js: ys(bucket).upload/remove/download вместо supabase.storage; remove также чистит старый Supabase, download падает обратно на Supabase.
+- Сайт: pub(…, "media") → mia-previews/media/<path>; запасной путь на Supabase (аудио onerror, фон — второй слой url()).
+- CORS Яндекса (privat, mia-previews): GET, HEAD, PUT, DELETE с https://ikinosan13-eng.github.io.
+- Content-Type не входит в подпись (aws4fetch его не подписывает) — его задаёт только админ; Cache-Control для публичных подписан.
+Деплой: 1) yc_upload из /workspace/yandex/single/yc_upload.ts (JWT ВКЛ). 2) Сайт v31 (main). Откат: вернуть main на коммит v30, функцию можно оставить.
