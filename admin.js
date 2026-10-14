@@ -32,8 +32,8 @@ async function vFrame(v, t) { await vSeek(v, Math.max(0, Math.min(t, (v.duration
 async function addVideo(f) { const v = await vLoad(f), fr = await vFrame(v, Math.min(1, (v.duration || 2) * .1));
   return { f, video: true, src: v.src, url: fr.url, img: fr.img, t: fr.t, dur: v.duration || 0, w: v.videoWidth, h: v.videoHeight }; }
 // multipart: части по 16 МБ, каждая с 3 повторами (сеть нестабильная); прогресс — onp(0..1)
-async function uploadVideo(path, file, onp) {
-  const call = async b => { const { data, error } = await M().sb.functions.invoke("yc_upload", { body: { bucket: "originals", path, ...b } }); if (error) { let m = error.message; try { m = (await error.context.json()).error || m; } catch {} throw new Error(m); } return data; };
+async function uploadVideo(path, file, onp, bucket = "originals") {
+  const call = async b => { const { data, error } = await M().sb.functions.invoke("yc_upload", { body: { bucket, path, ...b } }); if (error) { let m = error.message; try { m = (await error.context.json()).error || m; } catch {} throw new Error(m); } return data; };
   const c = await call({ action: "mp_create", contentType: "video/mp4", size: file.size }); let done = 0;
   try {
     for (const pt of c.parts) { const a = (pt.n - 1) * c.partSize, chunk = file.slice(a, Math.min(file.size, a + c.partSize));
@@ -45,7 +45,7 @@ async function uploadVideo(path, file, onp) {
 }
 // строки с видео-колонками; если video.sql ещё не применён — без них (сайт узнаёт видео по .mp4)
 async function insertRows(rows) { const { sb } = M(); let r = await sb.from("post_images").insert(rows);
-  if (r.error && /(kind|duration_sec|poster_path|size_bytes).*(does not exist|schema cache)|Could not find/i.test(r.error.message)) r = await sb.from("post_images").insert(rows.map(({ kind, duration_sec, poster_path, size_bytes, ...x }) => x)); return r; }
+  if (r.error && /(kind|duration_sec|poster_path|size_bytes).*(does not exist|schema cache)|Could not find/i.test(r.error.message)) r = await sb.from("post_images").insert(rows.map(({ kind, duration_sec, poster_path, size_bytes, teaser_path, ...x }) => x)); return r; }
 
 let tiers = [];
 async function loadTiers() { const { data } = await M().sb.from("tiers").select("id,rank,name,price_rub,perks,pay_url,boosty_url,code_version").order("rank"); tiers = data || []; }
@@ -167,6 +167,8 @@ async function posts(app, filter = "all") {
     const { data: imgs } = await sb.from("post_images").select("preview_path,original_path").eq("post_id", id);
     const shared = all.some(o => o.id != id && o.cover_path == p.cover_path), own = (imgs || []).filter(Boolean);
     if (own.length) { await ys("originals").remove(own.map(i => i.original_path)); await ys("previews").remove(own.map(i => i.preview_path)); }
+    { const { data: tz } = await sb.from("post_images").select("teaser_path").eq("post_id", id), { data: fv } = await sb.from("posts").select("feed_video_path").eq("id", id).maybeSingle();
+      await ys("previews").remove([...(tz || []).map(x => x.teaser_path), fv?.feed_video_path]); } // тизеры и публичная копия видео (до teasers.sql — пусто)
     if (p.cover_path && !shared && p.cover_path.startsWith("covers/" + id)) await ys("previews").remove([p.cover_path]);
     const { error } = await sb.from("posts").delete().eq("id", id); M().toast(error ? "Ошибка: " + error.message : "Удалено"); if (!error) ev("Удалена публикация «" + p.title + "»"); await M().load(); posts(app, filter); });
   app.querySelectorAll("[data-ed]").forEach(b => b.onclick = () => editPost(all.find(x => x.id == b.dataset.ed), () => posts(app, filter)));
@@ -194,7 +196,11 @@ async function editPost(p, done) {
       await sb.from("posts").update({ cover_path: path, cover_image_id: im.id, cover_crop: { image_id: im.id, ...r.crop }, thumb_path: tp }).eq("id", p.id); if (p.cover_path && p.cover_path.startsWith("covers/" + p.id)) ys("previews").remove([p.cover_path]); p.cover_path = path; toast("Обложка обновлена"); autoVariants([[path, VW.cover, r.blob]]); } };
   const close = () => d.remove(); d.querySelector(".x").onclick = d.querySelector("[data-x]").onclick = close;
   d.querySelector("#es").onclick = async () => {
-    const { error } = await sb.from("posts").update({ title: d.querySelector("#et").value.trim(), body: d.querySelector("#eb").value.trim(), tier_id: +d.querySelector("#etr").value }).eq("id", p.id);
+    const ntier = +d.querySelector("#etr").value;
+    const { error } = await sb.from("posts").update({ title: d.querySelector("#et").value.trim(), body: d.querySelector("#eb").value.trim(), tier_id: ntier }).eq("id", p.id);
+    // пост стал закрытым → публичная копия полного видео (feedvid/) удаляется, в ленте остаётся только тизер
+    if (!error && (tiers.find(t => t.id == ntier)?.rank || 0) > 0) { const { data: fv } = await sb.from("posts").select("feed_video_path").eq("id", p.id).maybeSingle();
+      if (fv?.feed_video_path) { await ys("previews").remove([fv.feed_video_path]); await sb.from("posts").update({ feed_video_path: null }).eq("id", p.id); } }
     if (error) return d.querySelector("#ee").textContent = error.message;
     for (let i = 0; i < order.length; i++) await sb.from("post_images").update({ position: 1000 + i }).eq("id", order[i].id);
     for (let i = 0; i < order.length; i++) await sb.from("post_images").update({ position: i + 1 }).eq("id", order[i].id);
@@ -285,21 +291,33 @@ async function publish(app) {
   const tier = tiers.find(t => t.id == W.tier), pid = uuid(), rows = [];
   const publish_at = W.when == "later" ? new Date(W.at).toISOString() : new Date().toISOString();
   try {
-    let coverImg = null; const vjobs = [];
+    let coverImg = null; const vjobs = [], vx = {}; // vx: тизер обложки и публичная копия видео для открытого видео-поста
+    const VC = W.files.some(f => f.video) ? await import("./vcomp.js?v=35").catch(() => null) : null;
     for (let i = 0; i < W.files.length; i++) {
       st.textContent = `Загрузка ${i + 1} из ${W.files.length}…`; bar.style.width = `${(i / W.files.length) * 90}%`;
       const img = W.files[i].img || await Crop.loadImg(W.files[i].f), iid = uuid(); if (i == W.cover) coverImg = img;
       if (W.files[i].video) { const F = W.files[i], vp = `videos/${pid}/${iid}.mp4`, pp = `posters/${pid}/${iid}.jpg`, mb = (F.f.size / 1048576).toFixed(0);
         const prev = await toJpeg(img, tier.rank > 0 ? LOCKED_PREV : 720, .85);
         let r = await ys("previews").upload(pp, prev.blob, { contentType: "image/jpeg", upsert: true }); if (r.error) throw new Error(`Постер ${i + 1}: ${r.error.message}`);
-        await uploadVideo(vp, F.f, x => { st.textContent = `Видео ${i + 1} из ${W.files.length} · ${Math.round(x * 100)}% из ${mb} МБ · постер готов`; bar.style.width = `${((i + x) / W.files.length) * 90}%`; });
+        // сжатие (WebCodecs H.264, ≤1080p, ~3,5 Мбит/с; не стало меньше — оригинал) и тизер 4 с с кадра-обложки; без WebCodecs — как раньше
+        let up = F.f, tp = null;
+        if (VC?.supported()) {
+          try { up = (await VC.compress(F.f, x => { st.textContent = `Видео ${i + 1} из ${W.files.length} · сжимаю ${Math.round(x * 100)}%`; })).blob; } catch (e) { console.warn("сжатие", e); }
+          try { st.textContent = `Видео ${i + 1} из ${W.files.length} · тизер…`; const tz = await VC.teaser(F.f, F.t || 0); tp = `teasers/${pid}/${iid}.mp4`;
+            const r2 = await ys("previews").upload(tp, tz, { contentType: "video/mp4", upsert: true }); if (r2.error) tp = null; } catch (e) { console.warn("тизер", e); tp = null; } }
+        const umb = (up.size / 1048576).toFixed(0), sv = up === F.f ? "" : ` (сжато ${mb}→${umb} МБ)`;
+        await uploadVideo(vp, up, x => { st.textContent = `Видео ${i + 1} из ${W.files.length} · ${Math.round(x * 100)}% из ${umb} МБ${sv} · постер готов`; bar.style.width = `${((i + x) / W.files.length) * 90}%`; });
+        // открытый видео-пост: полное видео играет в ленте → публичная копия в mia-previews/feedvid/ (закрытые — никогда)
+        if (W.mode == "video" && tier.rank == 0) { const fp = `feedvid/${pid}/${iid}.mp4`;
+          try { await uploadVideo(fp, up, x => { st.textContent = `Видео для ленты · ${Math.round(x * 100)}%`; }, "previews"); vx.feed = fp; } catch (e) { console.warn("feedvid", e); } }
+        if (i == W.cover) vx.teaser = tp;
         vjobs.push([pp, VW.thumb, prev.blob]);
-        rows.push({ id: iid, post_id: pid, position: i + 1, preview_path: pp, original_path: vp, width: F.w, height: F.h, kind: "video", duration_sec: Math.round(F.dur * 10) / 10, poster_path: pp, size_bytes: F.f.size }); continue; }
+        rows.push({ id: iid, post_id: pid, position: i + 1, preview_path: pp, original_path: vp, width: F.w, height: F.h, kind: "video", duration_sec: Math.round(F.dur * 10) / 10, poster_path: pp, size_bytes: up.size, teaser_path: tp }); continue; }
       const orig = await toJpeg(img, 2560, 0.92), prev = await toJpeg(img, tier.rank > 0 ? LOCKED_PREV : 480, tier.rank > 0 ? 0.85 : 0.8); // закрытые паки: чёткое превью ~700px (для превью-показа в кинорежиме)
       const op = `${pid}/${iid}.jpg`, pp = `thumbs/${pid}/${iid}.jpg`;
       for (const [b, p, blob] of [["originals", op, orig.blob], ["previews", pp, prev.blob]]) { let r, k = 0; do { r = await ys(b).upload(p, blob, { cacheControl: "31536000", contentType: "image/jpeg", upsert: true }); } while (r.error && ++k < 3); if (r.error) throw new Error(`Арт ${i + 1}: ${r.error.message}`); }
       vjobs.push([pp, VW.thumb, prev.blob]);
-      rows.push({ id: iid, post_id: pid, position: i + 1, preview_path: pp, original_path: op, width: orig.w, height: orig.h, kind: "image", duration_sec: null, poster_path: null, size_bytes: null }); // все строки с одинаковыми ключами: иначе PostgREST подставит null в kind и вставка упадёт
+      rows.push({ id: iid, post_id: pid, position: i + 1, preview_path: pp, original_path: op, width: orig.w, height: orig.h, kind: "image", duration_sec: null, poster_path: null, size_bytes: null, teaser_path: null }); // все строки с одинаковыми ключами: иначе PostgREST подставит null в kind и вставка упадёт
     }
     st.textContent = "Обложка и миниатюра…";
     const crop = W.crop || null, cv = document.createElement("canvas");
@@ -312,6 +330,7 @@ async function publish(app) {
     st.textContent = "Сохраняю публикацию…";
     r = await sb.from("posts").insert({ id: pid, title: W.title.trim(), body: W.body.trim(), tier_id: W.tier, cover_path: coverPath, publish_at, status: "draft", thumb_path: thumbPath, cover_crop: { ...c, image: W.cover + 1 }, thumb_crop: W.thumbMode == "own" ? W.thumbCrop : null }); if (r.error) throw r.error;
     r = await insertRows(rows); if (r.error) throw r.error;
+    if (vx.teaser || vx.feed) await sb.from("posts").update({ cover_teaser_path: vx.teaser || null, feed_video_path: vx.feed || null }).eq("id", pid); // до teasers.sql колонок нет — ошибка игнорируется
     if (W.mode == "video") await sb.from("posts").update({ kind: "video" }).eq("id", pid); // до video.sql колонки нет — тихо пропускаем
     r = await sb.from("posts").update({ status: W.when == "draft" ? "draft" : "published", cover_image_id: rows[W.cover].id, cover_crop: { image_id: rows[W.cover].id, ...c } }).eq("id", pid); if (r.error) throw r.error;
     bar.style.width = "100%"; toast(W.when == "draft" ? "Черновик сохранён" : W.when == "later" ? "Запланировано" : "Опубликовано!"); W = null; autoVariants(vjobs); await M().load(); location.hash = "#/admin/posts";
