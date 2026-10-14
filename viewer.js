@@ -219,7 +219,7 @@ function open(post, imgsP, o = {}) {
   try { if (!document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {}); } catch {}
   for (const a of [el("a1"), el("a2")]) { a.classList.toggle("dev", style != "none"); a.classList.remove("show"); a.style.backgroundImage = ""; }
   el("intro").classList.remove("out"); el("hello").innerHTML = ""; el("mia").classList.remove("on"); el("skip").classList.toggle("hide", !c.skip); el("strip").classList.remove("on"); el("ttl").classList.remove("on");
-  el("mia").style.backgroundImage = c.art ? `url("${window.Mia.pub(c.art, "media")}"), url("${window.Mia.sbPub(c.art, "media")}")` : ""; el("mia").classList.toggle("noart", !c.art);
+  el("mia").style.backgroundImage = c.art ? `url("${window.Mia.pub(c.art, "media")}")` : ""; el("mia").classList.toggle("noart", !c.art);
   title(post); el("load").textContent = "Загрузка…"; clearTimeout(hideT);
   el("cnt").textContent = ""; el("strip").innerHTML = ""; el("strip").classList.toggle("hide", !c.strip); drawBot(); drawPacks();
   fill(post, imgsP);
