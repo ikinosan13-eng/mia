@@ -12,6 +12,7 @@ function build() {
   <button id="v-skip" class="vskip">Пропустить ›</button><div class="vload" id="v-load">Загрузка…</div>
   <div class="vstage" id="v-stage"><div class="art" id="v-a1"></div><div class="art" id="v-a2"></div><div class="vlc" id="v-lc"></div><button class="vnav l" id="v-pv" title="Предыдущий арт"><span>‹</span></button><button class="vnav rr" id="v-nx" title="Следующий арт"><span>›</span></button></div>
   <div class="vchrome bot"><div class="vttl" id="v-ttl"><div class="row"><button class="parr" id="v-pp" title="Предыдущий пак">‹</button><h2></h2><button class="parr" id="v-pn" title="Следующий пак">›</button></div><p></p></div><div class="vstrip" id="v-strip"></div>
+  <div class="vbot vvc hide" id="v-vc"><button class="ib" id="v-vp" title="Пауза">❚❚</button><div class="vbar" id="v-vb"><i></i></div><span class="vpill" id="v-vt">0:00 / 0:00</span><button class="ib" id="v-vm" title="Звук видео">🔇</button></div>
   <div class="vbot"><button class="vpill" id="v-lk"></button><button class="vpill" id="v-cm"></button><div class="eq"><i></i><i></i><i></i><i></i></div></div></div>
   <div class="pstrip" id="v-ps"></div><div class="vbz" id="v-bz"></div><div class="vtz" id="v-tz"></div><div class="vfc" id="v-fc"></div>`;
   document.body.append(V);
@@ -22,6 +23,10 @@ function build() {
   el("nx").onclick = side(1); el("pv").onclick = side(-1);
   el("fs").onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.().catch(() => {});
   el("mu").onclick = () => toggleMute();
+  // видео: пауза/звук/перемотка; кнопки — те же .ib/.vpill, что у кинорежима
+  el("vp").onclick = e => { e.stopPropagation(); const v = curVid(); if (!v) return; v.paused ? v.play().catch(() => {}) : v.pause(); bar(1500); };
+  el("vm").onclick = e => { e.stopPropagation(); vMuted = !vMuted; const v = curVid(); if (v) v.muted = vMuted; el("vm").textContent = vMuted ? "🔇" : "🔊"; if (!vMuted && !st.muted && (audio || ac)) toggleMute(); bar(1500); };
+  el("vb").onclick = e => { e.stopPropagation(); const v = curVid(), r = el("vb").getBoundingClientRect(); if (v && v.duration) v.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * v.duration; bar(1500); };
   el("lk").onclick = async () => { await window.Mia.toggleLike(st.post.id); drawBot(); };
   el("cm").onclick = () => window.Mia.openComments(st.post.id, drawBot);
   el("pp").onclick = () => pack(-1); el("pn").onclick = () => pack(1);
@@ -115,13 +120,13 @@ function lkSize() { if (!V || !V.classList.contains("lkd")) return; const vb = M
 addEventListener("resize", () => lkSize());
 function lockCard(p) {
   const M = window.Mia, n = p.image_count || 0; st.post = p; st.imgs = null; st.i = 0; st.pending = null;
-  loadTok++; title(p); drawBot(); drawPacks(); el("cnt").textContent = ""; st.front.classList.remove("show"); st.back.classList.remove("show"); el("load").classList.remove("on", "err");
+  loadTok++; killVid(st.front); killVid(st.back); vidUi(null); title(p); drawBot(); drawPacks(); el("cnt").textContent = ""; st.front.classList.remove("show"); st.back.classList.remove("show"); el("load").classList.remove("on", "err");
   V.classList.remove("frm"); el("fc").innerHTML = ""; V.classList.add("lkd"); lkSize(); V.style.setProperty("--lkbg", `url('${M.pub(p.cover_path)}')`);
   const pv = packPv(p);
   const fr = M.freeOf(p.id), isF = k => pv[k] && fr.includes(pv[k].position);
   el("strip").innerHTML = Array.from({ length: Math.min(n, 12) }, (_, k) => `<div class="tzt${isF(k) ? " fr" : ""}" data-k="${k}"><i${pv[k] ? ` style="background-image:url('${M.pub(pv[k].preview_path)}')"` : ""}></i></div>`).join(""); el("strip").classList.add("on");
   el("strip").querySelectorAll(".tzt").forEach(d => d.onclick = e => { e.stopPropagation(); const k = +d.dataset.k; if (isF(k)) return freeShow(p, fr.indexOf(pv[k].position)); teaser(p); });
-  el("lc").innerHTML = `<div class="lfull"><img src="${M.pub(p.cover_path)}" alt=""><i class="lfz"></i><button class="llock" id="v-llk" title="${M.esc(M.T("btn_subscribe"))}"></button><h3>${M.esc(p.title)}</h3><span class="lcnt">${n} ${M.plural(n, "арт", "арта", "артов")}</span>
+  el("lc").innerHTML = `<div class="lfull"><img src="${M.pub(p.cover_path)}" alt=""><i class="lfz"></i><button class="llock" id="v-llk" title="${M.esc(M.T("btn_subscribe"))}"></button><h3>${M.esc(p.title)}</h3><span class="lcnt">${M.esc(M.cntText ? M.cntText(p, `${n} ${M.plural(n, "арт", "арта", "артов")}`) : `${n} ${M.plural(n, "арт", "арта", "артов")}`)}</span>
     <div class="frost lpan"><span class="mu">${M.esc(M.T("locked_label"))}</span><b>${M.esc(p.tier_name || "")}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><button class="ob" id="v-buy">🔒 ${M.esc(M.T("btn_subscribe"))}</button>${M.pickBtn(p)}${fr.length ? `<button class="gb" id="v-free">🐾 Посмотреть ${fr.length} ${M.plural(fr.length, "арт", "арта", "артов")} бесплатно</button>` : ""}</div></div>`;
   el("buy").onclick = e => { e.stopPropagation(); sub(p); };
   if (el("free")) el("free").onclick = e => { e.stopPropagation(); freeShow(p, 0); };
@@ -131,24 +136,25 @@ function lockCard(p) {
 }
 // «Пробник»: показать бесплатные арты закрытого пака в полном качестве + плашка с подпиской/кодом
 function freeShow(p, k = 0) {
-  const M = window.Mia; stopTeaser(); st.post = p; st.imgs = null; st.pending = null; loadTok++;
+  const M = window.Mia; stopTeaser(); st.post = p; st.imgs = null; st.pending = null; loadTok++; curVid()?.pause();
   V.classList.remove("lkd"); V.classList.add("frm"); el("lc").innerHTML = ""; title(p); drawBot(); drawPacks();
   el("cnt").textContent = ""; el("strip").innerHTML = ""; el("load").textContent = "Мур, загружаю бесплатные арты… 🐾"; el("load").classList.remove("err"); el("load").classList.add("on");
   el("fc").innerHTML = M.freePlate(p);
   Promise.race([M.freeFn(p.id), new Promise((_, r) => setTimeout(() => r(new Error("timeout")), 15000))]).then(list => { if (st.post !== p || !V.classList.contains("frm")) return;
     if (!list.length) return lockCard(p);
     st.imgs = list.map(x => x.url);
-    list.forEach((x, m) => { const d = document.createElement("div"); d.className = "fr"; d.style.backgroundImage = `url("${x.url}")`; d.onclick = () => { show(m); hideBar(); }; el("strip").append(d); });
+    list.forEach((x, m) => { const d = document.createElement("div"); d.className = "fr"; thumbBg(d, x.url, p, m, x.position); d.onclick = () => { show(m); hideBar(); }; el("strip").append(d); });
     const lk = document.createElement("div"); lk.className = "tzt"; lk.innerHTML = `<i style="background-image:url('${M.pub(p.cover_path)}')"></i>`; lk.onclick = e => { e.stopPropagation(); lockCard(p); }; el("strip").append(lk);
     el("strip").classList.add("on"); show(Math.min(k, list.length - 1));
   }).catch(() => { if (st.post !== p) return; el("load").textContent = "Мяу, бесплатные арты не загрузились 🐾 Попробуй ещё раз"; el("load").classList.add("on", "err"); });
   wake();
 }
-function title(post) { el("ttl").querySelector("h2").textContent = post.title; el("ttl").querySelector("p").textContent = `пак · ${post.image_count} ${window.Mia.plural(post.image_count, "арт", "арта", "артов")}${post.tier_rank > 0 ? " · " + post.tier_name : ""}`; }
+function title(post) { el("ttl").querySelector("h2").textContent = post.title; const n = `${post.image_count} ${window.Mia.plural(post.image_count, "арт", "арта", "артов")}`, v = window.Mia.S.pv?.[post.id];
+  el("ttl").querySelector("p").textContent = `${v?.kind == "video" ? "видео · " + window.Mia.cntText(post, n).replace("▶ ", "") : "пак · " + (v ? window.Mia.cntText(post, n) : n)}${post.tier_rank > 0 ? " · " + post.tier_name : ""}`; }
 function fill(post, imgsP, then) {
   imgsP.then(imgs => { if (st.post !== post) return; if (!imgs.length) { el("load").textContent = "В паке пока нет артов"; el("load").classList.add("on"); } st.imgs = imgs; el("strip").innerHTML = "";
-    imgs.forEach((u, k) => { const d = document.createElement("div"); d.style.backgroundImage = `url("${u}")`; d.style.transitionDelay = (k * .06) + "s"; d.onclick = () => { show(k); hideBar(); }; el("strip").append(d); });
-    imgs.slice(0, 3).forEach(u => { const i = new Image(); i.src = u; });
+    imgs.forEach((u, k) => { const d = document.createElement("div"); thumbBg(d, u, post, k); d.style.transitionDelay = (k * .06) + "s"; d.onclick = () => { show(k); hideBar(); }; el("strip").append(d); });
+    imgs.slice(0, 3).filter(u => !isVid(u)).forEach(u => { const i = new Image(); i.src = u; });
     if (then) then(); else if (st.pending) { const p = st.pending; st.pending = null; p(); } }).catch(() => { if (st.post !== post) return; el("load").textContent = "Мяу, арты не загрузились 🐾 Проверь интернет и открой пак ещё раз"; el("load").classList.add("on"); });
 }
 function drawBot() { const p = st.post, S = window.Mia.S; el("lk").textContent = `${S.liked.has(p.id) ? "❤" : "♡"} ${p.like_count || 0}`; el("lk").classList.toggle("liked", S.liked.has(p.id)); el("cm").textContent = `💬 ${p.comment_count || 0}`; }
@@ -182,21 +188,40 @@ function toggleMute() {
 // ---- slides ----
 // смена арта: плашка «Загрузка…» висит, пока картинка не загружена и не декодирована; анимация появления — только после
 let loadTok = 0;
+// ---- видео: тот же слой .art, та же посадка (object-fit как background-size арта), постер = превью
+const isVid = u => /\.mp4(\?|$)/i.test(u || "");
+let vMuted = true;
+const curVid = () => st.front && st.front.querySelector("video");
+const fmtT = t => { t = Math.max(0, Math.floor(t || 0)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; };
+function poster(post, k, pos) { const pv = packPv(post), m = pos != null ? pv.find(x => x.position == pos) : pv[k]; return m ? window.Mia.pub(m.preview_path) : ""; }
+function thumbBg(d, u, post, k, pos) { if (isVid(u)) { d.classList.add("vd"); const p = poster(post, k, pos); d.style.backgroundImage = p ? `url("${p}")` : ""; } else d.style.backgroundImage = `url("${u}")`; }
+function killVid(a, keep) { a && a.querySelectorAll("video").forEach(v => { if (v === keep) return; v.pause(); v.removeAttribute("src"); v.load(); v.remove(); }); }
+function vidUi(v) {
+  el("vc").classList.toggle("hide", !v); if (!v) return;
+  const upd = () => { if (curVid() !== v) return; const d = v.duration || 0; el("vb").firstChild.style.width = d ? (v.currentTime / d * 100) + "%" : "0"; el("vt").textContent = `${fmtT(v.currentTime)} / ${fmtT(d)}`; el("vp").textContent = v.paused ? "▶" : "❚❚"; };
+  ["timeupdate", "play", "pause", "durationchange"].forEach(t => v.addEventListener(t, upd)); el("vm").textContent = vMuted ? "🔇" : "🔊"; upd();
+}
 function show(k, slow) {
   if (!st.imgs?.length) return; const n = st.imgs.length; st.i = (k + n) % n;
-  const i = st.i, url = st.imgs[i], tok = ++loadTok, post = st.post;
+  const i = st.i, url = st.imgs[i], tok = ++loadTok, post = st.post, vid = isVid(url);
+  curVid()?.pause(); // листнули дальше — текущее видео на паузу
   el("cnt").textContent = `${i + 1} / ${n}`;
   [...el("strip").children].forEach((d, m) => d.classList.toggle("cur", m == i));
   center(el("strip"), el("strip").children[i], "smooth");
-  const im = new Image(); im.src = url;
+  const im = vid ? document.createElement("video") : new Image();
+  if (vid) { Object.assign(im, { muted: vMuted, playsInline: true, loop: true, preload: "auto", poster: poster(post, i) }); im.setAttribute("playsinline", ""); im.src = url; }
+  else im.src = url;
   const ready = () => { if (tok != loadTok || st.post !== post) return; el("load").classList.remove("on", "err");
-    [st.front, st.back] = [st.back, st.front]; const f = st.front;
-    f.classList.toggle("slow", !!slow); f.style.backgroundImage = `url("${url}")`;
-    f.classList.remove("show"); void f.offsetWidth; f.classList.add("show"); st.back.classList.remove("show"); };
+    [st.front, st.back] = [st.back, st.front]; const f = st.front, b = st.back;
+    f.classList.toggle("slow", !!slow); killVid(f);
+    if (vid) { f.style.backgroundImage = "none"; f.append(im); im.play().catch(() => { im.muted = vMuted = true; im.play().catch(() => {}); }); } else f.style.backgroundImage = `url("${url}")`;
+    vidUi(vid ? im : null);
+    f.classList.remove("show"); void f.offsetWidth; f.classList.add("show"); b.classList.remove("show"); setTimeout(() => { if (!b.classList.contains("show")) killVid(b); }, 1200); };
   const fail = () => { if (tok != loadTok || st.post !== post) return; st.front.classList.remove("show"); st.back.classList.remove("show");
     el("load").textContent = "Не удалось загрузить арт"; el("load").classList.add("on", "err"); };
-  if (im.complete && im.naturalWidth) return ready();
+  if (!vid && im.complete && im.naturalWidth) return ready();
   el("load").textContent = "Загрузка…"; el("load").classList.remove("err"); el("load").classList.add("on");
+  if (vid) { let ok = 0; im.addEventListener("canplay", () => { if (!ok) { ok = 1; ready(); } }); im.onerror = fail; im.load(); return; } // Range-запросы делает сам <video>
   im.onload = () => (im.decode ? im.decode().catch(() => {}) : Promise.resolve()).then(ready); im.onerror = fail;
 }
 function finish() {
@@ -217,7 +242,7 @@ function open(post, imgsP, o = {}) {
   V.setAttribute("aria-hidden", "false"); document.documentElement.classList.add("v-open");
   // авто-полный экран на всю страницу (чтобы окна подписки/комментариев были видны поверх) (в жесте тапа); где не поддерживается (iPhone Safari) — молча пропускаем
   try { if (!document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {}); } catch {}
-  for (const a of [el("a1"), el("a2")]) { a.classList.toggle("dev", style != "none"); a.classList.remove("show"); a.style.backgroundImage = ""; }
+  for (const a of [el("a1"), el("a2")]) { killVid(a); a.classList.toggle("dev", style != "none"); a.classList.remove("show"); a.style.backgroundImage = ""; }
   el("intro").classList.remove("out"); el("hello").innerHTML = ""; el("mia").classList.remove("on"); el("skip").classList.toggle("hide", !c.skip); el("strip").classList.remove("on"); el("ttl").classList.remove("on");
   el("mia").style.backgroundImage = c.art ? `url("${window.Mia.pub(c.art, "media")}")` : ""; el("mia").classList.toggle("noart", !c.art);
   title(post); el("load").textContent = "Загрузка…"; clearTimeout(hideT);
@@ -233,7 +258,7 @@ function open(post, imgsP, o = {}) {
   T(finish, D * 1.4);
 }
 function close() {
-  if (!V) return; stopTeaser(); timers.forEach(clearTimeout); timers = []; stopMusic(); clearTimeout(hideT); clearTimeout(barT); window.Mia.closeComments?.(true); V.classList.add("closing"); V.classList.remove("ui", "idle", "bar");
+  if (!V) return; stopTeaser(); curVid()?.pause(); setTimeout(() => { if (!V.classList.contains("on") || V.classList.contains("closing")) { killVid(el("a1")); killVid(el("a2")); vidUi(null); } }, 950); timers.forEach(clearTimeout); timers = []; stopMusic(); clearTimeout(hideT); clearTimeout(barT); window.Mia.closeComments?.(true); V.classList.add("closing"); V.classList.remove("ui", "idle", "bar");
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   const g = ++vGen; setTimeout(() => { if (g != vGen) return; V.className = "viewer"; V.setAttribute("aria-hidden", "true"); document.documentElement.classList.remove("v-open"); st.post = null; }, 900);
 }

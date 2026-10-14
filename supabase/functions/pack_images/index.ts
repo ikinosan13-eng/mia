@@ -2,7 +2,7 @@
 // Ответ в том же формате, что и unlock({post_id}): { images: [{ url }] } (url — абсолютная подписанная ссылка Yandex Object Storage, 1 ч).
 // Деплой: supabase functions deploy pack_images  (секреты SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY уже есть в проекте).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { signOriginals } from "../_shared/yc.ts";
+import { signRows, VCOLS } from "../_shared/yc.ts";
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const j = (s: number, b: unknown) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 Deno.serve(async req => {
@@ -14,8 +14,10 @@ Deno.serve(async req => {
     const { data: { user } } = await admin.auth.getUser(jwt); if (!user) return j(401, { error: "login" });
     const { data: un } = await admin.from("pack_unlocks").select("post_id").eq("user_id", user.id).eq("post_id", post_id).maybeSingle();
     if (!un) return j(403, { error: "locked" });
-    const { data: ims, error } = await admin.from("post_images").select("original_path,position").eq("post_id", post_id).order("position"); if (error) throw error;
-    const signed = await signOriginals((ims || []).map(i => i.original_path), 3600);
-    return j(200, { images: signed.map(u => ({ url: u })) });
+    const q = (cols: string) => admin.from("post_images").select(cols).eq("post_id", post_id).order("position");
+    let { data: ims, error } = await q(`original_path,position,width,height,${VCOLS}`) as any;
+    if (error) ({ data: ims, error } = await q("original_path,position,width,height") as any); // до video.sql
+    if (error) throw error;
+    return j(200, { images: await signRows(ims || []) });
   } catch (e) { return j(500, { error: String((e as Error).message || e) }); }
 });

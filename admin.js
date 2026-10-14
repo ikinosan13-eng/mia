@@ -20,6 +20,33 @@ const ys = bucket => ({
     return M().sb.storage.from(bucket).download(path); },
 });
 
+// ---------- видео: mp4 ≤ 300 МБ, multipart-загрузка в privat/originals/videos/…, постер-кадр с canvas ----------
+const VMAX = 300 * 1024 * 1024, VBAD = "Мяу, такое видео не подходит 🐾 Нужен mp4 до 300 МБ";
+const isMp4 = f => f && (f.type == "video/mp4" || (!f.type && /\.mp4$/i.test(f.name)));
+const vLoad = f => new Promise((ok, no) => { const v = document.createElement("video"); v.muted = true; v.playsInline = true; v.preload = "auto"; v.src = typeof f == "string" ? f : URL.createObjectURL(f);
+  v.onloadeddata = () => ok(v); v.onerror = () => no(new Error("video")); });
+const vSeek = (v, t) => new Promise(ok => { if (Math.abs(v.currentTime - t) < .01 && v.readyState >= 2) return ok(); v.onseeked = () => { v.onseeked = null; ok(); }; v.currentTime = t; });
+// кадр видео → { img (Image для обложки/кадрирования), url, t }
+async function vFrame(v, t) { await vSeek(v, Math.max(0, Math.min(t, (v.duration || 1) - .05))); const c = document.createElement("canvas"); c.width = v.videoWidth; c.height = v.videoHeight; c.getContext("2d").drawImage(v, 0, 0);
+  const b = await new Promise(r => c.toBlob(r, "image/jpeg", .9)), url = URL.createObjectURL(b), img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = url; }); return { img, url, t }; }
+async function addVideo(f) { const v = await vLoad(f), fr = await vFrame(v, Math.min(1, (v.duration || 2) * .1));
+  return { f, video: true, src: v.src, url: fr.url, img: fr.img, t: fr.t, dur: v.duration || 0, w: v.videoWidth, h: v.videoHeight }; }
+// multipart: части по 16 МБ, каждая с 3 повторами (сеть нестабильная); прогресс — onp(0..1)
+async function uploadVideo(path, file, onp) {
+  const call = async b => { const { data, error } = await M().sb.functions.invoke("yc_upload", { body: { bucket: "originals", path, ...b } }); if (error) { let m = error.message; try { m = (await error.context.json()).error || m; } catch {} throw new Error(m); } return data; };
+  const c = await call({ action: "mp_create", contentType: "video/mp4", size: file.size }); let done = 0;
+  try {
+    for (const pt of c.parts) { const a = (pt.n - 1) * c.partSize, chunk = file.slice(a, Math.min(file.size, a + c.partSize));
+      for (let k = 0; ; k++) { try { await new Promise((ok, no) => { const x = new XMLHttpRequest(); x.open("PUT", pt.url); x.upload.onprogress = e => onp((done + e.loaded) / file.size); x.onload = () => x.status < 300 ? ok() : no(new Error("Яндекс: " + x.status)); x.onerror = () => no(new Error("сеть")); x.send(chunk); }); break; }
+        catch (e) { if (k >= 3) throw e; await new Promise(z => setTimeout(z, 2000 * (k + 1))); } }
+      done += chunk.size; onp(done / file.size); }
+    await call({ action: "mp_complete", uploadId: c.uploadId });
+  } catch (e) { call({ action: "mp_abort", uploadId: c.uploadId }).catch(() => {}); throw e; }
+}
+// строки с видео-колонками; если video.sql ещё не применён — без них (сайт узнаёт видео по .mp4)
+async function insertRows(rows) { const { sb } = M(); let r = await sb.from("post_images").insert(rows);
+  if (r.error && /kind|duration_sec|poster_path|size_bytes|column/i.test(r.error.message)) r = await sb.from("post_images").insert(rows.map(({ kind, duration_sec, poster_path, size_bytes, ...x }) => x)); return r; }
+
 let tiers = [];
 async function loadTiers() { const { data } = await M().sb.from("tiers").select("id,rank,name,price_rub,perks,pay_url,boosty_url,code_version").order("rank"); tiers = data || []; }
 const LOCKED_PREV = 700;
@@ -127,7 +154,7 @@ async function posts(app, filter = "all") {
   const now = Date.now(), all = data || [];
   const kind = p => p.status == "draft" ? "draft" : new Date(p.publish_at) > now ? "sched" : "pub";
   const list = all.filter(p => filter == "all" || kind(p) == filter);
-  app.innerHTML = shell("posts", `<div class="r" style="justify-content:space-between;flex-wrap:wrap"><h2>Публикации</h2><span class="r" style="flex-wrap:wrap!important;gap:6px"><button class="gb" id="ycm" title="Перенести оригиналы и музыку вступления в Yandex Object Storage (можно жать повторно — готовое пропускается)">Перенести в Яндекс</button><button class="gb" id="mkv" title="Уменьшенные WebP-версии обложек и превью — сайт грузится быстрее">WebP-версии</button><button class="gb" id="rgp" title="Один раз: сделать чёткие превью ~700px для всех закрытых паков из оригиналов">Пересоздать превью</button> <a class="ob" href="#/admin/new">+ Новая публикация</a></span></div>
+  app.innerHTML = shell("posts", `<div class="r" style="justify-content:space-between;flex-wrap:wrap"><h2>Публикации</h2><span class="r" style="flex-wrap:wrap!important;gap:6px"><button class="gb" id="ycm" title="Перенести оригиналы и музыку вступления в Yandex Object Storage (можно жать повторно — готовое пропускается)">Перенести в Яндекс</button><button class="gb" id="mkv" title="Уменьшенные WebP-версии обложек и превью — сайт грузится быстрее">WebP-версии</button><button class="gb" id="rgp" title="Один раз: сделать чёткие превью ~700px для всех закрытых паков из оригиналов">Пересоздать превью</button> <a class="gb" href="#/admin/newvideo">🎬 Видео-пост</a> <a class="ob" href="#/admin/new">+ Новая публикация</a></span></div>
   <div class="r" style="margin-bottom:10px;flex-wrap:wrap">${[["all", "Все", all.length], ["pub", "Опубликованы"], ["sched", "Запланированы"], ["draft", "Черновики"]].map(([k, n]) => `<a class="pill ${k == filter ? "on" : ""}" href="#/admin/posts/${k}">${n} ${k == "all" ? all.length : all.filter(p => kind(p) == k).length}</a>`).join("")}</div>
   <div class="tw"><table><tr><th></th><th>Заголовок</th><th>Уровень</th><th>Арты</th><th>Статус</th><th>❤ / 💬</th><th></th></tr>${list.map(p => `<tr><td><img class="th" src="${pub(p.cover_path)}" style="width:44px;height:44px"></td><td>${esc(p.title)}</td><td><span class="tier ${p.tier_id ? "" : "f"}">${esc(tiers.find(t => t.id == p.tier_id)?.name)}</span></td><td>${p.post_images[0]?.count || 0}</td>
   <td>${p.hidden ? "🙈 Скрыт" : kind(p) == "draft" ? "Черновик" : kind(p) == "sched" ? "⏰ " + fmt(p.publish_at) : "Опубликован " + new Date(p.publish_at).toLocaleDateString("ru-RU")}</td><td>${st[p.id] ? st[p.id].like_count + " / " + st[p.id].comment_count : "—"}</td>
@@ -183,12 +210,15 @@ async function squareThumb(img, c, crop2) {
 
 // ---------- new post wizard ----------
 let W = null;
-async function newPost(app) {
-  await loadTiers(); const { esc } = M();
-  if (!W) W = { step: 1, files: [], cover: 0, title: "", body: "", tier: tiers[tiers.length - 1]?.id ?? 0, crop: null, thumbMode: "auto", thumbCrop: null, when: "now", at: "" };
-  const steps = ["① Арты", "② Текст и уровень", "③ Превью", "④ Публикация"];
-  let body = `<h2>Новая публикация</h2><div class="wiz">${steps.map((s, i) => `<div class="${W.step == i + 1 ? "on" : ""}">${s}</div>`).join("")}</div>`;
-  if (W.step == 1) body += `<p class="mu">Выберите сразу много артов. ↑↓ — порядок, ★ — сделать обложкой. Оригиналы загрузятся как есть (до 2560px).</p><div class="ups" id="ups"></div><input type="file" id="fi" accept="image/*" multiple class="hide">`;
+async function newPost(app, mode = "pack") {
+  await loadTiers(); const { esc, toast } = M();
+  if (W && (W.mode || "pack") != mode) W = null;
+  if (!W) W = { mode, step: 1, files: [], cover: 0, title: "", body: "", tier: tiers[tiers.length - 1]?.id ?? 0, crop: null, thumbMode: "auto", thumbCrop: null, when: "now", at: "" };
+  const steps = [W.mode == "video" ? "① Видео" : "① Арты", "② Текст и уровень", "③ Превью", "④ Публикация"];
+  let body = `<h2>${W.mode == "video" ? "🎬 Видео-пост" : "Новая публикация"}</h2><div class="wiz">${steps.map((s, i) => `<div class="${W.step == i + 1 ? "on" : ""}">${s}</div>`).join("")}</div>`;
+  const VP = W.mode == "video";
+  if (W.step == 1) body += (VP ? `<p class="mu">🎬 Видео-пост: выберите одно видео mp4 до 300 МБ. Кадр для обложки можно выбрать ниже.</p>` : `<p class="mu">Выберите сразу много артов или видео (mp4 до 300 МБ). ↑↓ — порядок, ★ — сделать обложкой. Оригиналы загрузятся как есть (до 2560px).</p>`)
+    + `<div class="ups" id="ups"></div><input type="file" id="fi" accept="${VP ? "video/mp4" : "image/*,video/mp4"}" ${VP ? "" : "multiple"} class="hide"><div id="vfr"></div>`;
   if (W.step == 2) body += `<div class="card" style="max-width:640px"><label>Заголовок</label><input type="text" id="ti" maxlength="200" value="${esc(W.title)}" placeholder="Пак 12 артов Мию 💕"><label>Текст</label><textarea id="bo" rows="4">${esc(W.body)}</textarea>
     <label>Уровень доступа</label><select id="tr">${tiers.map(t => `<option value="${t.id}" ${t.id == W.tier ? "selected" : ""}>${esc(t.name)}${t.price_rub ? " · " + t.price_rub + " ₽" : " · открыто всем"}</option>`).join("")}</select></div>`;
   if (W.step == 3) body += `<div class="two"><div><b>Обложка для ленты · 1:1</b><div id="cr1" style="margin-top:8px"></div><b style="display:block;margin-top:12px">Арты пака (${W.files.length}) — выберите обложку</b><div class="ups" id="ups3"></div><button class="gb sm" id="mkcov" style="margin-top:8px">★ Сделать обложкой выбранный</button></div>
@@ -206,18 +236,32 @@ async function newPost(app) {
   $("#back") && ($("#back").onclick = () => { save(); W.step--; rer(); });
   $("#reset").onclick = () => { if (confirm("Начать заново?")) { W = null; rer(); } };
   $("#next") && ($("#next").onclick = () => { save(); const e = $("#we");
-    if (W.step == 1 && !W.files.length) return e.textContent = "Добавьте хотя бы один арт"; if (W.step == 2 && !W.title.trim()) return e.textContent = "Введите заголовок"; W.step++; rer(); });
+    if (W.step == 1 && !W.files.length) return e.textContent = VP ? "Добавьте видео" : "Добавьте хотя бы один арт"; if (W.step == 1 && W.busy) return e.textContent = "Мур, видео ещё читается…"; if (W.step == 2 && !W.title.trim()) return e.textContent = "Введите заголовок"; W.step++; rer(); });
   if (W.step == 1) {
-    const draw = () => { $("#ups").innerHTML = W.files.map((f, i) => `<div style="background-image:url('${f.url}')"><span class="o">${i + 1}</span>${i == W.cover ? `<span class="cvb">обложка</span>` : ""}<span class="ctl"><b data-m="-1" data-i="${i}">↑</b><b data-cv="${i}">★</b><b data-rm="${i}">✕</b><b data-m="1" data-i="${i}">↓</b></span></div>`).join("") + `<div class="add" id="add">＋</div>`; $("#add").onclick = () => $("#fi").click(); };
-    draw(); $("#fi").onchange = e => { for (const f of e.target.files) W.files.push({ f, url: URL.createObjectURL(f) }); e.target.value = ""; draw(); };
+    const fmtD = t => `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, "0")}`;
+    // выбор кадра-постера: обычная карточка админки, видео + ползунок + «Взять этот кадр»
+    const frame = () => { const i = W.files.findIndex(f => f.video), box = $("#vfr"); if (i < 0) return box.innerHTML = ""; const f = W.files[i];
+      box.innerHTML = `<div class="card" style="max-width:640px;margin-top:12px"><b>Кадр-обложка для видео ${i + 1}</b><video id="vfv" src="${f.src}" muted playsinline preload="auto" style="display:block;width:100%;max-height:360px;margin-top:8px;border-radius:8px;background:#000"></video>
+        <input type="range" id="vft" min="0" max="${f.dur}" step="0.05" value="${f.t}" style="width:100%;margin-top:8px"><div class="r" style="justify-content:space-between"><span class="mu small" id="vfl">${fmtD(f.t)} / ${fmtD(f.dur)}</span><button class="gb sm" id="vfo">📸 Взять этот кадр</button></div></div>`;
+      const v = $("#vfv"); v.onloadeddata = () => vSeek(v, f.t); $("#vft").oninput = e => { v.currentTime = +e.target.value; $("#vfl").textContent = `${fmtD(+e.target.value)} / ${fmtD(f.dur)}`; };
+      $("#vfo").onclick = async () => { Object.assign(f, await vFrame(v, +$("#vft").value)); W.crop = null; W.thumbCrop = null; draw(); toast("Кадр выбран 🐾"); }; };
+    const draw = () => { $("#ups").innerHTML = W.files.map((f, i) => `<div style="background-image:url('${f.url}')"><span class="o">${i + 1}</span>${i == W.cover ? `<span class="cvb">обложка</span>` : ""}${f.video ? `<span class="cnt">▶ ${fmtD(f.dur)}</span>` : ""}<span class="ctl"><b data-m="-1" data-i="${i}">↑</b><b data-cv="${i}">★</b><b data-rm="${i}">✕</b><b data-m="1" data-i="${i}">↓</b></span></div>`).join("") + (VP && W.files.length ? "" : `<div class="add" id="add">＋</div>`); $("#add") && ($("#add").onclick = () => $("#fi").click()); };
+    draw(); frame(); $("#fi").onchange = async e => { const fs = [...e.target.files]; e.target.value = "";
+      for (const f of fs) {
+        if (f.type.startsWith("video/") || /\.(mp4|mov|webm|mkv|avi)$/i.test(f.name)) {
+          if (!isMp4(f) || f.size > VMAX) { toast(VBAD); continue; }
+          W.busy = 1; try { W.files.push(await addVideo(f)); } catch { toast(VBAD); } W.busy = 0;
+        } else if (VP) toast(VBAD); else if (f.type.startsWith("image/")) W.files.push({ f, url: URL.createObjectURL(f) });
+        if (VP && W.files.length) break; }
+      draw(); frame(); };
     $("#ups").onclick = e => { const t = e.target.dataset; if (t.m) { const i = +t.i, j = i + +t.m; if (j < 0 || j >= W.files.length) return; [W.files[i], W.files[j]] = [W.files[j], W.files[i]]; if (W.cover == i) W.cover = j; else if (W.cover == j) W.cover = i; }
-      else if (t.cv) { W.cover = +t.cv; W.crop = null; } else if (t.rm) { W.files.splice(+t.rm, 1); if (W.cover >= W.files.length) W.cover = 0; W.crop = null; } else return; draw(); };
+      else if (t.cv) { W.cover = +t.cv; W.crop = null; } else if (t.rm) { W.files.splice(+t.rm, 1); if (W.cover >= W.files.length) W.cover = 0; W.crop = null; } else return; draw(); frame(); };
   }
   if (W.step == 3) {
     let sel = W.cover, mode = "guest"; const tier = tiers.find(t => t.id == W.tier);
     const img = W.files[W.cover].img || (W.files[W.cover].img = await Crop.loadImg(W.files[W.cover].f));
     const drawPv = () => { if (!W || !W.c1 || !app.querySelector("#pvc")) return; const c = document.createElement("canvas"); W.c1.drawTo(c, 600, 600); const lk = mode == "guest" && tier.rank > 0;
-      $("#pvc").innerHTML = `<div class="cov ${lk ? "lk" : ""}"><img src="${c.toDataURL("image/jpeg", .8)}"><h3>${M().esc(W.title)}</h3><span class="cnt">🖼 ${W.files.length} артов</span>${lk ? `<div class="frost"><span class="mu">${M().esc(M().T("locked_label"))}</span><b>${M().esc(tier.name)}${tier.price_rub ? " · " + tier.price_rub + " ₽/мес" : ""}</b><span class="ob">🔒 ${M().esc(M().T("btn_subscribe"))}</span></div>` : ""}</div>`;
+      $("#pvc").innerHTML = `<div class="cov ${lk ? "lk" : ""}"><img src="${c.toDataURL("image/jpeg", .8)}"><h3>${M().esc(W.title)}</h3><span class="cnt">${W.mode == "video" ? `▶ ${(t => `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, "0")}`)(W.files[0]?.dur || 0)}` : `🖼 ${W.files.length} артов`}</span>${lk ? `<div class="frost"><span class="mu">${M().esc(M().T("locked_label"))}</span><b>${M().esc(tier.name)}${tier.price_rub ? " · " + tier.price_rub + " ₽/мес" : ""}</b><span class="ob">🔒 ${M().esc(M().T("btn_subscribe"))}</span></div>` : ""}</div>`;
       const th = $("#thc"); th.width = th.height = 240; const x = th.getContext("2d"), im = W.c1.img();
       let q = W.thumbMode == "own" && W.c2 ? W.c2.getCrop() : null; if (!q) { const k = W.c1.getCrop(), pw = k.w * im.width, ph = k.h * im.height, s = Math.min(pw, ph); q = { x: (k.x * im.width + (pw - s) / 2) / im.width, y: (k.y * im.height + (ph - s) / 2) / im.height, w: s / im.width, h: s / im.height }; }
       x.drawImage(im, q.x * im.width, q.y * im.height, q.w * im.width, q.h * im.height, 0, 0, 240, 240); };
@@ -245,6 +289,12 @@ async function publish(app) {
     for (let i = 0; i < W.files.length; i++) {
       st.textContent = `Загрузка ${i + 1} из ${W.files.length}…`; bar.style.width = `${(i / W.files.length) * 90}%`;
       const img = W.files[i].img || await Crop.loadImg(W.files[i].f), iid = uuid(); if (i == W.cover) coverImg = img;
+      if (W.files[i].video) { const F = W.files[i], vp = `videos/${pid}/${iid}.mp4`, pp = `posters/${pid}/${iid}.jpg`, mb = (F.f.size / 1048576).toFixed(0);
+        const prev = await toJpeg(img, tier.rank > 0 ? LOCKED_PREV : 720, .85);
+        let r = await ys("previews").upload(pp, prev.blob, { contentType: "image/jpeg", upsert: true }); if (r.error) throw new Error(`Постер ${i + 1}: ${r.error.message}`);
+        await uploadVideo(vp, F.f, x => { st.textContent = `Видео ${i + 1} из ${W.files.length} · ${Math.round(x * 100)}% из ${mb} МБ · постер готов`; bar.style.width = `${((i + x) / W.files.length) * 90}%`; });
+        vjobs.push([pp, VW.thumb, prev.blob]);
+        rows.push({ id: iid, post_id: pid, position: i + 1, preview_path: pp, original_path: vp, width: F.w, height: F.h, kind: "video", duration_sec: Math.round(F.dur * 10) / 10, poster_path: pp, size_bytes: F.f.size }); continue; }
       const orig = await toJpeg(img, 2560, 0.92), prev = await toJpeg(img, tier.rank > 0 ? LOCKED_PREV : 480, tier.rank > 0 ? 0.85 : 0.8); // закрытые паки: чёткое превью ~700px (для превью-показа в кинорежиме)
       const op = `${pid}/${iid}.jpg`, pp = `thumbs/${pid}/${iid}.jpg`;
       for (const [b, p, blob] of [["originals", op, orig.blob], ["previews", pp, prev.blob]]) { let r, k = 0; do { r = await ys(b).upload(p, blob, { cacheControl: "31536000", contentType: "image/jpeg", upsert: true }); } while (r.error && ++k < 3); if (r.error) throw new Error(`Арт ${i + 1}: ${r.error.message}`); }
@@ -261,7 +311,8 @@ async function publish(app) {
     r = await ys("previews").upload(thumbPath, tb, { contentType: "image/jpeg", upsert: true }); if (r.error) throw r.error;
     st.textContent = "Сохраняю публикацию…";
     r = await sb.from("posts").insert({ id: pid, title: W.title.trim(), body: W.body.trim(), tier_id: W.tier, cover_path: coverPath, publish_at, status: "draft", thumb_path: thumbPath, cover_crop: { ...c, image: W.cover + 1 }, thumb_crop: W.thumbMode == "own" ? W.thumbCrop : null }); if (r.error) throw r.error;
-    r = await sb.from("post_images").insert(rows); if (r.error) throw r.error;
+    r = await insertRows(rows); if (r.error) throw r.error;
+    if (W.mode == "video") await sb.from("posts").update({ kind: "video" }).eq("id", pid); // до video.sql колонки нет — тихо пропускаем
     r = await sb.from("posts").update({ status: W.when == "draft" ? "draft" : "published", cover_image_id: rows[W.cover].id, cover_crop: { image_id: rows[W.cover].id, ...c } }).eq("id", pid); if (r.error) throw r.error;
     bar.style.width = "100%"; toast(W.when == "draft" ? "Черновик сохранён" : W.when == "later" ? "Запланировано" : "Опубликовано!"); W = null; autoVariants(vjobs); await M().load(); location.hash = "#/admin/posts";
   } catch (e) { st.textContent = "Ошибка: " + (e.message || e) + " — нажмите ещё раз, чтобы повторить"; $("#pub").disabled = false; }
@@ -425,6 +476,6 @@ async function logTab(app) {
   app.innerHTML = shell("log", `<h2>Журнал</h2><div class="tw"><table><tr><th>Когда</th><th>Событие</th></tr>${(data || []).map(r => `<tr><td style="white-space:nowrap">${new Date(r.at).toLocaleString("ru-RU")}</td><td>${esc(r.event)}</td></tr>`).join("") || `<tr><td colspan="2" class="mu">Пусто</td></tr>`}</table></div>`);
 }
 window.MiaAdmin = { _autoVariants: (...a) => autoVariants(...a), async render(tab, arg) { const app = document.getElementById("app");
-  const f = { posts: () => posts(app, arg || "all"), new: () => newPost(app), tiers: () => tiersTab(app), pick: () => pickTab(app), comments: () => commentsTab(app, arg || "new"), users: () => usersTab(app), author: () => authorTab(app), texts: () => textsTab(app), viewer: () => viewerTab(app), log: () => logTab(app) }[tab] || (() => posts(app));
+  const f = { posts: () => posts(app, arg || "all"), new: () => newPost(app), newvideo: () => newPost(app, "video"), tiers: () => tiersTab(app), pick: () => pickTab(app), comments: () => commentsTab(app, arg || "new"), users: () => usersTab(app), author: () => authorTab(app), texts: () => textsTab(app), viewer: () => viewerTab(app), log: () => logTab(app) }[tab] || (() => posts(app));
   await f(); } };
 })();
