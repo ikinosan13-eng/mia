@@ -5,6 +5,13 @@ const sb = supabase.createClient(B, C.ANON_KEY, { auth: { storageKey: "mia-visit
 const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const pub = (p, b = "previews") => p ? `${B}/storage/v1/object/public/${b}/${p}` : "";
+// WebP-варианты публичных картинок (делает админка, кнопка «WebP-версии»). Манифест: settings.imgv → { paths: { "covers/x.jpg": { w: [480, 960], s: 1791... } } }
+// Нет манифеста или пути в нём — грузим исходный файл, как раньше.
+const vUrl = (path, w, st) => pub(`v/${path.replace(/\.[a-z0-9]+$/i, "")}-${w}-${st}.webp`);
+const vOf = path => { const e = path && S.imgv && S.imgv[path]; return e && e.w && e.w.length ? e : null; };
+const imgSrc = (path, sizes) => { const e = vOf(path); if (!e) return `src="${pub(path)}"`;
+  return `src="${vUrl(path, e.w[e.w.length - 1], e.s)}" srcset="${e.w.map(w => `${vUrl(path, w, e.s)} ${w}w`).join(", ")}" sizes="${sizes}" data-fb="${pub(path)}" onerror="this.onerror=null;this.removeAttribute('srcset');this.src=this.dataset.fb"`; };
+const bgSrc = (path, want) => { const e = vOf(path); if (!e) return pub(path); const w = e.w.find(x => x >= want) || e.w[e.w.length - 1]; return vUrl(path, w, e.s); };
 const fmt = d => new Date(d).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).replace(",", " в");
 const plural = (n, a, b, c) => { const m = n % 10, h = n % 100; return m == 1 && h != 11 ? a : m >= 2 && m <= 4 && (h < 10 || h >= 20) ? b : c; };
 const toast = t => { const e = document.createElement("div"); e.className = "toast"; e.textContent = t; document.body.append(e); setTimeout(() => e.remove(), 2800); };
@@ -38,16 +45,17 @@ const fn = async (name, body) => { const session = await timeout(sb.auth.getSess
   try { const r = await timeout(fetch(`${B}/functions/v1/${name}`, { method: "POST", headers: { ...H, "Content-Type": "application/json", ...(session ? { Authorization: "Bearer " + session.access_token } : {}) }, body: JSON.stringify(body) }), 15000); return { status: r.status, data: await timeout(r.json(), 5000).catch(() => ({})) }; }
   catch { return { status: 0, data: { error: "offline" } }; } };
 
+function fromCache(c) { Object.assign(S, { tiers: c.tiers, posts: c.posts, media: c.media, profile: c.st.profile || {}, viewer: c.st.viewer || {}, free: c.free || S.free || [], imgv: c.imgv || S.imgv || {} }); TX = c.st.texts || {}; }
 async function load(o = {}) {
   try {
-    const [tiers, posts, media, settings, free] = await Promise.all([api("tiers_public?order=rank"), api("feed_public?order=publish_at.desc"), api("media_public?order=publish_at.desc,position"), api("settings?key=in.(profile,texts,viewer)"), api("free_images_public?select=post_id,position&order=position").catch(() => [])]);
+    const [tiers, posts, media, settings, free] = await Promise.all([api("tiers_public?order=rank"), api("feed_public?order=publish_at.desc"), api("media_public?order=publish_at.desc,position"), api("settings?key=in.(profile,texts,viewer,imgv)"), api("free_images_public?select=post_id,position&order=position").catch(() => [])]);
     S.free = free || [];
     const st = Object.fromEntries(settings.map(x => [x.key, x.value]));
-    Object.assign(S, { tiers, posts, media, profile: st.profile || {}, viewer: st.viewer || {}, offline: false }); TX = st.texts || {};
-    localStorage.miaCache = JSON.stringify({ tiers, posts, media, st });
+    Object.assign(S, { tiers, posts, media, profile: st.profile || {}, viewer: st.viewer || {}, imgv: st.imgv?.paths || {}, offline: false }); TX = st.texts || {};
+    try { localStorage.miaCache = JSON.stringify({ tiers, posts, media, st, free: S.free, imgv: S.imgv, at: Date.now() }); } catch {}
   } catch (e) {
     const c = JSON.parse(localStorage.miaCache || "null"); S.offline = true;
-    if (!c) throw e; Object.assign(S, { tiers: c.tiers, posts: c.posts, media: c.media, profile: c.st.profile || {}, viewer: c.st.viewer || {} }); TX = c.st.texts || {};
+    if (!c) throw e; fromCache(c);
   }
   if (!S.offline && !o.bgUser) await loadUser();
 }
@@ -82,7 +90,7 @@ function bar() {
 function hero() {
   const p = S.profile, cover = p.cover ? pub(p.cover) : "", l = p.links || {};
   const links = [["Boosty", l.boosty], ["VK Donut", l.donut], ["Telegram", l.telegram], ["VK", l.vk]].filter(x => x[1]).map(([n, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener">${n}</a>`).join("");
-  return `<div class="hero"><div class="cv">${cover ? `<img src="${cover}" alt="" fetchpriority="high">` : ""}</div><div class="prof"><span class="ava" style="background-image:url('${p.avatar ? pub(p.avatar) : "avatar.jpg"}')"></span>
+  return `<div class="hero"><div class="cv">${cover ? `<img ${imgSrc(p.cover, "(min-width:640px) 600px, 100vw")} alt="" fetchpriority="high">` : ""}</div><div class="prof"><span class="ava" style="background-image:url('${p.avatar ? bgSrc(p.avatar, 192) : "avatar.jpg"}')"></span>
   <h1>${esc(p.name || "Мия")}</h1><div class="mu">${esc(p.tagline || "")}</div><div class="mu small" style="margin-top:4px">${S.posts.length} ${plural(S.posts.length, "пак", "пака", "паков")} · ${S.media.length} ${plural(S.media.length, "арт", "арта", "артов")}</div>${links ? `<div class="links">${links}</div>` : ""}</div></div>`;
 }
 const tabs = on => `<div class="tabs">${[["ЛЕНТА", "feed"], ["МЕДИА", "media"], ["УРОВНИ", "levels"], ["ОБ АВТОРЕ", "about"]].map(([n, h]) => `<a href="#/${h}" class="${h == on ? "on" : ""}">${n}</a>`).join("")}</div>`;
@@ -99,7 +107,7 @@ document.addEventListener("click", e => { const t = e.target.closest("[data-fsub
 function card(p, k = 9) {
   const locked = isLocked(p), n = `${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}`;
   return `<div class="post"><div class="ph"><span>${fmt(p.publish_at)}</span>${p.tier_rank > 0 ? `<span class="tier">${locked ? `<i class="lki"></i>` : ""}${esc(p.tier_name)}</span>` : `<span class="tier f">Открыто всем</span>`}</div>
-  <a href="#/post/${p.id}" class="cov ${locked ? "lk" : ""}" ${locked ? "" : `data-view="${p.id}"`}><img src="${pub(p.cover_path)}" alt="" ${k < 1 ? `fetchpriority="high"` : `loading="lazy"`}><h3>${esc(p.title)}</h3><span class="cnt">${n}</span>${locked ? lockPanel(p) : ""}</a>
+  <a href="#/post/${p.id}" class="cov ${locked ? "lk" : ""}" ${locked ? "" : `data-view="${p.id}"`}><img ${imgSrc(p.cover_path, "(min-width:640px) 600px, 100vw")} alt="" ${k < 1 ? `fetchpriority="high"` : `loading="lazy"`}><h3>${esc(p.title)}</h3><span class="cnt">${n}</span>${locked ? lockPanel(p) : ""}</a>
   ${p.body && !locked ? `<div class="body">${esc(p.body.length > 300 ? p.body.slice(0, 300) + "…" : p.body)}</div>` : ""}${ACT(p)}</div>`;
 }
 function levelsHtml() {
@@ -111,7 +119,7 @@ function levelsHtml() {
 const views = {
   feed: () => bar() + hero() + tabs("feed") + (S.posts.map(card).join("") || `<div class="note">🎨 ${esc(T("empty_feed"))}</div>`),
   media: () => { const k = {}; return bar() + hero() + tabs("media") + `<div class="grid mgrid">${S.media.map(m => { const i = k[m.post_id] = (k[m.post_id] ?? -1) + 1, lk = m.tier_rank > S.rank && !S.pick.unlocked.has(m.post_id), p = S.posts.find(x => x.id == m.post_id);
-    return lk ? `<a href="#/post/${m.post_id}" class="lk" style="background-image:url('${pub(m.preview_path)}')"></a>` : `<a href="#/post/${m.post_id}" data-mp="${m.post_id}" data-mi="${i}" style="background-image:url('${pub(m.preview_path)}')">${p ? `<span class="cb" data-cm="${p.id}">💬 ${p.comment_count || 0}</span>` : ""}</a>`; }).join("")}</div>` + (S.media.length ? "" : `<div class="note">🎨 ${esc(T("empty_feed"))}</div>`); },
+    return lk ? `<a href="#/post/${m.post_id}" class="lk" style="background-image:url('${bgSrc(m.preview_path, 320)}')"></a>` : `<a href="#/post/${m.post_id}" data-mp="${m.post_id}" data-mi="${i}" style="background-image:url('${bgSrc(m.preview_path, 320)}')">${p ? `<span class="cb" data-cm="${p.id}">💬 ${p.comment_count || 0}</span>` : ""}</a>`; }).join("")}</div>` + (S.media.length ? "" : `<div class="note">🎨 ${esc(T("empty_feed"))}</div>`); },
   levels: () => bar() + hero() + tabs("levels") + levelsHtml(),
   about: () => bar() + hero() + tabs("about") + `<div class="body">${esc(S.profile.about || "Привет! Я Мия, рисую паки артов 💕🐾")}</div>`,
 };
@@ -313,12 +321,12 @@ async function openComments(id, onChange) {
 async function postView(id) {
   const p = S.posts.find(x => x.id == id); if (!p) return bar() + `<div class="empty">Публикация не найдена</div>`;
   const head = `<div class="ph" style="padding-top:14px"><a href="#/feed">← Лента</a><span>${fmt(p.publish_at)}</span></div>`;
-  if (isLocked(p)) return bar() + head + `<div class="cov lk"><img src="${pub(p.cover_path)}" alt=""><h3>${esc(p.title)}</h3><span class="cnt">${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}</span>${lockPanel(p)}</div>` + ACT(p) + await commentsBlock(p);
+  if (isLocked(p)) return bar() + head + `<div class="cov lk"><img ${imgSrc(p.cover_path, "(min-width:640px) 600px, 100vw")} alt="" fetchpriority="high"><h3>${esc(p.title)}</h3><span class="cnt">${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}</span>${lockPanel(p)}</div>` + ACT(p) + `<div id="pcmw">${await commentsBlock(p)}</div>`;
   const r = await packFn(id);
   if (r.status !== 200) return bar() + head + `<div class="empty">Не удалось открыть: ${esc(r.status == 0 ? T("offline") : r.data.message || r.data.error || r.status)}</div>`;
   S.imgs = r.data.images.map(i => B + i.url); S.idx = 0; S.imgsFor = id;
   return bar() + head + `<div style="padding:0 14px 10px;font-size:20px;font-weight:700">${esc(p.title)}</div><div class="arts">${(() => { const md = S.media.filter(m => m.post_id == id).sort((a, b) => a.position - b.position), same = md.length == r.data.images.length; return r.data.images.map((im, k) => { const w = im.width || (same && md[k].width), h = im.height || (same && md[k].height); return `<img src="${S.imgs[k]}" alt="" data-vi="${k}" ${w && h ? `width="${w}" height="${h}"` : ""} ${k < 1 ? `fetchpriority="high"` : `loading="lazy"`}>`; }).join(""); })()}</div>
-  ${p.body ? `<div class="body">${esc(p.body)}</div>` : ""}` + ACT(p) + `<div id="cmts"></div>` + await commentsBlock(p);
+  ${p.body ? `<div class="body">${esc(p.body)}</div>` : ""}` + ACT(p) + `<div id="cmts"></div><div id="pcmw">${await commentsBlock(p)}</div>`;
 }
 function go(i) { const n = S.imgs.length; S.idx = (i + n) % n; $("#sl") && ($("#sl").style.transform = `translateX(${-100 * S.idx}%)`); $("#ctr") && ($("#ctr").textContent = `${S.idx + 1} / ${n}`); $$("#dots i").forEach((d, k) => d.className = k == S.idx ? "on" : ""); const f = $("#fsi"); if (f) { f.src = S.imgs[S.idx]; $("#fsc").textContent = `${S.idx + 1} / ${n}`; } }
 function fullscreen() { const d = document.createElement("div"); d.className = "fsbox"; d.innerHTML = `<img id="fsi" src="${S.imgs[S.idx]}"><span class="x">✕</span><span class="ctr" id="fsc">${S.idx + 1} / ${S.imgs.length}</span><span class="nv" style="left:0">‹</span><span class="nv" style="right:0">›</span>`; document.body.append(d);
@@ -367,12 +375,18 @@ function bindMe() {
 
 // Ссылки на полные арты пака через функцию unlock, с кэшем на 45 минут (просмотр, «Медиа», смена пака в кинорежиме)
 // арты пака: по уровню (unlock) или, если пак открыт через «1 пак на выбор», через pack_images
-const packFn = id => fn("unlock", { token: S.token || undefined, post_id: id }).then(r => r.status != 200 && S.pick.unlocked.has(id) ? fn("pack_images", { post_id: id }) : r);
+// пак открыт кодом «1 пак на выбор» и не по уровню → сразу pack_images (без лишнего unlock); если не вышло — старый путь
+const packFn = id => { const p = S.posts.find(x => x.id == id), viaPick = S.pick.unlocked.has(id) && p && p.tier_rank > S.rank;
+  const old = () => fn("unlock", { token: S.token || undefined, post_id: id }).then(r => r.status != 200 && S.pick.unlocked.has(id) ? fn("pack_images", { post_id: id }) : r);
+  return viaPick ? fn("pack_images", { post_id: id }).then(r => r.status == 200 ? r : old()) : old(); };
+const VC_TTL = 45 * 60e3;
+const vcLoad = () => { try { const o = JSON.parse(sessionStorage.miaVC || "{}"), n = Date.now(); for (const k in o) if (!(n - o[k].t < VC_TTL)) delete o[k]; return o; } catch { return {}; } };
+const vcSave = () => { try { sessionStorage.miaVC = JSON.stringify(S.vc || {}); } catch {} };
 function loadImgs(id) {
-  S.vc = S.vc || {}; S.vp = S.vp || {}; id = +id || id;
-  const hit = S.vc[id] && Date.now() - S.vc[id].t < 45 * 60e3 ? S.vc[id].u : S.imgsFor == id && S.imgs ? S.imgs : null;
+  S.vc = S.vc || vcLoad(); S.vp = S.vp || {}; id = +id || id;
+  const hit = S.vc[id] && Date.now() - S.vc[id].t < VC_TTL ? S.vc[id].u : S.imgsFor == id && S.imgs ? S.imgs : null;
   if (hit) return Promise.resolve(hit); if (S.vp[id]) return S.vp[id];
-  return S.vp[id] = packFn(id).then(r => { if (r.status != 200) throw new Error(r.status); const u = r.data.images.map(i => B + i.url); S.vc[id] = { u, t: Date.now() }; return u; }).finally(() => delete S.vp[id]);
+  return S.vp[id] = packFn(id).then(r => { if (r.status != 200) throw new Error(r.status); const u = r.data.images.map(i => B + i.url); S.vc[id] = { u, t: Date.now() }; vcSave(); return u; }).finally(() => delete S.vp[id]);
 }
 function openViewer(id, start, quick, o = {}) {
   const p = S.posts.find(x => x.id == id); if (!p) return;
@@ -385,14 +399,25 @@ function bindMedia() {
   $$(".mgrid a[data-mp]").forEach(t => { t.onclick = e => { if (e.target.closest("[data-cm]")) return; e.preventDefault(); openViewer(t.dataset.mp, +t.dataset.mi, false); }; });
 }
 // ---------- render ----------
-async function render() {
+// комментарии на странице поста: перерисовываем только блок комментариев (без перезагрузки артов и unlock)
+async function redrawPostCm(id) { const w = $("#pcmw"), p = S.posts.find(x => x.id == id); if (!w || !p) return render();
+  w.innerHTML = await commentsBlock(p); bindPostCm(id); $$(`.act [data-cm="${id}"]`).forEach(a => a.textContent = `💬 ${p.comment_count || 0}`); }
+function bindPostCm(id) {
+  if ($("#cmf")) { $("#cmf").onsubmit = async e => { e.preventDefault(); const b = $("#cmt").value.trim(); if (!b) return;
+      const { error } = await sb.rpc("add_comment", { p_post: id, p_body: b, p_parent: $("#cpar").value ? +$("#cpar").value : null });
+      if (error) return $("#cme").textContent = CERR[error.message] || error.message; const p = S.posts.find(x => x.id == id); if (p) p.comment_count++; redrawPostCm(id); }; }
+  $$("#pcmw [data-rep], #app > [data-rep]").forEach(a => a.onclick = () => { $("#cpar").value = a.dataset.rep; $("#cmt").placeholder = "Ответ для " + a.dataset.nm + "…"; fineP() ? $("#cmt").focus() : $("#cmt").scrollIntoView({ block: "nearest" }); });
+  $$("#pcmw [data-cdel]").forEach(a => a.onclick = async () => { if (!confirm("Удалить комментарий?")) return; await sb.rpc("delete_my_comment", { p_id: +a.dataset.cdel }); const p = S.posts.find(x => x.id == id); if (p) p.comment_count--; redrawPostCm(id); });
+  $$("#pcmw [data-crep]").forEach(a => a.onclick = async () => { await sb.rpc("report_comment", { p_id: +a.dataset.crep }); toast("Жалоба отправлена"); });
+}
+async function render(o = {}) {
   const parts = (location.hash || "#/feed").slice(2).split("/"), [v, id] = parts, app = $("#app");
   app.className = "app" + (v == "admin" ? " wide" : "");
   try {
     if (v == "admin") { if (!S.user?.admin) { location.hash = "#/feed"; return; } await need("crop.js", "Crop"); await need("admin.js", "MiaAdmin"); await window.MiaAdmin.render(id || "posts", parts[2]); }
     else app.innerHTML = v == "post" ? await postView(id) : v == "me" ? await meView(id) : v == "u" ? await userView(id) : (views[v] || views.feed)();
   } catch (e) { console.error(e); app.innerHTML = `<div class="empty">📡 ${esc(T("offline"))}<br><br><button class="ob" onclick="location.reload()">Повторить</button></div>`; }
-  if (!["post"].includes(v) || parts[2] != "c") window.scrollTo(0, 0);
+  if (!o.keep && (!["post"].includes(v) || parts[2] != "c")) window.scrollTo(0, 0);
   $("#tg")?.addEventListener("click", () => { const d = document.body.classList.toggle("dark"); localStorage.miaTheme = d ? "dark" : "light"; render(); });
   $$("[data-open]").forEach(b => b.onclick = e => { e.preventDefault(); openModal({ t: b.dataset.open }); });
   $$("[data-sub]").forEach(b => b.onclick = e => { e.preventDefault(); e.stopPropagation(); const p = S.posts.find(x => x.id == b.dataset.sub); subscribe(p.tier_rank, p.id); });
@@ -405,19 +430,20 @@ async function render() {
   $$("[data-vi]").forEach(im => im.onclick = () => openViewer(id, +im.dataset.vi, true));
   if (parts[2] == "c") setTimeout(() => $("#cmts")?.scrollIntoView({ behavior: "smooth" }), 100);
   if ($("#vw")) { $("#fsb").onclick = fullscreen; $("#vw").onclick = e => { if (e.target.tagName == "IMG") go(S.idx + 1); }; swipe($("#vw")); }
-  if ($("#cmf")) { $("#cmf").onsubmit = async e => { e.preventDefault(); const b = $("#cmt").value.trim(); if (!b) return;
-      const { error } = await sb.rpc("add_comment", { p_post: id, p_body: b, p_parent: $("#cpar").value ? +$("#cpar").value : null });
-      if (error) return $("#cme").textContent = CERR[error.message] || error.message; const p = S.posts.find(x => x.id == id); if (p) p.comment_count++; render(); }; }
-  $$("[data-rep]").forEach(a => a.onclick = () => { $("#cpar").value = a.dataset.rep; $("#cmt").placeholder = "Ответ для " + a.dataset.nm + "…"; fineP() ? $("#cmt").focus() : $("#cmt").scrollIntoView({ block: "nearest" }); });
-  $$("[data-cdel]").forEach(a => a.onclick = async () => { if (!confirm("Удалить комментарий?")) return; await sb.rpc("delete_my_comment", { p_id: +a.dataset.cdel }); const p = S.posts.find(x => x.id == id); if (p) p.comment_count--; render(); });
-  $$("[data-crep]").forEach(a => a.onclick = async () => { await sb.rpc("report_comment", { p_id: +a.dataset.crep }); toast("Жалоба отправлена"); });
+  bindPostCm(id);
   if (v == "me") bindMe();
   if (S.modal) drawModal();
 }
-window.Mia = { freeOf, freeFn, freePlate, isLocked, pickOpen, pickBtn, openComments, closeComments, loadImgs, subscribe, openViewer, toggleLike, sb, S, $, $$, esc, pub, fmt, toast, T, DEF, fn, load, render, B, plural, setTexts: t => TX = t };
+window.Mia = { imgSrc, bgSrc, vOf, freeOf, freeFn, freePlate, isLocked, pickOpen, pickBtn, openComments, closeComments, loadImgs, subscribe, openViewer, toggleLike, sb, S, $, $$, esc, pub, fmt, toast, T, DEF, fn, load, render, B, plural, setTexts: t => TX = t };
 window.addEventListener("hashchange", () => { if (window.MiaViewer?.isOpen()) window.MiaViewer.close(); if (S.modal) { S.modal = null; $("#modal")?.remove(); } closeComments(true); render(); });
 $("#app").innerHTML = `<div style="padding:14px"><div class="sk" style="height:120px"></div><div class="sk" style="height:300px;margin-top:14px"></div><div class="sk" style="height:16px;margin-top:10px;width:60%"></div></div>`;
 fetch("version.txt?" + Date.now(), { cache: "no-store" }).then(r => r.text()).then(v => { v = v.trim(); if (v && v != window.MIA_VERSION && !sessionStorage.miaReloaded) { sessionStorage.miaReloaded = 1; location.reload(); } }).catch(() => {});
 const hasAuth = () => { try { return !!(S.token || localStorage.getItem("mia-visitor")); } catch { return true; } };
-(hasAuth() ? load().then(render) : load({ bgUser: true }).then(async () => { await render(); if (S.offline) return; await loadUser().catch(() => {}); if (S.user || S.rank > 0) render(); })).catch(() => { $("#app").innerHTML = `<div class="empty">📡 ${esc(T("offline"))}<br><br><button class="ob" onclick="location.reload()">Повторить</button></div>`; });
+// гость: сразу рисуем из кэша (если свежий, < 24 ч), потом свежие данные; перерисовка — только если что-то изменилось
+const sigNow = () => JSON.stringify([S.posts, S.media, S.tiers, S.profile, S.viewer, TX, S.free, S.imgv]);
+const cached = (() => { try { const c = JSON.parse(localStorage.miaCache || "null"); return c && c.at && Date.now() - c.at < 864e5 && c.st ? c : null; } catch { return null; } })();
+let cacheSig = "";
+if (!hasAuth() && cached) { try { fromCache(cached); cacheSig = sigNow(); render(); } catch { cacheSig = ""; } }
+(hasAuth() ? load().then(render) : load({ bgUser: true }).then(async () => {
+  if (!cacheSig) await render(); else if (sigNow() != cacheSig && !window.MiaViewer?.isOpen()) await render({ keep: true }); if (S.offline) return; await loadUser().catch(() => {}); if (S.user || S.rank > 0) render(); })).catch(() => { $("#app").innerHTML = `<div class="empty">📡 ${esc(T("offline"))}<br><br><button class="ob" onclick="location.reload()">Повторить</button></div>`; });
 })();
