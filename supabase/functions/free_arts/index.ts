@@ -3,7 +3,7 @@
 // Ответ: { images: [{ url, position }] } (url — абсолютная подписанная ссылка Yandex Object Storage, 1 ч, как у unlock/pack_images).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { signOriginals } from "../_shared/yc.ts";
-const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
+const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const j = (s: number, b: unknown) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 Deno.serve(async req => {

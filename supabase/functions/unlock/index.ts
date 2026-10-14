@@ -1,5 +1,6 @@
 // Edge Function "unlock": verifies a tier code (or a previously issued token)
 // and returns 1-hour signed URLs for originals of a post the visitor may see.
+import { signOriginals } from "../_shared/yc.ts";
 const URL_ = Deno.env.get("SUPABASE_URL")!;
 const KEY = Deno.env.get("SB_SECRET_KEY")!;          // sb_secret_..., set as function secret
 const HMAC = Deno.env.get("UNLOCK_HMAC_SECRET")!;
@@ -80,9 +81,9 @@ Deno.serve(async (req) => {
     if (!posts.length) return j({ error: "not_found" }, 404);
     if (posts[0].tier_rank > rank) return j({ ...out, error: "locked", need_rank: posts[0].tier_rank }, 403);
     const imgs = await (await rest(`post_images?post_id=eq.${b.post_id}&select=position,original_path,width,height&order=position`)).json();
-    const s = await fetch(`${URL_}/storage/v1/object/sign/originals`, { method: "POST", headers: { ...H, Authorization: `Bearer ${KEY}` }, body: JSON.stringify({ expiresIn: SIGN_SEC, paths: imgs.map((i: any) => i.original_path) }) });
-    const signed = await s.json();
-    out.images = imgs.map((i: any, k: number) => ({ position: i.position, width: i.width, height: i.height, url: signed[k]?.signedURL ? `/storage/v1${signed[k].signedURL}` : null }));
+    const signed = await signOriginals(imgs.map((i: any) => i.original_path), SIGN_SEC);
+    // абсолютные URL Яндекса (сайт принимает через abs()); Verify JWT у unlock — ВЫКЛ
+    out.images = imgs.map((i: any, k: number) => ({ position: i.position, width: i.width, height: i.height, url: signed[k] || null }));
   }
   return j(out);
 });

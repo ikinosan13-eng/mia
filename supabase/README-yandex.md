@@ -20,3 +20,20 @@
 5. Деплой pack_images, free_arts (подпись Яндекса); перевести unlock (исходника нет в репо — нужен экспорт из дашборда).
 6. Выкатить сайт с PREVIEW_BASE. Supabase-файлы не удалять до проверки.
 7. После переезда: admin.js грузит новые файлы ещё в Supabase — отдельный этап.
+
+## unlock / pack_images / free_arts → Яндекс (ветка yandex-storage, не в main)
+- `_shared/yc.ts`: aws4fetch `signQuery` GET на 1 ч → `https://storage.yandexcloud.net/privat/originals/<path>?X-Amz-…` (без signed headers, работает в <img>).
+- unlock: логика кода/токена/HMAC без изменений; только подпись оригиналов через Яндекс. Verify JWT: ВЫКЛ.
+- Бандлы для дашборда: /workspace/yandex/single/{unlock,pack_images,free_arts}.ts и http://127.0.0.1:8765/<name>.ts
+- Сайт v30 на ветке: PREVIEW_BASE включён. В main не пушить до «ок».
+
+### Порядок деплоя
+1. Секреты YC_KEY_ID / YC_SECRET уже есть. unlock дополнительно: SB_SECRET_KEY, UNLOCK_HMAC_SECRET (уже стоят).
+2. Вставить бандлы в дашборд: сначала unlock (JWT OFF), pack_images (JWT ON), free_arts (JWT OFF).
+3. Проверить POST unlock без post_id → rank; с валидным доступом + post_id → images с URL на storage.yandexcloud.net.
+4. Потом выкатить сайт v30 (main): PREVIEW_BASE + abs().
+
+### Откат
+- Функции: вставить старый unlock из git `66d60a5:supabase/functions/unlock/index.ts` (Supabase sign); pack_images/free_arts — из main до переезда (createSignedUrls).
+- Сайт: убрать PREVIEW_BASE или поставить "" и откатить app.js abs/pub; version bump.
+- Файлы в Яндексе и Supabase не удалять.
