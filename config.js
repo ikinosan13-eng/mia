@@ -4,6 +4,8 @@
 // на https://oobbgppqkqydqqcaffpg.supabase.co) и впишите его адрес сюда.
 window.MIA_CONFIG = {
   API_BASE: "https://oobbgppqkqydqqcaffpg.supabase.co",
+  // Публичные превью/WebP в Yandex Object Storage (пусто = брать из Supabase previews)
+  PREVIEW_BASE: "https://mia-previews.storage.yandexcloud.net",
   ANON_KEY: "sb_publishable_qBp0A617pGG22UyofgZ6JA_eKqRzyfm",
   BOOSTY_URL: "https://boosty.to/mia_waifu",
 };

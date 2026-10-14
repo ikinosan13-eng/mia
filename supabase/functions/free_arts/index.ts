@@ -1,7 +1,8 @@
 // free_arts: подписанные ссылки на оригиналы ТОЛЬКО тех артов, что админ отметил «Бесплатно 🐾».
 // Доступно всем, даже без входа → при деплое через дашборд выключить «Verify JWT».
-// Ответ: { images: [{ url, position }] } (url — относительный путь /storage/v1/..., как у unlock/pack_images).
+// Ответ: { images: [{ url, position }] } (url — абсолютная подписанная ссылка Yandex Object Storage, 1 ч, как у unlock/pack_images).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { signOriginals } from "../_shared/yc.ts";
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const j = (s: number, b: unknown) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -15,7 +16,7 @@ Deno.serve(async req => {
     if (!p) return j(404, { error: "no_post" });
     const { data: ims, error } = await admin.from("post_images").select("original_path,position").eq("post_id", post_id).eq("is_free", true).order("position"); if (error) throw error;
     if (!ims?.length) return j(200, { images: [] });
-    const { data: signed, error: e2 } = await admin.storage.from("originals").createSignedUrls(ims.map(i => i.original_path), 3600); if (e2) throw e2;
-    return j(200, { images: (signed || []).map((s, k) => { const u = new URL(s.signedUrl, url); return { url: u.pathname + u.search, position: ims[k].position }; }) });
+    const signed = await signOriginals(ims.map(i => i.original_path), 3600);
+    return j(200, { images: signed.map((u, k) => ({ url: u, position: ims[k].position })) });
   } catch (e) { return j(500, { error: String((e as Error).message || e) }); }
 });
