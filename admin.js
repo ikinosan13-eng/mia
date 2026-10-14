@@ -147,7 +147,7 @@ const autoThumb = c => { // square from the middle of the cover crop (in fractio
 // ---------- posts ----------
 async function posts(app, filter = "all") {
   const { sb, esc, pub, fmt } = M(); await loadTiers();
-  let { data, error } = await sb.from("posts").select("id,title,body,tier_id,cover_path,publish_at,status,hidden").order("publish_at", { ascending: false });
+  let { data, error } = await sb.from("posts").select("id,title,body,tier_id,cover_path,publish_at,status,hidden,kind,cover_image_id").order("publish_at", { ascending: false });
   if (!error) { const { data: ims } = await sb.from("post_images").select("post_id"); const n = {}; (ims || []).forEach(i => n[i.post_id] = (n[i.post_id] || 0) + 1); data.forEach(p => p.post_images = [{ count: n[p.id] || 0 }]); }
   if (error) { app.innerHTML = shell("posts", `<div class="note">Ошибка загрузки списка: ${esc(error.message)} <a class="ob sm" href="#/admin/posts">Повторить</a></div>`); return; }
   const { data: fp } = await sb.from("feed_public").select("id,like_count,comment_count"); const st = Object.fromEntries((fp || []).map(x => [x.id, x]));
@@ -173,16 +173,36 @@ async function posts(app, filter = "all") {
     const { error } = await sb.from("posts").delete().eq("id", id); M().toast(error ? "Ошибка: " + error.message : "Удалено"); if (!error) ev("Удалена публикация «" + p.title + "»"); await M().load(); posts(app, filter); });
   app.querySelectorAll("[data-ed]").forEach(b => b.onclick = () => editPost(all.find(x => x.id == b.dataset.ed), () => posts(app, filter)));
 }
+// «🎬 Сделать тизер» для уже загруженных видео: тизер 4 с из оригинала (+ для открытого видео-поста — сжатая публичная копия для ленты)
+async function makeTeasers(p, imgs, btn, out) {
+  const { sb, toast } = M(), VC = await import("./vcomp.js?v=36").catch(() => null);
+  if (!VC?.supported()) return out.textContent = "Этот браузер не умеет WebCodecs — откройте админку в Chrome/Edge/Safari 16.4+";
+  btn.disabled = true; const open = (tiers.find(t => t.id == p.tier_id)?.rank || 0) == 0;
+  try {
+    for (const im of imgs.filter(x => /^videos\//.test(x.original_path))) {
+      out.textContent = "Скачиваю оригинал…"; const { data: f, error } = await ys("originals").download(im.original_path); if (error || !f) throw new Error("не удалось скачать оригинал");
+      out.textContent = "Делаю тизер…"; const tp = `teasers/${p.id}/${im.id}.mp4`, r = await ys("previews").upload(tp, await VC.teaser(f, 1), { contentType: "video/mp4", upsert: true }); if (r.error) throw r.error;
+      await sb.from("post_images").update({ teaser_path: tp }).eq("id", im.id);
+      const isCover = p.kind == "video" || p.cover_image_id == im.id;
+      let fp = null;
+      if (open && p.kind == "video") { fp = `feedvid/${p.id}/${im.id}.mp4`; const c = await VC.compress(f, x => out.textContent = `Сжимаю для ленты ${Math.round(x * 100)}%`);
+        await uploadVideo(fp, c.blob, x => out.textContent = `Видео для ленты · ${Math.round(x * 100)}%`, "previews"); }
+      if (isCover || fp) await sb.from("posts").update({ ...(isCover ? { cover_teaser_path: tp } : {}), ...(fp ? { feed_video_path: fp } : {}) }).eq("id", p.id);
+    }
+    out.textContent = "Готово 🐾"; toast("Тизер готов"); await M().load();
+  } catch (e) { out.textContent = "Ошибка: " + (e.message || e); } finally { btn.disabled = false; }
+}
 async function editPost(p, done) {
   const { sb, esc, pub, toast } = M();
   const { data: imgs } = await sb.from("post_images").select("id,position,preview_path,original_path,is_free").eq("post_id", p.id).order("position");
   const d = document.createElement("div"); d.className = "ov"; d.innerHTML = `<div class="sheet wide-sheet"><a class="x">✕</a><h2>Редактировать</h2>
   <label>Заголовок</label><input type="text" id="et" value="${esc(p.title)}"><label>Текст</label><textarea id="eb" rows="3">${esc(p.body || "")}</textarea>
   <label>Уровень</label><select id="etr">${tiers.map(t => `<option value="${t.id}" ${t.id == p.tier_id ? "selected" : ""}>${esc(t.name)}</option>`).join("")}</select>
-  <label>Порядок артов (↑↓) · ★ — сделать обложкой · «Бесплатно 🐾» — арт виден всем как пробник</label><div class="ups" id="eu"></div><div class="row-btn"><button class="gb" data-x>Отмена</button><button class="ob" id="es">Сохранить</button></div><div class="err" id="ee"></div></div>`;
+  <label>Порядок артов (↑↓) · ★ — сделать обложкой · «Бесплатно 🐾» — арт виден всем как пробник</label><div class="ups" id="eu"></div>${imgs.some(im => /^videos\//.test(im.original_path)) ? `<button class="gb sm" id="etz" style="margin-top:8px">🎬 Сделать тизер</button><div class="mu small" id="etzs"></div>` : ""}<div class="row-btn"><button class="gb" data-x>Отмена</button><button class="ob" id="es">Сохранить</button></div><div class="err" id="ee"></div></div>`;
   document.body.append(d); let order = imgs.slice();
   const draw = () => d.querySelector("#eu").innerHTML = order.map((im, i) => `<div style="background-image:url('${pub(im.preview_path)}')"><span class="o">${i + 1}</span><b class="fr${im.is_free ? 1 : 0}" data-fr="${i}">${im.is_free ? "✓ 🐾 Бесплатно" : "Бесплатно?"}</b><span class="ctl"><b data-m="-1" data-i="${i}">↑</b><b data-cv="${i}">★</b><b data-m="1" data-i="${i}">↓</b></span></div>`).join("");
   draw();
+  if (d.querySelector("#etz")) d.querySelector("#etz").onclick = e => makeTeasers(p, imgs, e.target, d.querySelector("#etzs"));
   const free0 = new Map(imgs.map(im => [im.id, !!im.is_free]));
   d.querySelector("#eu").onclick = async e => { const t = e.target;
     if (t.dataset.fr) { const im = order[+t.dataset.fr]; im.is_free = !im.is_free; draw(); return; }
@@ -292,7 +312,7 @@ async function publish(app) {
   const publish_at = W.when == "later" ? new Date(W.at).toISOString() : new Date().toISOString();
   try {
     let coverImg = null; const vjobs = [], vx = {}; // vx: тизер обложки и публичная копия видео для открытого видео-поста
-    const VC = W.files.some(f => f.video) ? await import("./vcomp.js?v=35").catch(() => null) : null;
+    const VC = W.files.some(f => f.video) ? await import("./vcomp.js?v=36").catch(() => null) : null;
     for (let i = 0; i < W.files.length; i++) {
       st.textContent = `Загрузка ${i + 1} из ${W.files.length}…`; bar.style.width = `${(i / W.files.length) * 90}%`;
       const img = W.files[i].img || await Crop.loadImg(W.files[i].f), iid = uuid(); if (i == W.cover) coverImg = img;
