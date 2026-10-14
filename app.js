@@ -22,7 +22,7 @@ const DEF = {
 };
 let TX = {};
 const T = (k, v = {}) => String(TX[k] || DEF[k] || k).replace(/\{(\w+)\}/g, (_, x) => v[x] ?? "");
-let S = { user: null, liked: new Set(), rank: 0, token: localStorage.miaToken || "", tiers: [], posts: [], media: [], profile: {}, modal: null, offline: false, pick: { credit: false, unlocked: new Set() } };
+let S = { free: [], user: null, liked: new Set(), rank: 0, token: localStorage.miaToken || "", tiers: [], posts: [], media: [], profile: {}, modal: null, offline: false, pick: { credit: false, unlocked: new Set() } };
 // закрыт ли пак для этого аккаунта: уровень ниже нужного и пак не открыт через «1 пак на выбор»
 const isLocked = p => p.tier_rank > S.rank && !S.pick.unlocked.has(p.id);
 if (localStorage.miaTheme === "dark") document.body.classList.add("dark");
@@ -37,6 +37,7 @@ const fn = async (name, body) => { const session = await timeout(sb.auth.getSess
 async function load() {
   try {
     const [tiers, posts, media, settings] = await Promise.all([api("tiers_public?order=rank"), api("feed_public?order=publish_at.desc"), api("media_public?order=publish_at.desc,position"), api("settings?key=in.(profile,texts,viewer)")]);
+    S.free = await api("free_images_public?select=post_id,position&order=position").catch(() => []);
     const st = Object.fromEntries(settings.map(x => [x.key, x.value]));
     Object.assign(S, { tiers, posts, media, profile: st.profile || {}, viewer: st.viewer || {}, offline: false }); TX = st.texts || {};
     localStorage.miaCache = JSON.stringify({ tiers, posts, media, st });
@@ -85,6 +86,12 @@ const heart = p => `${S.liked.has(p.id) ? "❤" : "♡"} ${p.like_count || 0}`;
 const ACT = p => `<div class="act"><a class="${S.liked.has(p.id) ? "on" : ""}" data-like="${p.id}">${heart(p)}</a><a href="#/post/${p.id}" data-cm="${p.id}">💬 ${p.comment_count || 0}</a><span class="sp"></span><a data-share="${p.id}" title="Поделиться">↗</a></div>`;
 const lockPanel = p => `<div class="frost"><span class="mu">${esc(T("locked_label"))}</span><b>${esc(p.tier_name)}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><button class="ob" data-sub="${p.id}">🔒 ${esc(T("btn_subscribe"))}</button>${pickBtn(p)}</div>`;
 const pickBtn = p => S.pick.credit ? `<button class="ob pko" data-pick="${p.id}">🎁 Мур, открыть этот пак</button><span class="pkb">Мяу! У тебя 1 пак на выбор 💕</span>` : "";
+// «Пробник»: бесплатные арты внутри закрытого пака
+const freeOf = id => (S.free || []).filter(f => f.post_id == id).map(f => f.position);
+const freeP = {};
+const freeFn = id => freeP[id] || (freeP[id] = fn("free_arts", { post_id: id }).then(r => { if (r.status != 200) { delete freeP[id]; throw new Error(r.status); } return (r.data.images || []).map(i => ({ url: B + i.url, position: i.position })); }));
+const freePlate = p => { const n = Math.max(0, (p.image_count || 0) - freeOf(p.id).length); return `<div class="fcap"><b>Мур, это лишь кусочек 🐾</b><span>Мяу~ в паке ещё ${n} ${plural(n, "арт", "арта", "артов")}, они ждут тебя 💕</span><button class="ob" data-fsub="${p.id}">Открыть полный пак 🐾</button></div>`; };
+document.addEventListener("click", e => { const t = e.target.closest("[data-fsub]"); if (!t) return; e.preventDefault(); e.stopPropagation(); const p = S.posts.find(x => x.id == t.dataset.fsub); if (p) subscribe(p.tier_rank, p.id); }, true);
 function card(p) {
   const locked = isLocked(p), n = `${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}`;
   return `<div class="post"><div class="ph"><span>${fmt(p.publish_at)}</span>${p.tier_rank > 0 ? `<span class="tier">${locked ? `<i class="lki"></i>` : ""}${esc(p.tier_name)}</span>` : `<span class="tier f">Открыто всем</span>`}</div>
@@ -365,6 +372,7 @@ function loadImgs(id) {
 }
 function openViewer(id, start, quick, o = {}) {
   const p = S.posts.find(x => x.id == id); if (!p) return;
+  if (isLocked(p) && freeOf(p.id).length) { window.MiaViewer.open(p, new Promise(() => {}), { start, quick: true, ...o }); return setTimeout(() => window.MiaViewer.free(p.id, start || 0), 0); } // «пробник»
   window.MiaViewer.open(p, loadImgs(p.id), { start, quick, ...o });
 }
 // «Медиа»: открытые плитки подгружают полные арты лениво, пока показано превью
@@ -403,7 +411,7 @@ async function render() {
   if (v == "me") bindMe();
   if (S.modal) drawModal();
 }
-window.Mia = { isLocked, pickOpen, pickBtn, openComments, closeComments, loadImgs, subscribe, openViewer, toggleLike, sb, S, $, $$, esc, pub, fmt, toast, T, DEF, fn, load, render, B, plural, setTexts: t => TX = t };
+window.Mia = { freeOf, freeFn, freePlate, isLocked, pickOpen, pickBtn, openComments, closeComments, loadImgs, subscribe, openViewer, toggleLike, sb, S, $, $$, esc, pub, fmt, toast, T, DEF, fn, load, render, B, plural, setTexts: t => TX = t };
 window.addEventListener("hashchange", () => { if (window.MiaViewer?.isOpen()) window.MiaViewer.close(); if (S.modal) { S.modal = null; $("#modal")?.remove(); } closeComments(true); render(); });
 $("#app").innerHTML = `<div style="padding:14px"><div class="sk" style="height:120px"></div><div class="sk" style="height:300px;margin-top:14px"></div><div class="sk" style="height:16px;margin-top:10px;width:60%"></div></div>`;
 fetch("version.txt?" + Date.now(), { cache: "no-store" }).then(r => r.text()).then(v => { v = v.trim(); if (v && v != window.MIA_VERSION && !sessionStorage.miaReloaded) { sessionStorage.miaReloaded = 1; location.reload(); } }).catch(() => {});
