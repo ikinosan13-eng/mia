@@ -13,7 +13,7 @@ async function regenPreviews(btn, all) {
   const { sb, toast } = M(); await loadTiers(); const rank = Object.fromEntries(tiers.map(t => [t.id, t.rank]));
   const lp = all.filter(p => rank[p.tier_id] > 0); if (!lp.length) return toast("Закрытых паков нет");
   if (!confirm(`Пересоздать превью для ${lp.length} закрытых паков?`)) return;
-  btn.disabled = true; let done = 0, fail = 0;
+  btn.disabled = true; let done = 0, fail = 0; const vjobs = [];
   for (const p of lp) {
     const { data: ims, error } = await sb.from("post_images").select("id,preview_path,original_path").eq("post_id", p.id).order("position"); if (error) { fail++; continue; }
     for (const im of ims || []) {
@@ -22,17 +22,41 @@ async function regenPreviews(btn, all) {
         const { data: blob, error: e1 } = await sb.storage.from("originals").download(im.original_path); if (e1) throw e1;
         const img = await Crop.loadImg(blob), pr = await toJpeg(img, LOCKED_PREV, 0.85), np = `thumbs/${p.id}/${im.id}-s${LOCKED_PREV}.jpg`;
         const up = await sb.storage.from("previews").upload(np, pr.blob, { contentType: "image/jpeg", upsert: true }); if (up.error) throw up.error;
-        const u = await sb.from("post_images").update({ preview_path: np }).eq("id", im.id); if (u.error) throw u.error;
+        const u = await sb.from("post_images").update({ preview_path: np }).eq("id", im.id); if (u.error) throw u.error; vjobs.push([np, VW.thumb, pr.blob]);
         if (im.preview_path && im.preview_path != np) await sb.storage.from("previews").remove([im.preview_path]);
       } catch (e) { fail++; console.warn("regen", im.id, e); }
     }
   }
-  btn.disabled = false; btn.textContent = "Пересоздать превью"; toast(fail ? `Готово, ошибок: ${fail}` : `Готово: ${done} превью`); await M().load();
+  autoVariants(vjobs); btn.disabled = false; btn.textContent = "Пересоздать превью"; toast(fail ? `Готово, ошибок: ${fail}` : `Готово: ${done} превью`); await M().load();
 }
 // «WebP-версии»: для публичных картинок (обложки паков, шапка, аватар, превью в «Медиа») делает уменьшенные WebP
 // в previews/v/<путь>-<ширина>-<метка>.webp (кэш на год) и пишет манифест в settings (key "imgv") — сайт берёт srcset из него.
 // Без манифеста сайт грузит исходные файлы, как раньше. Оригиналы платных артов сюда не попадают.
 const VW = { cover: [480, 960], hero: [800, 1600], ava: [192], thumb: [320] };
+// один набор WebP из готового публичного превью (Blob): те же размеры/качество/пути, что у кнопки
+async function webpSet(sb, path, ws, blob, stamp) {
+  const img = await createImageBitmap(blob), out = [];
+  for (const w of ws) { if (w > img.width * 1.05 && out.length) continue; const tw = Math.min(w, img.width), c = document.createElement("canvas"); c.width = tw; c.height = Math.round(img.height * tw / img.width);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); const b = await new Promise(r => c.toBlob(r, "image/webp", 0.8));
+    if (!b || b.type != "image/webp") throw new Error("браузер не умеет WebP");
+    const vp = `v/${path.replace(/\.[a-z0-9]+$/i, "")}-${w}-${stamp}.webp`, up = await M().sb.storage.from("previews").upload(vp, b, { cacheControl: "31536000", contentType: "image/webp", upsert: true }); if (up.error) throw up.error; out.push(w); }
+  if (!out.length) throw new Error("нет размеров"); return out;
+}
+// манифест settings.imgv: прочитать → дописать → сохранить (не затирая чужие записи); все записи идут по очереди
+let vChain = Promise.resolve();
+const imgvMerge = add => { const run = async () => { const { sb } = M(); const { data, error } = await sb.from("settings").select("value").eq("key", "imgv"); if (error) throw error;
+  const old = data?.[0]?.value || {}, man = { ...old, paths: { ...(old.paths || {}), ...add } }; const u = await sb.from("settings").upsert({ key: "imgv", value: man }); if (u.error) throw u.error; return man; };
+  const p = vChain.then(run, run); vChain = p.catch(() => {}); return p; };
+// авто-WebP при загрузке в админке: best-effort, загрузку не ломает. items: [[путь публичного файла, размеры, Blob]]
+function autoVariants(items) {
+  items = items.filter(x => x && x[0] && x[2]); if (!items.length) return Promise.resolve();
+  const { sb, toast } = M(), stamp = Date.now().toString(36), add = {}; let fail = 0;
+  return (async () => {
+    for (const [path, ws, blob] of items) { try { add[path] = { w: await webpSet(sb, path, ws, blob, stamp), s: stamp }; } catch (e) { console.error("webp", path, e); fail++; } }
+    if (Object.keys(add).length) { try { await imgvMerge(add); M().load().catch(() => {}); } catch (e) { console.error("imgv", e); fail = items.length; } }
+    if (fail) toast(`Мяу, WebP-версии не получились (${fail}) 🐾 Картинка загружена, сайт покажет обычную. Можно повторить кнопкой «WebP-версии»`);
+  })().catch(e => { console.error(e); toast("Мяу, WebP-версии не получились 🐾 Картинка загружена — можно повторить кнопкой «WebP-версии»"); });
+}
 async function makeVariants(btn) {
   const { sb, toast, S, pub } = M(); btn.disabled = true; const t0 = btn.textContent; let done = 0, fail = 0, skip = 0;
   try {
@@ -41,22 +65,17 @@ async function makeVariants(btn) {
     (ps || []).forEach(p => p.cover_path && jobs.set(p.cover_path, VW.cover)); (ims || []).forEach(i => i.preview_path && jobs.set(i.preview_path, VW.thumb));
     if (prof.cover) jobs.set(prof.cover, VW.hero); if (prof.avatar) jobs.set(prof.avatar, VW.ava);
     const { data: ov } = await sb.from("settings").select("value").eq("key", "imgv"), old = ov?.[0]?.value || {};
-    const man = { paths: { ...(old.paths || {}) } }, stamp = Date.now().toString(36);
+    const man = { paths: { ...(old.paths || {}) } }, stamp = Date.now().toString(36), added = {};
     if (!confirm(`Сделать WebP-версии для ${jobs.size} картинок? Уже готовые (${Object.keys(man.paths).length}) будут пропущены.`)) { btn.disabled = false; return; }
     for (const [path, ws] of jobs) {
       if (man.paths[path]) { skip++; continue; }
       btn.textContent = `WebP ${done + skip + fail + 1}/${jobs.size}…`;
       try {
-        const blob = await fetch(pub(path)).then(r => { if (!r.ok) throw new Error(r.status); return r.blob(); }), img = await createImageBitmap(blob), out = [];
-        for (const w of ws) { if (w > img.width * 1.05 && out.length) continue; const tw = Math.min(w, img.width), c = document.createElement("canvas"); c.width = tw; c.height = Math.round(img.height * tw / img.width);
-          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); const b = await new Promise(r => c.toBlob(r, "image/webp", 0.8));
-          if (!b || b.type != "image/webp") throw new Error("браузер не умеет WebP");
-          const vp = `v/${path.replace(/\.[a-z0-9]+$/i, "")}-${w}-${stamp}.webp`, up = await sb.storage.from("previews").upload(vp, b, { cacheControl: "31536000", contentType: "image/webp", upsert: true }); if (up.error) throw up.error; out.push(w); }
-        man.paths[path] = { w: out, s: stamp }; done++;
+        const blob = await fetch(pub(path)).then(r => { if (!r.ok) throw new Error(r.status); return r.blob(); });
+        added[path] = { w: await webpSet(sb, path, ws, blob, stamp), s: stamp }; done++;
       } catch (e) { console.error(path, e); fail++; }
     }
-    const mu = await sb.from("settings").upsert({ key: "imgv", value: man });
-    if (mu.error) throw mu.error; ev(`WebP-версии: +${done}, ошибок ${fail}`); toast(fail ? `Готово: ${done}, пропущено ${skip}, ошибок ${fail}` : `Готово: ${done} новых, ${skip} уже были 🐾`); await M().load();
+    if (Object.keys(added).length) await imgvMerge(added); ev(`WebP-версии: +${done}, ошибок ${fail}`); toast(fail ? `Готово: ${done}, пропущено ${skip}, ошибок ${fail}` : `Готово: ${done} новых, ${skip} уже были 🐾`); await M().load();
   } catch (e) { toast("Ошибка: " + (e.message || e)); }
   btn.disabled = false; btn.textContent = t0;
 }
@@ -111,7 +130,7 @@ async function editPost(p, done) {
       const r = await Crop.open(img, { title: "Обложка для ленты · 1:1", aspect: 1, outW: 1080, outH: 1080, previews: [{ w: 180, h: 180, label: "Карточка в ленте" }, { w: 64, h: 64, label: "Список в админке" }] });
       if (!r) return; const path = `covers/${p.id}-${Date.now()}.jpg`; const up = await sb.storage.from("previews").upload(path, r.blob, { cacheControl: "31536000", contentType: "image/jpeg" }); if (up.error) return toast(up.error.message);
       const th = await squareThumb(img, r.crop); const tp = `thumbs/${p.id}/cover-${Date.now()}.jpg`; await sb.storage.from("previews").upload(tp, th, { cacheControl: "31536000", contentType: "image/jpeg" });
-      await sb.from("posts").update({ cover_path: path, cover_image_id: im.id, cover_crop: { image_id: im.id, ...r.crop }, thumb_path: tp }).eq("id", p.id); if (p.cover_path && p.cover_path.startsWith("covers/" + p.id)) sb.storage.from("previews").remove([p.cover_path]); p.cover_path = path; toast("Обложка обновлена"); } };
+      await sb.from("posts").update({ cover_path: path, cover_image_id: im.id, cover_crop: { image_id: im.id, ...r.crop }, thumb_path: tp }).eq("id", p.id); if (p.cover_path && p.cover_path.startsWith("covers/" + p.id)) sb.storage.from("previews").remove([p.cover_path]); p.cover_path = path; toast("Обложка обновлена"); autoVariants([[path, VW.cover, r.blob]]); } };
   const close = () => d.remove(); d.querySelector(".x").onclick = d.querySelector("[data-x]").onclick = close;
   d.querySelector("#es").onclick = async () => {
     const { error } = await sb.from("posts").update({ title: d.querySelector("#et").value.trim(), body: d.querySelector("#eb").value.trim(), tier_id: +d.querySelector("#etr").value }).eq("id", p.id);
@@ -188,13 +207,14 @@ async function publish(app) {
   const tier = tiers.find(t => t.id == W.tier), pid = uuid(), rows = [];
   const publish_at = W.when == "later" ? new Date(W.at).toISOString() : new Date().toISOString();
   try {
-    let coverImg = null;
+    let coverImg = null; const vjobs = [];
     for (let i = 0; i < W.files.length; i++) {
       st.textContent = `Загрузка ${i + 1} из ${W.files.length}…`; bar.style.width = `${(i / W.files.length) * 90}%`;
       const img = W.files[i].img || await Crop.loadImg(W.files[i].f), iid = uuid(); if (i == W.cover) coverImg = img;
       const orig = await toJpeg(img, 2560, 0.92), prev = await toJpeg(img, tier.rank > 0 ? LOCKED_PREV : 480, tier.rank > 0 ? 0.85 : 0.8); // закрытые паки: чёткое превью ~700px (для превью-показа в кинорежиме)
       const op = `${pid}/${iid}.jpg`, pp = `thumbs/${pid}/${iid}.jpg`;
       for (const [b, p, blob] of [["originals", op, orig.blob], ["previews", pp, prev.blob]]) { let r, k = 0; do { r = await sb.storage.from(b).upload(p, blob, { cacheControl: "31536000", contentType: "image/jpeg", upsert: true }); } while (r.error && ++k < 3); if (r.error) throw new Error(`Арт ${i + 1}: ${r.error.message}`); }
+      vjobs.push([pp, VW.thumb, prev.blob]);
       rows.push({ id: iid, post_id: pid, position: i + 1, preview_path: pp, original_path: op, width: orig.w, height: orig.h });
     }
     st.textContent = "Обложка и миниатюра…";
@@ -202,14 +222,14 @@ async function publish(app) {
     const c = crop || (() => { const a = 1, iw = coverImg.width, ih = coverImg.height; let w = iw, h = iw / a; if (h > ih) { h = ih; w = ih * a; } return { x: (iw - w) / 2 / iw, y: (ih - h) / 2 / ih, w: w / iw, h: h / ih }; })();
     cv.width = 1080; cv.height = 1080; cv.getContext("2d").drawImage(coverImg, c.x * coverImg.width, c.y * coverImg.height, c.w * coverImg.width, c.h * coverImg.height, 0, 0, 1080, 1080);
     const cb = await new Promise(r => cv.toBlob(r, "image/jpeg", 0.86)), coverPath = `covers/${pid}.jpg`;
-    let r = await sb.storage.from("previews").upload(coverPath, cb, { contentType: "image/jpeg", upsert: true }); if (r.error) throw r.error;
+    let r = await sb.storage.from("previews").upload(coverPath, cb, { contentType: "image/jpeg", upsert: true }); if (r.error) throw r.error; vjobs.push([coverPath, VW.cover, cb]);
     const tb = await squareThumb(coverImg, c, W.thumbMode == "own" ? W.thumbCrop : null), thumbPath = `thumbs/${pid}/cover.jpg`;
     r = await sb.storage.from("previews").upload(thumbPath, tb, { contentType: "image/jpeg", upsert: true }); if (r.error) throw r.error;
     st.textContent = "Сохраняю публикацию…";
     r = await sb.from("posts").insert({ id: pid, title: W.title.trim(), body: W.body.trim(), tier_id: W.tier, cover_path: coverPath, publish_at, status: "draft", thumb_path: thumbPath, cover_crop: { ...c, image: W.cover + 1 }, thumb_crop: W.thumbMode == "own" ? W.thumbCrop : null }); if (r.error) throw r.error;
     r = await sb.from("post_images").insert(rows); if (r.error) throw r.error;
     r = await sb.from("posts").update({ status: W.when == "draft" ? "draft" : "published", cover_image_id: rows[W.cover].id, cover_crop: { image_id: rows[W.cover].id, ...c } }).eq("id", pid); if (r.error) throw r.error;
-    bar.style.width = "100%"; toast(W.when == "draft" ? "Черновик сохранён" : W.when == "later" ? "Запланировано" : "Опубликовано!"); W = null; await M().load(); location.hash = "#/admin/posts";
+    bar.style.width = "100%"; toast(W.when == "draft" ? "Черновик сохранён" : W.when == "later" ? "Запланировано" : "Опубликовано!"); W = null; autoVariants(vjobs); await M().load(); location.hash = "#/admin/posts";
   } catch (e) { st.textContent = "Ошибка: " + (e.message || e) + " — нажмите ещё раз, чтобы повторить"; $("#pub").disabled = false; }
 }
 
@@ -304,10 +324,10 @@ async function authorTab(app) {
   const save = async v => { const { error } = await sb.from("settings").upsert({ key: "profile", value: v }); toast(error ? "Ошибка: " + error.message : "Сохранено"); if (!error) { await M().load(); authorTab(app); } };
   q("#avf").onchange = async e => { const f = e.target.files[0]; if (!f) return; const img = await Crop.loadImg(f);
     const r = await Crop.open(img, { title: "Аватар автора", aspect: 1, round: true, outW: 400, outH: 400, previews: [{ w: 96, h: 96, round: 1, label: "96 · шапка" }, { w: 40, h: 40, round: 1, label: "40 · комментарий" }, { w: 28, h: 28, round: 1, label: "28 · меню" }] });
-    if (!r) return; const path = `site/avatar-${Date.now()}.jpg`; const up = await sb.storage.from("previews").upload(path, r.blob, { cacheControl: "31536000", contentType: "image/jpeg" }); if (up.error) return toast(up.error.message); save({ ...p, avatar: path, avatar_crop: r.crop }); };
+    if (!r) return; const path = `site/avatar-${Date.now()}.jpg`; const up = await sb.storage.from("previews").upload(path, r.blob, { cacheControl: "31536000", contentType: "image/jpeg" }); if (up.error) return toast(up.error.message); autoVariants([[path, VW.ava, r.blob]]); save({ ...p, avatar: path, avatar_crop: r.crop }); };
   q("#cvf").onchange = async e => { const f = e.target.files[0]; if (!f) return; const img = await Crop.loadImg(f);
     const r = await Crop.open(img, { title: "Шапка профиля · 4:1 (жёлтая рамка — видно на телефоне)", aspect: 4, outW: 1600, outH: 400, safe: 2.4, previews: [{ w: 230, h: 58, label: "ПК" }, { w: 140, h: 58, label: "Телефон (края обрезаются)" }] });
-    if (!r) return; const path = `site/cover-${Date.now()}.jpg`; const up = await sb.storage.from("previews").upload(path, r.blob, { cacheControl: "31536000", contentType: "image/jpeg" }); if (up.error) return toast(up.error.message); save({ ...p, cover: path, cover_crop: r.crop }); };
+    if (!r) return; const path = `site/cover-${Date.now()}.jpg`; const up = await sb.storage.from("previews").upload(path, r.blob, { cacheControl: "31536000", contentType: "image/jpeg" }); if (up.error) return toast(up.error.message); autoVariants([[path, VW.hero, r.blob]]); save({ ...p, cover: path, cover_crop: r.crop }); };
   q("#prf").onsubmit = e => { e.preventDefault(); const v = { ...p, name: q("#pn").value.trim(), tagline: q("#pt").value.trim(), about: q("#pa").value, links: {} }; app.querySelectorAll("[data-l]").forEach(i => v.links[i.dataset.l] = i.value.trim()); save(v); };
 }
 // ---------- texts ----------
@@ -370,7 +390,7 @@ async function logTab(app) {
   const { sb, esc } = M(); const { data } = await sb.from("admin_log").select("at,event").order("at", { ascending: false }).limit(200);
   app.innerHTML = shell("log", `<h2>Журнал</h2><div class="tw"><table><tr><th>Когда</th><th>Событие</th></tr>${(data || []).map(r => `<tr><td style="white-space:nowrap">${new Date(r.at).toLocaleString("ru-RU")}</td><td>${esc(r.event)}</td></tr>`).join("") || `<tr><td colspan="2" class="mu">Пусто</td></tr>`}</table></div>`);
 }
-window.MiaAdmin = { async render(tab, arg) { const app = document.getElementById("app");
+window.MiaAdmin = { _autoVariants: (...a) => autoVariants(...a), async render(tab, arg) { const app = document.getElementById("app");
   const f = { posts: () => posts(app, arg || "all"), new: () => newPost(app), tiers: () => tiersTab(app), pick: () => pickTab(app), comments: () => commentsTab(app, arg || "new"), users: () => usersTab(app), author: () => authorTab(app), texts: () => textsTab(app), viewer: () => viewerTab(app), log: () => logTab(app) }[tab] || (() => posts(app));
   await f(); } };
 })();
