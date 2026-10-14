@@ -9,3 +9,12 @@ export async function signOriginal(path: string, expiresIn = 3600): Promise<stri
   return r.url;
 }
 export const signOriginals = (paths: string[], expiresIn = 3600) => Promise.all(paths.map(p => signOriginal(p, expiresIn)));
+// Видео: подписанная ссылка живёт 3 ч (долгий просмотр + перемотка Range-запросами), арты — 1 ч.
+export const VIDEO_SEC = 10800;
+export const VCOLS = "kind,duration_sec,poster_path";
+export type Row = { original_path: string; position?: number; width?: number; height?: number; kind?: string | null; duration_sec?: number | null; poster_path?: string | null };
+export async function signRows(rows: Row[], imgSec = 3600) {
+  const urls = await Promise.all(rows.map(r => signOriginal(r.original_path, r.kind == "video" ? VIDEO_SEC : imgSec)));
+  return rows.map((r, k) => ({ position: r.position, width: r.width, height: r.height, url: urls[k] || null,
+    ...(r.kind == "video" ? { kind: "video", duration: r.duration_sec ?? null, poster: r.poster_path ?? null } : {}) }));
+}

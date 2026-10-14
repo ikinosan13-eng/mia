@@ -48,14 +48,22 @@ const fn = async (name, body) => { const session = await timeout(sb.auth.getSess
   try { const r = await timeout(fetch(`${B}/functions/v1/${name}`, { method: "POST", headers: { ...H, "Content-Type": "application/json", ...(session ? { Authorization: "Bearer " + session.access_token } : {}) }, body: JSON.stringify(body) }), 15000); return { status: r.status, data: await timeout(r.json(), 5000).catch(() => ({})) }; }
   catch { return { status: 0, data: { error: "offline" } }; } };
 
-function fromCache(c) { Object.assign(S, { tiers: c.tiers, posts: c.posts, media: c.media, profile: c.st.profile || {}, viewer: c.st.viewer || {}, free: c.free || S.free || [], imgv: c.imgv || S.imgv || {} }); TX = c.st.texts || {}; }
+function setVid(pv, mv) { S.pvList = pv || []; S.mvList = mv || []; S.pv = Object.fromEntries(S.pvList.map(x => [x.post_id, x])); S.mv = Object.fromEntries(S.mvList.map(x => [x.id, x])); }
+const dur = t => { t = Math.max(0, Math.round(+t || 0)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; };
+// подпись счётчика: видео-пост — «▶ 0:12», пак с видео — «4 арта · ▶ 0:12» (или «· ▶ 2»)
+const cntText = (p, n) => { const v = S.pv?.[p.id]; if (!v) return n; const d = v.video_count == 1 && v.duration_sec ? dur(v.duration_sec) : v.video_count; return v.kind == "video" ? `▶ ${v.video_count > 1 ? v.video_count : dur(v.duration_sec)}` : `${n} · ▶ ${d}`; };
+const vPlay = `<span class="ib vplay">▶</span>`;
+function fromCache(c) { setVid(c.pv, c.mv); Object.assign(S, { tiers: c.tiers, posts: c.posts, media: c.media, profile: c.st.profile || {}, viewer: c.st.viewer || {}, free: c.free || S.free || [], imgv: c.imgv || S.imgv || {} }); TX = c.st.texts || {}; }
 async function load(o = {}) {
   try {
     const [tiers, posts, media, settings, free] = await Promise.all([api("tiers_public?order=rank"), api("feed_public?order=publish_at.desc"), api("media_public?order=publish_at.desc,position"), api("settings?key=in.(profile,texts,viewer,imgv)"), api("free_images_public?select=post_id,position&order=position").catch(() => [])]);
     S.free = free || [];
+    // видео (после sql/video.sql); до миграции view нет → пустые списки, сайт работает как раньше
+    const [pv, mv] = await Promise.all([api("post_video_public?select=post_id,kind,video_count,duration_sec").catch(() => []), api("media_video_public?select=id,post_id,position,duration_sec,poster_path").catch(() => [])]);
+    setVid(pv, mv);
     const st = Object.fromEntries(settings.map(x => [x.key, x.value]));
     Object.assign(S, { tiers, posts, media, profile: st.profile || {}, viewer: st.viewer || {}, imgv: st.imgv?.paths || {}, offline: false }); TX = st.texts || {};
-    try { localStorage.miaCache = JSON.stringify({ tiers, posts, media, st, free: S.free, imgv: S.imgv, at: Date.now() }); } catch {}
+    try { localStorage.miaCache = JSON.stringify({ tiers, posts, media, st, free: S.free, imgv: S.imgv, pv: S.pvList, mv: S.mvList, at: Date.now() }); } catch {}
   } catch (e) {
     const c = JSON.parse(localStorage.miaCache || "null"); S.offline = true;
     if (!c) throw e; fromCache(c);
@@ -110,7 +118,7 @@ document.addEventListener("click", e => { const t = e.target.closest("[data-fsub
 function card(p, k = 9) {
   const locked = isLocked(p), n = `${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}`;
   return `<div class="post"><div class="ph"><span>${fmt(p.publish_at)}</span>${p.tier_rank > 0 ? `<span class="tier">${locked ? `<i class="lki"></i>` : ""}${esc(p.tier_name)}</span>` : `<span class="tier f">Открыто всем</span>`}</div>
-  <a href="#/post/${p.id}" class="cov ${locked ? "lk" : ""}" ${locked ? "" : `data-view="${p.id}"`}><img ${imgSrc(p.cover_path, "(min-width:640px) 600px, 100vw")} alt="" ${k < 1 ? `fetchpriority="high"` : `loading="lazy"`}><h3>${esc(p.title)}</h3><span class="cnt">${n}</span>${locked ? lockPanel(p) : ""}</a>
+  <a href="#/post/${p.id}" class="cov ${locked ? "lk" : ""}" ${locked ? "" : `data-view="${p.id}"`}><img ${imgSrc(p.cover_path, "(min-width:640px) 600px, 100vw")} alt="" ${k < 1 ? `fetchpriority="high"` : `loading="lazy"`}><h3>${esc(p.title)}</h3><span class="cnt">${esc(cntText(p, n))}</span>${!locked && S.pv?.[p.id]?.kind == "video" ? vPlay : ""}${locked ? lockPanel(p) : ""}</a>
   ${p.body && !locked ? `<div class="body">${esc(p.body.length > 300 ? p.body.slice(0, 300) + "…" : p.body)}</div>` : ""}${ACT(p)}</div>`;
 }
 function levelsHtml() {
@@ -122,7 +130,8 @@ function levelsHtml() {
 const views = {
   feed: () => bar() + hero() + tabs("feed") + (S.posts.map(card).join("") || `<div class="note">🎨 ${esc(T("empty_feed"))}</div>`),
   media: () => { const k = {}; return bar() + hero() + tabs("media") + `<div class="grid mgrid">${S.media.map(m => { const i = k[m.post_id] = (k[m.post_id] ?? -1) + 1, lk = m.tier_rank > S.rank && !S.pick.unlocked.has(m.post_id), p = S.posts.find(x => x.id == m.post_id);
-    return lk ? `<a href="#/post/${m.post_id}" class="lk" style="background-image:url('${bgSrc(m.preview_path, 320)}')"></a>` : `<a href="#/post/${m.post_id}" data-mp="${m.post_id}" data-mi="${i}" style="background-image:url('${bgSrc(m.preview_path, 320)}')">${p ? `<span class="cb" data-cm="${p.id}">💬 ${p.comment_count || 0}</span>` : ""}</a>`; }).join("")}</div>` + (S.media.length ? "" : `<div class="note">🎨 ${esc(T("empty_feed"))}</div>`); },
+    const vd = S.mv?.[m.id], vb = vd ? `<span class="cnt">▶ ${dur(vd.duration_sec)}</span>` : "";
+    return lk ? `<a href="#/post/${m.post_id}" class="lk${vd ? " vd" : ""}" style="background-image:url('${bgSrc(m.preview_path, 320)}')">${vb}</a>` : `<a href="#/post/${m.post_id}" data-mp="${m.post_id}" data-mi="${i}" class="${vd ? "vd" : ""}" style="background-image:url('${bgSrc(m.preview_path, 320)}')">${vb}${p ? `<span class="cb" data-cm="${p.id}">💬 ${p.comment_count || 0}</span>` : ""}</a>`; }).join("")}</div>` + (S.media.length ? "" : `<div class="note">🎨 ${esc(T("empty_feed"))}</div>`); },
   levels: () => bar() + hero() + tabs("levels") + levelsHtml(),
   about: () => bar() + hero() + tabs("about") + `<div class="body">${esc(S.profile.about || "Привет! Я Мия, рисую паки артов 💕🐾")}</div>`,
 };
@@ -324,11 +333,14 @@ async function openComments(id, onChange) {
 async function postView(id) {
   const p = S.posts.find(x => x.id == id); if (!p) return bar() + `<div class="empty">Публикация не найдена</div>`;
   const head = `<div class="ph" style="padding-top:14px"><a href="#/feed">← Лента</a><span>${fmt(p.publish_at)}</span></div>`;
-  if (isLocked(p)) return bar() + head + `<div class="cov lk"><img ${imgSrc(p.cover_path, "(min-width:640px) 600px, 100vw")} alt="" fetchpriority="high"><h3>${esc(p.title)}</h3><span class="cnt">${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}</span>${lockPanel(p)}</div>` + ACT(p) + `<div id="pcmw">${await commentsBlock(p)}</div>`;
+  if (isLocked(p)) return bar() + head + `<div class="cov lk"><img ${imgSrc(p.cover_path, "(min-width:640px) 600px, 100vw")} alt="" fetchpriority="high"><h3>${esc(p.title)}</h3><span class="cnt">${esc(cntText(p, `${p.image_count} ${plural(p.image_count, "арт", "арта", "артов")}`))}</span>${lockPanel(p)}</div>` + ACT(p) + `<div id="pcmw">${await commentsBlock(p)}</div>`;
   const r = await packFn(id);
   if (r.status !== 200) return bar() + head + `<div class="empty">Не удалось открыть: ${esc(r.status == 0 ? T("offline") : r.data.message || r.data.error || r.status)}</div>`;
   S.imgs = r.data.images.map(i => abs(i.url)); S.idx = 0; S.imgsFor = id;
-  return bar() + head + `<div style="padding:0 14px 10px;font-size:20px;font-weight:700">${esc(p.title)}</div><div class="arts">${(() => { const md = S.media.filter(m => m.post_id == id).sort((a, b) => a.position - b.position), same = md.length == r.data.images.length; return r.data.images.map((im, k) => { const w = im.width || (same && md[k].width), h = im.height || (same && md[k].height); return `<img src="${S.imgs[k]}" alt="" data-vi="${k}" ${w && h ? `width="${w}" height="${h}"` : ""} ${k < 1 ? `fetchpriority="high"` : `loading="lazy"`}>`; }).join(""); })()}</div>
+  return bar() + head + `<div style="padding:0 14px 10px;font-size:20px;font-weight:700">${esc(p.title)}</div><div class="arts">${(() => { const md = S.media.filter(m => m.post_id == id).sort((a, b) => a.position - b.position), same = md.length == r.data.images.length; return r.data.images.map((im, k) => { const w = im.width || (same && md[k].width), h = im.height || (same && md[k].height); const at = `alt="" data-vi="${k}" ${w && h ? `width="${w}" height="${h}"` : ""} ${k < 1 ? `fetchpriority="high"` : `loading="lazy"`}`;
+    // видео: на странице пака — постер в том же <img> + ▶ и длительность; играет в кинорежиме
+    if (im.kind == "video" || /\.mp4(\?|$)/i.test(S.imgs[k])) { const ps = im.poster || (same && md[k].preview_path); return `<div class="vd">${ps ? `<img src="${pub(ps)}" ${at}>` : `<img ${at}>`}${vPlay}<span class="cnt">▶ ${dur(im.duration ?? S.mvList?.find(x => x.post_id == id && same && x.position == md[k].position)?.duration_sec)}</span></div>`; }
+    return `<img src="${S.imgs[k]}" ${at}>`; }).join(""); })()}</div>
   ${p.body ? `<div class="body">${esc(p.body)}</div>` : ""}` + ACT(p) + `<div id="cmts"></div><div id="pcmw">${await commentsBlock(p)}</div>`;
 }
 function go(i) { const n = S.imgs.length; S.idx = (i + n) % n; $("#sl") && ($("#sl").style.transform = `translateX(${-100 * S.idx}%)`); $("#ctr") && ($("#ctr").textContent = `${S.idx + 1} / ${n}`); $$("#dots i").forEach((d, k) => d.className = k == S.idx ? "on" : ""); const f = $("#fsi"); if (f) { f.src = S.imgs[S.idx]; $("#fsc").textContent = `${S.idx + 1} / ${n}`; } }
@@ -437,7 +449,7 @@ async function render(o = {}) {
   if (v == "me") bindMe();
   if (S.modal) drawModal();
 }
-window.Mia = { sbPub, imgSrc, bgSrc, vOf, freeOf, freeFn, freePlate, isLocked, pickOpen, pickBtn, openComments, closeComments, loadImgs, subscribe, openViewer, toggleLike, sb, S, $, $$, esc, pub, fmt, toast, T, DEF, fn, load, render, B, plural, setTexts: t => TX = t };
+window.Mia = { cntText, sbPub, imgSrc, bgSrc, vOf, freeOf, freeFn, freePlate, isLocked, pickOpen, pickBtn, openComments, closeComments, loadImgs, subscribe, openViewer, toggleLike, sb, S, $, $$, esc, pub, fmt, toast, T, DEF, fn, load, render, B, plural, setTexts: t => TX = t };
 window.addEventListener("hashchange", () => { if (window.MiaViewer?.isOpen()) window.MiaViewer.close(); if (S.modal) { S.modal = null; $("#modal")?.remove(); } closeComments(true); render(); });
 $("#app").innerHTML = `<div style="padding:14px"><div class="sk" style="height:120px"></div><div class="sk" style="height:300px;margin-top:14px"></div><div class="sk" style="height:16px;margin-top:10px;width:60%"></div></div>`;
 fetch("version.txt?" + Date.now(), { cache: "no-store" }).then(r => r.text()).then(v => { v = v.trim(); if (v && v != window.MIA_VERSION && !sessionStorage.miaReloaded) { sessionStorage.miaReloaded = 1; location.reload(); } }).catch(() => {});
