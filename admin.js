@@ -61,15 +61,17 @@ async function posts(app, filter = "all") {
 }
 async function editPost(p, done) {
   const { sb, esc, pub, toast } = M();
-  const { data: imgs } = await sb.from("post_images").select("id,position,preview_path,original_path").eq("post_id", p.id).order("position");
+  const { data: imgs } = await sb.from("post_images").select("id,position,preview_path,original_path,is_free").eq("post_id", p.id).order("position");
   const d = document.createElement("div"); d.className = "ov"; d.innerHTML = `<div class="sheet wide-sheet"><a class="x">✕</a><h2>Редактировать</h2>
   <label>Заголовок</label><input type="text" id="et" value="${esc(p.title)}"><label>Текст</label><textarea id="eb" rows="3">${esc(p.body || "")}</textarea>
   <label>Уровень</label><select id="etr">${tiers.map(t => `<option value="${t.id}" ${t.id == p.tier_id ? "selected" : ""}>${esc(t.name)}</option>`).join("")}</select>
-  <label>Порядок артов (↑↓) · ★ — сделать обложкой</label><div class="ups" id="eu"></div><div class="row-btn"><button class="gb" data-x>Отмена</button><button class="ob" id="es">Сохранить</button></div><div class="err" id="ee"></div></div>`;
+  <label>Порядок артов (↑↓) · ★ — сделать обложкой · «Бесплатно 🐾» — арт виден всем как пробник</label><div class="ups" id="eu"></div><div class="row-btn"><button class="gb" data-x>Отмена</button><button class="ob" id="es">Сохранить</button></div><div class="err" id="ee"></div></div>`;
   document.body.append(d); let order = imgs.slice();
-  const draw = () => d.querySelector("#eu").innerHTML = order.map((im, i) => `<div style="background-image:url('${pub(im.preview_path)}')"><span class="o">${i + 1}</span><span class="ctl"><b data-m="-1" data-i="${i}">↑</b><b data-cv="${i}">★</b><b data-m="1" data-i="${i}">↓</b></span></div>`).join("");
+  const draw = () => d.querySelector("#eu").innerHTML = order.map((im, i) => `<div style="background-image:url('${pub(im.preview_path)}')"><span class="o">${i + 1}</span><b class="fr${im.is_free ? 1 : 0}" data-fr="${i}">${im.is_free ? "✓ 🐾 Бесплатно" : "Бесплатно?"}</b><span class="ctl"><b data-m="-1" data-i="${i}">↑</b><b data-cv="${i}">★</b><b data-m="1" data-i="${i}">↓</b></span></div>`).join("");
   draw();
+  const free0 = new Map(imgs.map(im => [im.id, !!im.is_free]));
   d.querySelector("#eu").onclick = async e => { const t = e.target;
+    if (t.dataset.fr) { const im = order[+t.dataset.fr]; im.is_free = !im.is_free; draw(); return; }
     if (t.dataset.m) { const i = +t.dataset.i, j = i + +t.dataset.m; if (j < 0 || j >= order.length) return; [order[i], order[j]] = [order[j], order[i]]; draw(); }
     if (t.dataset.cv) { const im = order[+t.dataset.cv]; d.querySelector("#ee").textContent = "Загружаю оригинал…";
       const { data: blob, error } = await sb.storage.from("originals").download(im.original_path); if (error) return d.querySelector("#ee").textContent = error.message;
@@ -84,6 +86,7 @@ async function editPost(p, done) {
     if (error) return d.querySelector("#ee").textContent = error.message;
     for (let i = 0; i < order.length; i++) await sb.from("post_images").update({ position: 1000 + i }).eq("id", order[i].id);
     for (let i = 0; i < order.length; i++) await sb.from("post_images").update({ position: i + 1 }).eq("id", order[i].id);
+    for (const im of order) if (!!im.is_free != free0.get(im.id)) { const u = await sb.from("post_images").update({ is_free: !!im.is_free }).eq("id", im.id); if (u.error) return d.querySelector("#ee").textContent = "Мяу, не сохранилось «Бесплатно»: " + u.error.message; }
     toast("Сохранено"); close(); await M().load(); done(); };
 }
 async function squareThumb(img, c, crop2) {

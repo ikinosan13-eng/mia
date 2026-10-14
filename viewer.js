@@ -13,7 +13,7 @@ function build() {
   <div class="vstage" id="v-stage"><div class="art" id="v-a1"></div><div class="art" id="v-a2"></div><div class="vlc" id="v-lc"></div><button class="vnav l" id="v-pv" title="Предыдущий арт"><span>‹</span></button><button class="vnav rr" id="v-nx" title="Следующий арт"><span>›</span></button></div>
   <div class="vchrome bot"><div class="vttl" id="v-ttl"><div class="row"><button class="parr" id="v-pp" title="Предыдущий пак">‹</button><h2></h2><button class="parr" id="v-pn" title="Следующий пак">›</button></div><p></p></div><div class="vstrip" id="v-strip"></div>
   <div class="vbot"><button class="vpill" id="v-lk"></button><button class="vpill" id="v-cm"></button><div class="eq"><i></i><i></i><i></i><i></i></div></div></div>
-  <div class="pstrip" id="v-ps"></div><div class="vbz" id="v-bz"></div><div class="vtz" id="v-tz"></div>`;
+  <div class="pstrip" id="v-ps"></div><div class="vbz" id="v-bz"></div><div class="vtz" id="v-tz"></div><div class="vfc" id="v-fc"></div>`;
   document.body.append(V);
   el("x").onclick = close; el("skip").onclick = finish; // боковые зоны больше не листают: тап открывает нижнюю плашку с артами (как тап внизу)
   // кнопка ‹ › — листает (без перескока через край); остальная боковая зона — открывает плашку
@@ -100,7 +100,7 @@ function stopTeaser() { if (!tz) return; const t = tz; tz = null; t.done = () =>
 function goPack(p) {
   if (p.id == st.post.id && !V.classList.contains("lkd")) return;
   if (locked(p)) return lockCard(p);
-  stopTeaser(); V.classList.remove("lkd"); el("lc").innerHTML = "";
+  stopTeaser(); V.classList.remove("lkd", "frm"); el("fc").innerHTML = ""; el("lc").innerHTML = "";
   st.post = p; st.imgs = null; st.i = 0; st.start = 0; title(p); drawBot(); drawPacks();
   el("cnt").textContent = ""; el("strip").innerHTML = ""; st.front.classList.remove("show"); st.back.classList.remove("show"); el("load").textContent = "Загрузка…";
   fill(p, window.Mia.loadImgs(p.id), () => { el("load").classList.remove("on"); show(0); el("strip").classList.add("on"); });
@@ -116,15 +116,32 @@ addEventListener("resize", () => lkSize());
 function lockCard(p) {
   const M = window.Mia, n = p.image_count || 0; st.post = p; st.imgs = null; st.i = 0; st.pending = null;
   loadTok++; title(p); drawBot(); drawPacks(); el("cnt").textContent = ""; st.front.classList.remove("show"); st.back.classList.remove("show"); el("load").classList.remove("on", "err");
-  V.classList.add("lkd"); lkSize(); V.style.setProperty("--lkbg", `url('${M.pub(p.cover_path)}')`);
+  V.classList.remove("frm"); el("fc").innerHTML = ""; V.classList.add("lkd"); lkSize(); V.style.setProperty("--lkbg", `url('${M.pub(p.cover_path)}')`);
   const pv = packPv(p);
-  el("strip").innerHTML = Array.from({ length: Math.min(n, 12) }, (_, k) => `<div class="tzt"><i${pv[k] ? ` style="background-image:url('${M.pub(pv[k].preview_path)}')"` : ""}></i></div>`).join(""); el("strip").classList.add("on");
-  el("strip").querySelectorAll(".tzt").forEach(d => d.onclick = e => { e.stopPropagation(); teaser(p); });
+  const fr = M.freeOf(p.id), isF = k => pv[k] && fr.includes(pv[k].position);
+  el("strip").innerHTML = Array.from({ length: Math.min(n, 12) }, (_, k) => `<div class="tzt${isF(k) ? " fr" : ""}" data-k="${k}"><i${pv[k] ? ` style="background-image:url('${M.pub(pv[k].preview_path)}')"` : ""}></i>${isF(k) ? "<b>Бесплатно</b>" : ""}</div>`).join(""); el("strip").classList.add("on");
+  el("strip").querySelectorAll(".tzt").forEach(d => d.onclick = e => { e.stopPropagation(); const k = +d.dataset.k; if (isF(k)) return freeShow(p, fr.indexOf(pv[k].position)); teaser(p); });
   el("lc").innerHTML = `<div class="lfull"><img src="${M.pub(p.cover_path)}" alt=""><i class="lfz"></i><button class="llock" id="v-llk" title="${M.esc(M.T("btn_subscribe"))}"></button><h3>${M.esc(p.title)}</h3><span class="lcnt">${n} ${M.plural(n, "арт", "арта", "артов")}</span>
-    <div class="frost lpan"><span class="mu">${M.esc(M.T("locked_label"))}</span><b>${M.esc(p.tier_name || "")}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><button class="ob" id="v-buy">🔒 ${M.esc(M.T("btn_subscribe"))}</button>${M.pickBtn(p)}</div></div>`;
+    <div class="frost lpan"><span class="mu">${M.esc(M.T("locked_label"))}</span><b>${M.esc(p.tier_name || "")}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><button class="ob" id="v-buy">🔒 ${M.esc(M.T("btn_subscribe"))}</button>${M.pickBtn(p)}${fr.length ? `<button class="gb" id="v-free">🐾 Посмотреть ${fr.length} ${M.plural(fr.length, "арт", "арта", "артов")} бесплатно</button>` : ""}</div></div>`;
   el("buy").onclick = e => { e.stopPropagation(); sub(p); };
+  if (el("free")) el("free").onclick = e => { e.stopPropagation(); freeShow(p, 0); };
   // тап по замку / обложке → превью → «Подписаться»; плашку не закрывает
   el("lc").querySelector(".lfull").onclick = e => { e.stopPropagation(); if (e.target.closest(".lpan") && !e.target.closest("#v-llk")) return; teaser(p); };
+  wake();
+}
+// «Пробник»: показать бесплатные арты закрытого пака в полном качестве + плашка с подпиской/кодом
+function freeShow(p, k = 0) {
+  const M = window.Mia; stopTeaser(); st.post = p; st.imgs = null; st.pending = null; loadTok++;
+  V.classList.remove("lkd"); V.classList.add("frm"); el("lc").innerHTML = ""; title(p); drawBot(); drawPacks();
+  el("cnt").textContent = ""; el("strip").innerHTML = ""; el("load").textContent = "Мур, загружаю бесплатные арты… 🐾"; el("load").classList.remove("err"); el("load").classList.add("on");
+  el("fc").innerHTML = M.freePlate(p);
+  Promise.race([M.freeFn(p.id), new Promise((_, r) => setTimeout(() => r(new Error("timeout")), 15000))]).then(list => { if (st.post !== p || !V.classList.contains("frm")) return;
+    if (!list.length) return lockCard(p);
+    st.imgs = list.map(x => x.url);
+    list.forEach((x, m) => { const d = document.createElement("div"); d.className = "fr"; d.style.backgroundImage = `url("${x.url}")`; d.innerHTML = "<b>Бесплатно</b>"; d.onclick = () => { show(m); hideBar(); }; el("strip").append(d); });
+    const lk = document.createElement("div"); lk.className = "tzt"; lk.innerHTML = `<i style="background-image:url('${M.pub(p.cover_path)}')"></i>`; lk.onclick = e => { e.stopPropagation(); lockCard(p); }; el("strip").append(lk);
+    el("strip").classList.add("on"); show(Math.min(k, list.length - 1));
+  }).catch(() => { if (st.post !== p) return; el("load").textContent = "Мяу, бесплатные арты не загрузились 🐾 Попробуй ещё раз"; el("load").classList.add("on", "err"); });
   wake();
 }
 function title(post) { el("ttl").querySelector("h2").textContent = post.title; el("ttl").querySelector("p").textContent = `пак · ${post.image_count} ${window.Mia.plural(post.image_count, "арт", "арта", "артов")}${post.tier_rank > 0 ? " · " + post.tier_name : ""}`; }
@@ -220,5 +237,5 @@ function close() {
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   const g = ++vGen; setTimeout(() => { if (g != vGen) return; V.className = "viewer"; V.setAttribute("aria-hidden", "true"); document.documentElement.classList.remove("v-open"); st.post = null; }, 900);
 }
-window.MiaViewer = { open, close, DEFV, refresh: () => { if (V?.classList.contains("on") && st.post && V.classList.contains("lkd")) lockCard(st.post); }, isOpen: () => V?.classList.contains("on") };
+window.MiaViewer = { open, close, DEFV, free: (id, k) => { const p = window.Mia.S.posts.find(x => x.id == id); if (p && V?.classList.contains("on")) freeShow(p, k); }, refresh: () => { if (V?.classList.contains("on") && st.post && V.classList.contains("lkd")) lockCard(st.post); }, isOpen: () => V?.classList.contains("on") };
 })();
