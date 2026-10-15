@@ -347,3 +347,24 @@ body.dark .fcap{background:#2a1f24;border-color:#7a3b55;color:#f3e8ea}body.dark 
 .hero .prof .ava{overflow:hidden}
 .hero video.hv{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:inherit;opacity:0;transition:opacity .5s;pointer-events:none}
 .hero video.hv.on{opacity:1}
+/* ---------- вход на главную (v38) ---------- */
+html.iwait #app>*:not(.bar):not(.hero),html.iwait .hero .prof{opacity:0}
+html.iwait body:after{content:"мур… 🐾";position:fixed;left:50%;top:58%;transform:translate(-50%,-50%);color:var(--mu,#999);font-size:15px;letter-spacing:.04em;animation:iaPurr 1.6s ease-in-out infinite;pointer-events:none}
+@keyframes iaPurr{0%,100%{opacity:.35}50%{opacity:.9}}
+html.igo .hero .cv img,html.igo .hero .cv video{animation:iaSettle 1.4s cubic-bezier(.2,.7,.2,1) both;animation-delay:var(--el,0ms)}
+@keyframes iaSettle{from{scale:1.07}to{scale:1}}
+html.igo .hero .prof .ava{animation:iaAva .7s cubic-bezier(.2,.9,.25,1.15) both;animation-delay:calc(180ms + var(--el,0ms))}
+@keyframes iaAva{from{opacity:0;translate:0 42px;scale:.82}to{opacity:1;translate:0 0;scale:1}}
+html.igo .hero .prof>:not(.ava){animation:iaUp .55s ease-out both;animation-delay:calc(420ms + var(--el,0ms))}
+html.igo .tabs{animation:iaUp .5s ease-out both;animation-delay:calc(520ms + var(--el,0ms))}
+@keyframes iaUp{from{opacity:0;translate:0 10px}to{opacity:1;translate:0 0}}
+html.igo .post.ia{animation:iaRise .6s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(620ms + var(--i,0) * 130ms + var(--el,0ms))}
+@keyframes iaRise{from{opacity:0;translate:0 22px}to{opacity:1;translate:0 0}}
+html.iquick #app>*{animation:iaQuick .35s ease-out both}
+@keyframes iaQuick{from{opacity:0}to{opacity:1}}
+.post.rv{opacity:0;translate:0 22px;transition:opacity .55s ease-out,translate .55s cubic-bezier(.2,.7,.2,1)}
+.post.rv.in{opacity:1;translate:0 0}
+.glow{position:relative}
+.glow:after{content:"";position:absolute;inset:-3px;border-radius:inherit;box-shadow:0 0 16px 4px var(--ac,#f26430);opacity:0;pointer-events:none;animation:iaGlow 1.2s ease-in-out 2}
+@keyframes iaGlow{0%,100%{opacity:0;scale:.97}50%{opacity:.85;scale:1.04}}
+@media (prefers-reduced-motion:reduce){html.iwait #app>*,html.iwait .hero .prof{opacity:1!important}html.iwait body:after{display:none}.post.rv{opacity:1;translate:none;transition:none}.glow:after{animation:none}}
