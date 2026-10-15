@@ -57,17 +57,17 @@ const cntText = (p, n) => { const v = S.pv?.[p.id]; if (!v || !v.video_count) re
 const IV = `<i class="ic v"></i>`, IA = `<i class="ic a"></i>`;
 const cntHtml = (p, n) => { const v = S.pv?.[p.id]; if (!v || !v.video_count) return esc(n); if (v.kind == "video") return IV + (v.video_count > 1 ? v.video_count : dur(v.duration_sec)); const a = (p.image_count || 0) - v.video_count; return a > 0 ? `${IV}${v.video_count} · ${IA}${a}` : IV + v.video_count; };
 const vPlay = `<span class="ib vplay">▶</span>`;
-function fromCache(c) { setVid(c.pv, c.mv); Object.assign(S, { tiers: c.tiers, posts: c.posts, media: c.media, profile: c.st.profile || {}, viewer: c.st.viewer || {}, lv: c.st.levels || {}, free: c.free || S.free || [], imgv: c.imgv || S.imgv || {} }); TX = c.st.texts || {}; }
+function fromCache(c) { setVid(c.pv, c.mv); Object.assign(S, { tiers: c.tiers, posts: c.posts, media: c.media, profile: c.st.profile || {}, viewer: c.st.viewer || {}, lv: (c.st.profile || {}).lv || {}, free: c.free || S.free || [], imgv: c.imgv || S.imgv || {} }); TX = c.st.texts || {}; }
 async function load(o = {}) {
   try {
-    const [tiers, posts, media, settings, free] = await Promise.all([api("tiers_public?order=rank"), api("feed_public?order=publish_at.desc"), api("media_public?order=publish_at.desc,position"), api("settings?key=in.(profile,texts,viewer,imgv,levels)"), api("free_images_public?select=post_id,position&order=position").catch(() => [])]);
+    const [tiers, posts, media, settings, free] = await Promise.all([api("tiers_public?order=rank"), api("feed_public?order=publish_at.desc"), api("media_public?order=publish_at.desc,position"), api("settings?key=in.(profile,texts,viewer,imgv)"), api("free_images_public?select=post_id,position&order=position").catch(() => [])]);
     S.free = free || [];
     // видео (после sql/video.sql); до миграции view нет → пустые списки, сайт работает как раньше
     const [pv, mv, subs] = await Promise.all([api("post_video_public?select=post_id,kind,video_count,duration_sec,teaser_path,feed_video_path").catch(() => api("post_video_public?select=post_id,kind,video_count,duration_sec")).catch(() => []), api("media_video_public?select=id,post_id,position,duration_sec,poster_path").catch(() => []), api("rpc/subscriber_count").catch(() => null)]);
     S.subs = typeof subs == "number" ? subs : null; // только число, без личных данных; до SQL функции нет → не показываем
     setVid(pv, mv);
     const st = Object.fromEntries(settings.map(x => [x.key, x.value]));
-    Object.assign(S, { tiers, posts, media, profile: st.profile || {}, viewer: st.viewer || {}, imgv: st.imgv?.paths || {}, lv: st.levels || {}, offline: false }); TX = st.texts || {};
+    Object.assign(S, { tiers, posts, media, profile: st.profile || {}, viewer: st.viewer || {}, imgv: st.imgv?.paths || {}, lv: (st.profile || {}).lv || {}, offline: false }); TX = st.texts || {};
     try { localStorage.miaCache = JSON.stringify({ tiers, posts, media, st, free: S.free, imgv: S.imgv, pv: S.pvList, mv: S.mvList, at: Date.now() }); } catch {}
   } catch (e) {
     const c = JSON.parse(localStorage.miaCache || "null"); S.offline = true;
@@ -178,8 +178,10 @@ function card(p, k = 9) {
   ${p.body && !locked ? `<div class="body">${esc(p.body.length > 300 ? p.body.slice(0, 300) + "…" : p.body)}</div>` : ""}${ACT(p)}</div>`;
 }
 function levelsHtml() {
-  return (S.user?.admin ? `<div class="lvadm"><button class="gb sm" id="lvMon" type="button"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg> «/ мес»: ${S.lv?.show_month ? "показано" : "скрыто"}, мур</button></div>` : "") + `<div class="levels">${S.tiers.map(t => `<div class="lv"><b>${esc(t.name)}</b><div class="pr">${t.price_rub ? `${window.MIA_DISC && t.rank > 0 ? `<s class="pold">${t.price_rub} ₽</s> ${Math.round(t.price_rub * (100 - window.MIA_DISC) / 100)} ₽ <span class="pdisc">−${window.MIA_DISC}%</span>` : `${t.price_rub} ₽`}${S.lv?.show_month ? ` <small class="mu">/ мес</small>` : ""}` : "Бесплатно"}</div><div class="perks">${(t.perks || []).map(x => "✔ " + esc(x)).join("<br>")}</div>
-  ${t.rank == 0 ? `<span class="gb full">${S.rank == 0 ? "Вы здесь" : "Входит"}</span>` : S.rank >= t.rank ? `<span class="gb full">✓ Открыто</span>` : `<button class="ob full" data-subt="${t.rank}">${esc(T("btn_subscribe"))}</button>`}</div>`).join("")}
+  const PR = S.profile?.pricing || {};
+  return (S.user?.admin ? `<div class="lvadm"><button class="gb sm" id="lvMon" type="button"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg> «/ мес»: ${S.lv?.show_month ? "показано" : "скрыто"}, мур</button>
+  <form class="lvpr" id="lvPr"><label>Цена подписки, ₽<input type="number" min="0" step="1" id="lvP" value="${esc(PR.price ?? "")}" placeholder="как в уровне"></label><label>Цена со скидкой, ₽<input type="number" min="0" step="1" id="lvD" value="${esc(PR.discount_price ?? "")}" placeholder="−50%"></label><label class="w">Ссылка для скидки<input type="url" id="lvU" value="${esc(PR.discount_url || "")}" placeholder="https://"></label><button class="ob sm" type="submit">Сохранить цены 🐾</button></form></div>` : "") + `<div class="levels">${S.tiers.map(t => `<div class="lv"><b>${esc(t.name)}</b><div class="pr">${t.price_rub ? `${(() => { const P0 = +PR.price || t.price_rub; if (!(window.MIA_DISC && t.rank > 0)) return `${P0} ₽`; const D = +PR.discount_price || Math.round(P0 / 2); return `<s class="pold">${P0} ₽</s> ${D} ₽ <span class="pdisc">−${Math.round((1 - D / P0) * 100)}%</span>`; })()}${S.lv?.show_month ? ` <small class="mu">/ мес</small>` : ""}` : "Бесплатно"}</div><div class="perks">${(t.perks || []).map(x => "✔ " + esc(x)).join("<br>")}</div>
+  ${t.rank == 0 ? `<span class="gb full">${S.rank == 0 ? "Вы здесь" : "Входит"}</span>` : S.rank >= t.rank ? `<span class="gb full">✓ Открыто</span>` : (window.MIA_DISC && PR.discount_url ? `<a class="ob full" href="${esc(PR.discount_url)}" target="_blank" rel="noopener">${esc(T("btn_subscribe"))} −${Math.round((1 - (+PR.discount_price || Math.round((+PR.price || t.price_rub) / 2)) / (+PR.price || t.price_rub)) * 100)}% 🐾</a>` : `<button class="ob full" data-subt="${t.rank}">${esc(T("btn_subscribe"))}</button>`)}</div>`).join("")}
   <div class="lv pick"><b>🎁 1 пак на выбор 🐾</b><div class="pr">Любая сумма <small class="mu">мур, один раз · на этот аккаунт</small></div><div class="perks">✔ Выбери любой закрытый пак — он станет твоим навсегда 💕<br>✔ Плати сколько хочешь — получишь код, мяу<br>✔ Всего 1 пак, один раз, только на этот аккаунт</div>
   ${S.pick.credit ? `<span class="gb full">🐾 У тебя есть 1 пак на выбор</span>` : S.pick.unlocked.size ? `<span class="gb full">✓ Твой пак уже выбран 💕</span>` : `<button class="ob full" data-pickcode>Хочу код, мур 🐾</button>`}</div></div>`;
 }
@@ -206,7 +208,7 @@ function drawModal() {
   $("#modal")?.remove(); const m = S.modal; if (!m) return;
   const d = document.createElement("div"); d.className = "ov"; d.id = "modal"; let h = "";
   if (m.t == "signup") h = `<h2>${esc(T("signup_title"))}</h2><form id="af"><label>Ник</label><input type="text" id="au" autocomplete="username" maxlength="24" autocapitalize="off" spellcheck="false"><div class="mu small gnick" id="anick">2–24 символа: буквы, цифры, _ · будет виден в комментариях</div>
-    <label>Пароль</label><input type="text" id="ap" autocomplete="new-password" spellcheck="false" autocapitalize="off"><div class="mu small">Минимум 4 символа, мур</div><input class="hp" id="hp" tabindex="-1" autocomplete="off">
+    <label>Пароль</label><input type="text" id="ap" autocomplete="new-password" spellcheck="false" autocapitalize="off"><div class="mu small">Минимум 6 символов, мур</div><input class="hp" id="hp" tabindex="-1" autocomplete="off">
     <div class="err" id="ae"></div><button class="ob full" type="submit">${esc(T("signup_title"))}</button></form><p style="text-align:center;margin-top:14px" class="mu">Уже есть аккаунт? <a class="lnk" data-sw="login">Войти</a></p>`;
   else if (m.t == "login") h = `<h2>${esc(T("login_title"))}</h2><form id="lf"><label>Имя</label><input type="text" id="lu" autocomplete="username"><label>Пароль</label><input type="password" id="lp" autocomplete="current-password"><div class="err" id="le"></div><button class="ob full" type="submit">${esc(T("btn_login"))}</button></form>
     <p style="text-align:center;margin-top:14px" class="mu">Нет аккаунта? <a class="lnk" data-sw="signup">Создать</a><br><span class="small">${S.profile.links?.vk ? `<a class="lnk" href="${esc(S.profile.links.vk)}" target="_blank">${esc(T("forgot"))}</a>` : esc(T("forgot"))}</span></p>`;
@@ -222,7 +224,7 @@ function drawModal() {
   d.innerHTML = `<div class="sheet"><a class="x" data-close>✕</a>${h}</div>`; document.body.append(d);
   $("#pf")?.addEventListener("submit", enterPick); $("#pkyes") && ($("#pkyes").onclick = () => usePick(m.post)); $("#pkgo") && ($("#pkgo").onclick = () => { closeModal(false); goIntro(m.post); });
   d.onclick = e => { if (e.target == d || e.target.dataset.close != null) closeModal(); const sw = e.target.dataset.sw; if (sw) { S.modal = { ...m, t: sw }; drawModal(); } };
-  $("#af")?.addEventListener("submit", signup); $("#lf")?.addEventListener("submit", login); $("#cf")?.addEventListener("submit", enterCode);
+  $("#af")?.addEventListener("submit", signup); $("#modal #au")?.addEventListener("input", nickCheck); $("#lf")?.addEventListener("submit", login); $("#cf")?.addEventListener("submit", enterCode);
   if (fineP()) setTimeout(() => d.querySelector("input")?.focus(), 50); // на телефоне клавиатура только по тапу в поле
 }
 async function signin(username, password) {
@@ -233,17 +235,17 @@ async function signin(username, password) {
 }
 // m49: живая проверка ника (profiles_public.username, только чтение anon)
 const NICK = { t: 0, taken: "" };
-function nickCheck() { const i = $("#au"), o = $("#anick"); if (!i || !o) return; clearTimeout(NICK.t); const u = i.value.trim();
+function nickCheck(ev) { const F = ev && ev.target ? ev.target.closest("form") : $("#gate #af"), i = F && F.querySelector("#au"), o = F && F.querySelector("#anick"); if (!i || !o) return; clearTimeout(NICK.t); const u = i.value.trim();
   o.className = "mu small gnick"; if (!u) { o.textContent = "2–24 символа: буквы, цифры, _ · будет виден в комментариях"; return; }
   if (!/^[A-Za-z0-9_\u0400-\u04FF]{2,24}$/.test(u)) { o.textContent = "Только буквы, цифры и _, от 2 до 24 символов"; o.classList.add("bad"); return; }
   o.textContent = "Мур, проверяю ник…"; NICK.t = setTimeout(async () => { try { const r = await api(`profiles_public?select=username&username=ilike.${encodeURIComponent(u.replace(/[%_\\]/g, m => "\\" + m))}&limit=1`);
     if (i.value.trim() !== u) return; const busy = r.length > 0; NICK.taken = busy ? u.toLowerCase() : ""; o.textContent = busy ? "Этот ник уже занят, мяу 😿" : "Свободен, мур ✓"; o.classList.add(busy ? "bad" : "ok"); } catch { o.textContent = "Не получилось проверить ник, мяу"; } }, 450); }
 async function signup(e) {
-  e.preventDefault(); const u = $("#au").value.trim(), p = $("#ap").value, ae = $("#ae");
+  e.preventDefault(); const F = e.currentTarget || e.target, q = s => F.querySelector(s), u = q("#au").value.trim(), p = q("#ap").value, ae = q("#ae");
   if (!/^[A-Za-z0-9_\u0400-\u04FF]{2,24}$/.test(u)) return ae.textContent = "Имя: 2–24 символа, буквы, цифры или _";
-  if (p.length < 4) return ae.textContent = "Пароль: минимум 4 символа, мур"; if (NICK.taken === u.toLowerCase()) return ae.textContent = "Этот ник уже занят, мяу";
+  if (p.length < 6) return ae.textContent = "Пароль: минимум 6 символов, мур"; if (NICK.taken === u.toLowerCase()) return ae.textContent = "Этот ник уже занят, мяу";
   ae.textContent = "Создаю аккаунт…";
-  const r = await fn("register", { username: u, password: p, website: $("#hp").value });
+  const r = await fn("register", { username: u, password: p, website: (q("#hp") || {}).value || "" });
   if (r.status != 200) return ae.textContent = r.status == 409 ? T("name_taken") : r.status == 0 ? T("offline") : r.data.message || "Ошибка регистрации";
   const err = await signin(u, p); if (err) return ae.textContent = err;
   toast(`Добро пожаловать, ${S.user.username}!`); afterAuth();
@@ -509,10 +511,10 @@ async function render(o = {}) {
   $$("[data-like]").forEach(b => b.onclick = e => { e.preventDefault(); toggleLike(b.dataset.like); });
   $$("[data-cm]").forEach(a => a.onclick = e => { e.preventDefault(); e.stopPropagation(); openComments(a.dataset.cm); });
   if (v == "media") bindMedia();
-  if (v == "levels") { const b = $("#lvMon"); if (b) b.onclick = async () => { const nv = { ...(S.lv || {}), show_month: !S.lv?.show_month };
-    // МАКЕТ: запись выключена (LV_LIVE=false). Для боевого режима: таблица settings уже есть и админ может в неё писать (как texts/viewer).
-    if (window.LV_LIVE) { const { error } = await sb.from("settings").upsert({ key: "levels", value: nv }); if (error) return toast("Ошибка: " + error.message); }
-    S.lv = nv; render(); toast(nv.show_month ? "«/ мес» показано, мур" : "«/ мес» скрыто, мур"); }; }
+  if (v == "levels") { const saveP = async (patch, ok) => { const nv = { ...(S.profile || {}), ...patch }; const { error } = await sb.from("settings").upsert({ key: "profile", value: nv }); if (error) { toast("Ошибка: " + error.message); return false; } S.profile = nv; if (patch.lv) S.lv = patch.lv; toast(ok); render(); return true; };
+    const b = $("#lvMon"); if (b) b.onclick = () => { const lv = { ...(S.lv || {}), show_month: !S.lv?.show_month }; saveP({ lv }, lv.show_month ? "«/ мес» показано, мур" : "«/ мес» скрыто, мур"); };
+    const f = $("#lvPr"); if (f) f.onsubmit = e => { e.preventDefault(); const n = s => { const x = $(s).value.trim(); return x === "" ? null : Math.max(0, Math.round(+x)); }; const u = $("#lvU").value.trim();
+      if (u && !/^https:\/\//i.test(u)) return toast("Ссылка должна начинаться с https://"); saveP({ pricing: { price: n("#lvP"), discount_price: n("#lvD"), discount_url: u } }, "Цены сохранены, мур 💕"); }; }
   $$("[data-view]").forEach(a => a.onclick = e => { e.preventDefault(); openViewer(a.dataset.view, 0, false); }); tzBind(); heroVid(); introRun(v);
   $$("[data-vi]").forEach(im => im.onclick = () => openViewer(id, +im.dataset.vi, true));
   if (parts[2] == "c") setTimeout(() => $("#cmts")?.scrollIntoView({ behavior: "smooth" }), 100);

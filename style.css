@@ -488,3 +488,6 @@ body.dark .hero .prof>.mu.small{color:#d9b8cc}
 .geye{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:0;color:var(--mu,#888);padding:6px;cursor:pointer;display:flex}
 .geye .gx{opacity:0;transition:opacity .25s}.geye.off .gx{opacity:1}
 .gnick{transition:color .3s}.gnick.ok{color:#2e9e6a}.gnick.bad{color:#d0436f}
+
+.lvadm{flex-wrap:wrap;gap:8px}.lvpr{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;width:100%;padding:10px;border:1px dashed var(--ln);border-radius:12px}
+.lvpr label{display:flex;flex-direction:column;gap:3px;font-size:12px;flex:1 1 120px}.lvpr label.w{flex:2 1 220px}.lvpr input{width:100%}

@@ -1,3 +1,4 @@
+// v49: баннер выключен флагом window.MIA_FREEPACK (по умолчанию нет). Демо: ?freedemo / ?freeseen.
 // m49 МАКЕТ: «1 пак в подарок новичку». Ничего не выдаёт — только интерфейс (заглушка). Боевой вызов: rpc/claim_welcome_pack (см. free-pack.sql)
 (()=>{const demo=/freedemo/.test(location.search),seen=/freeseen/.test(location.search);
 const PAW='<svg viewBox="0 0 24 24" width="16" height="16"><use href="#gpaw"/></svg>';
@@ -15,6 +16,6 @@ const choose=()=>{const M=window.Mia,S=M.S;const ps=S.posts.slice(0,12);
   let sel=null;d.querySelectorAll('.fpk-it').forEach(b=>b.onclick=()=>{d.querySelectorAll('.fpk-it').forEach(x=>x.classList.toggle('on',x===b));sel=b.dataset.id;d.querySelector('.fpk-ok').disabled=false});
   d.querySelector('.fpk-ok').onclick=()=>{close();let had=false;try{had=!!localStorage.getItem('miaGift')}catch(e){}if(seen||had)return setTimeout(busted,450);try{if(!localStorage.miaDev)localStorage.miaDev=crypto.randomUUID();localStorage.miaGift='demo'}catch(e){}window.Mia.toast('Мур! (макет) Пак выбран 💕 — в боевой версии он откроется навсегда')}};
 const banner=()=>`<div class="fpk-b"><div class="fpk-bi">${GIFT}</div><div class="fpk-bt"><b>Подарок новичку, мур</b><span class="mu small">1 пак на выбор — бесплатно и навсегда</span></div><button class="ob fpk-go" type="button">Выбрать ${PAW}</button></div>`;
-const tick=()=>{const S=window.Mia&&window.Mia.S;if(!S)return;if(!(demo||seen||(S.user&&!S.user.admin)))return;if(/^#\/(?!feed)/.test(location.hash))return;const app=document.getElementById('app'),f=app&&app.querySelector('.post');if(!f||app.querySelector('.fpk-b'))return;
+const tick=()=>{const S=window.Mia&&window.Mia.S;if(!S)return;if(!(demo||seen||(window.MIA_FREEPACK&&S.user&&!S.user.admin)))return; // выключено до одобрения БД (free-pack.sql)if(/^#\/(?!feed)/.test(location.hash))return;const app=document.getElementById('app'),f=app&&app.querySelector('.post');if(!f||app.querySelector('.fpk-b'))return;
   f.insertAdjacentHTML('beforebegin',banner());app.querySelector('.fpk-go').onclick=choose};
 const go=()=>{const a=document.getElementById('app');if(!a)return setTimeout(go,60);new MutationObserver(()=>setTimeout(tick,30)).observe(a,{childList:true});tick()};go();})();
