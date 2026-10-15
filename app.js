@@ -145,7 +145,7 @@ function introRun(v) {
   Promise.all(imgs.map(dec)).then(() => { clearTimeout(t); introGo(true); });
 }
 function introGo(staged) {
-  const MIN = (window.__ls || 0) + 5200 - performance.now(); if (MIN > 0 && !INTRO.hold) { INTRO.hold = 1; return setTimeout(() => introGo(staged), MIN); } // Мия успевает проснуться и улыбнуться
+  const MIN = (window.__ls || 0) + 6300 - performance.now(); if (MIN > 0) return setTimeout(() => introGo(staged), MIN); // Мия успевает проснуться и улыбнуться
   if (INTRO.go) return; const H = document.documentElement; INTRO.go = performance.now(); window.__iaStart = { t: Math.round(INTRO.go), staged };
   try { sessionStorage.miaIntro = 1; } catch {}
   H.classList.remove("iwait"); H.classList.add("ibye"); // «мур…» мягко гаснет, потом сцена
@@ -251,7 +251,7 @@ function gatePass() { const H = document.documentElement; if (!H.classList.conta
     const im = $("#iaCat img"), so = $("#iaCat source"); if (so) so.srcset = so.srcset.split("?")[0] + "?r=" + Date.now(); if (im) im.src = im.src.split("?")[0] + "?r=" + Date.now();
     INTRO.st = 0; render(); }, 480); return true; }
 window.__gatePass = gatePass; // макет: проверка перехода без настоящего входа
-(() => { const g = $("#gate"); if (!g) return; $("#gate #lf").addEventListener("submit", login); $("#gate #af").addEventListener("submit", signup); g.addEventListener("click", e => { const t = e.target.dataset.g; if (!t) return; g.classList.toggle("gate-s", t == "signup"); $$("#gate .gtabs a").forEach(a => a.classList.toggle("on", a.dataset.g == t)); }); })();
+(() => { const g = $("#gate"); if (!g) return; $("#gate #lf").addEventListener("submit", login); $("#gate #af").addEventListener("submit", signup); g.addEventListener("pointerdown", e => { const b = e.target.closest(".gf .ob"); if (!b) return; const r = b.getBoundingClientRect(), s = document.createElementNS("http://www.w3.org/2000/svg", "svg"); s.setAttribute("class", "gstamp"); s.innerHTML = '<use href="#gpaw"/>'; s.style.left = e.clientX - r.left + "px"; s.style.top = e.clientY - r.top + "px"; b.append(s); setTimeout(() => s.remove(), 650); }); g.addEventListener("click", e => { const t = e.target.dataset.g; if (!t) return; g.classList.add("gsw"); g.classList.toggle("gate-s", t == "signup"); $$("#gate .gtabs a").forEach(a => a.classList.toggle("on", a.dataset.g == t)); }); })();
 function afterAuth() { if (gatePass()) return;
   const ret = S.modal?.rank != null ? { rank: S.modal.rank, post: S.modal.post } : null;
   if (ret && S.rank < ret.rank) { S.modal = { t: "pay", ...ret }; drawModal(); render(); } else { closeModal(); render(); }
