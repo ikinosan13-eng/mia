@@ -1,0 +1,23 @@
+/* v47 mockup: МЕДИА / УРОВНИ */
+.mgrid a.tt{opacity:0;transform:translateY(16px) scale(.98)}
+.mgrid a.tt.tn{animation:tbIn .85s var(--td,0ms) cubic-bezier(.22,1,.36,1) both}
+.mgrid a.tq{animation:none!important;opacity:1;transform:none}
+@keyframes tbIn{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:none}}
+.mgrid .tpw{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px;z-index:3;opacity:0;pointer-events:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M12 12.2c-2.9 0-5.3 2.3-5.3 4.6 0 1.6 1.3 2.4 2.7 2.4 1 0 1.7-.5 2.6-.5s1.6.5 2.6.5c1.4 0 2.7-.8 2.7-2.4 0-2.3-2.4-4.6-5.3-4.6z'/%3E%3Cellipse cx='6' cy='9' rx='1.9' ry='2.4'/%3E%3Cellipse cx='9.6' cy='5.6' rx='1.9' ry='2.5'/%3E%3Cellipse cx='14.4' cy='5.6' rx='1.9' ry='2.5'/%3E%3Cellipse cx='18' cy='9' rx='1.9' ry='2.4'/%3E%3C/svg%3E") center/contain no-repeat;filter:drop-shadow(0 1px 3px #0006)}
+.mgrid a.tn .tpw{animation:tbPaw 1.3s calc(var(--td,0ms) + 450ms) ease-out both}
+@keyframes tbPaw{0%{opacity:0;transform:scale(.85) rotate(-8deg)}35%{opacity:.75;transform:none}70%{opacity:.75}100%{opacity:0;transform:none}}
+/* закрытые плитки: чёрный градиент, без блюра */
+.mgrid a.lk:before{display:block!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:linear-gradient(180deg,rgba(0,0,0,0) 35%,rgba(0,0,0,.72))!important}
+/* уровни */
+.levels .lv{opacity:0;transform:translateY(20px) scale(.98)}
+.levels.tgo .lv{animation:tbIn .85s var(--lb,0ms) cubic-bezier(.22,1,.36,1) both}
+.levels .lc{display:inline-block;white-space:pre;opacity:0;transform-origin:50% 100%}
+.levels.tgo .lc{animation:lvCh .6s calc(var(--d,0ms) + var(--i) * 34ms) cubic-bezier(.3,1.6,.5,1) both}
+@keyframes lvCh{0%{opacity:0;transform:translateY(10px) scale(1.25,.55)}55%{opacity:1;transform:translateY(-3px) scale(.88,1.14)}78%{transform:translateY(0) scale(1.05,.95)}100%{opacity:1;transform:none}}
+.levels .pk{display:block;opacity:0;transform:translateX(-14px)}
+.levels.tgo .pk{animation:lvPk .6s var(--pd,0ms) cubic-bezier(.22,1,.36,1) both}
+@keyframes lvPk{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
+.levels .lv>.ob,.levels .lv>.gb{opacity:0}
+.levels.tgo .lv>.ob,.levels.tgo .lv>.gb{animation:ceBtn .7s var(--bd,1500ms) cubic-bezier(.3,1.5,.5,1) both,ceTail 2.6s calc(var(--bd,1500ms) + 800ms) ease-in-out 1}
+.levels.tq .lv,.levels.tq .lc,.levels.tq .pk,.levels.tq .lv>.ob,.levels.tq .lv>.gb{animation:none!important;opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.mgrid a.tt,.levels .lv,.levels .lc,.levels .pk,.levels .lv>.ob,.levels .lv>.gb{animation:none!important;opacity:1!important;transform:none!important}.mgrid .tpw{display:none}}
