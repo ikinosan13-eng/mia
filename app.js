@@ -133,7 +133,7 @@ let tzIO = null;
 const INTRO = { st: 0 }; const RMo = matchMedia("(prefers-reduced-motion: reduce)");
 function introRun(v) {
   const H = document.documentElement; parallax();
-  if (!H.classList.contains("intro")) return; if (H.classList.contains("gate")) return;
+  if (!H.classList.contains("ient")) return; if (H.classList.contains("gate")) return;
   if (v && v != "feed") return introDone();
   if (INTRO.go) { H.style.setProperty("--el", `${-Math.round(performance.now() - INTRO.go)}ms`); introTag(); return; }
   if (INTRO.st) return; INTRO.st = performance.now();
@@ -149,12 +149,12 @@ function introGo(staged) {
   try { sessionStorage.miaIntro = 1; } catch {}
   H.classList.remove("iwait"); H.classList.add("ibye"); // «мур…» мягко гаснет, потом сцена
   setTimeout(() => { H.style.setProperty("--el", "0ms"); H.classList.remove("ibye"); H.classList.add(staged ? "igo" : "iquick");
-    introTag(); if (staged) setTimeout(introGlow, 2300); setTimeout(introDone, staged ? 6000 : 700); }, 450);
+    introTag(); setTimeout(introDone, staged ? 6000 : 700); }, 450);
 }
 function introTag() { let k = 0; const H = innerHeight, io = INTRO.io || (INTRO.io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add("in"); INTRO.io.unobserve(e.target); } }), { rootMargin: "0px 0px -8% 0px" }));
   $$(".post").forEach(p => { if (p.getBoundingClientRect().top < H) { p.classList.add("ia"); if (k == 0) p.classList.add("ia0"); p.style.setProperty("--i", k++); } else { p.classList.add("rv"); io.observe(p); } }); }
 function introGlow() { const b = $$(".cov.lk .frost .ob").find(x => { const r = x.getBoundingClientRect(); return r.top > 0 && r.bottom < innerHeight; }) || $('.tabs a[href="#/levels"]'); if (!b) return; b.classList.add("glow"); setTimeout(() => b.classList.remove("glow"), 3300); }
-function introDone() { const H = document.documentElement; H.classList.remove("intro", "iwait", "igo", "iquick"); }
+function introDone() { const H = document.documentElement; H.classList.remove("ient", "iwait", "igo", "iquick"); }
 // лёгкий параллакс шапки при прокрутке (translate — отдельное от анимации scale свойство)
 function parallax() { if (INTRO.px || RMo.matches) return; INTRO.px = 1; let q = 0;
   addEventListener("scroll", () => { if (q) return; q = requestAnimationFrame(() => { q = 0; const y = Math.min(scrollY, 400); $$(".hero .cv img,.hero .cv video").forEach(e => e.style.translate = `0 ${(y * .3).toFixed(1)}px`); }); }, { passive: true }); }
@@ -246,7 +246,7 @@ async function login(e) {
   toast(S.user.admin ? "Вы вошли как владелец" : `Привет, ${S.user.username}!`); afterAuth();
 }
 function gatePass() { const H = document.documentElement; if (!H.classList.contains("gate")) return false;
-  H.classList.add("gout"); setTimeout(() => { H.classList.remove("gate", "gout"); H.classList.add("intro", "iwait"); window.__ls = performance.now();
+  H.classList.add("gout"); setTimeout(() => { H.classList.remove("gate", "gout"); H.classList.add("ient", "iwait"); window.__ls = performance.now();
     const im = $("#iaCat img"), so = $("#iaCat source"); if (so) so.srcset = so.srcset.split("?")[0] + "?r=" + Date.now(); if (im) im.src = im.src.split("?")[0] + "?r=" + Date.now();
     INTRO.st = 0; render(); }, 480); return true; }
 (() => { const g = $("#gate"); if (!g) return; $("#gate #lf").addEventListener("submit", login); $("#gate #af").addEventListener("submit", signup); g.addEventListener("pointerdown", e => { const b = e.target.closest(".gf .ob"); if (!b) return; const r = b.getBoundingClientRect(), s = document.createElementNS("http://www.w3.org/2000/svg", "svg"); s.setAttribute("class", "gstamp"); s.innerHTML = '<use href="#gpaw"/>'; s.style.left = e.clientX - r.left + "px"; s.style.top = e.clientY - r.top + "px"; b.append(s); setTimeout(() => s.remove(), 650); }); g.addEventListener("click", e => { const t = e.target.dataset.g; if (!t) return; g.classList.add("gsw"); g.classList.toggle("gate-s", t == "signup"); $$("#gate .gtabs a").forEach(a => a.classList.toggle("on", a.dataset.g == t)); }); })();
@@ -492,7 +492,7 @@ async function render(o = {}) {
     if (v == "admin") { if (!S.user?.admin) { location.hash = "#/feed"; return; } await need("crop.js", "Crop"); await need("admin.js", "MiaAdmin"); await window.MiaAdmin.render(id || "posts", parts[2]); }
     else app.innerHTML = v == "post" ? await postView(id) : v == "me" ? await meView(id) : v == "u" ? await userView(id) : (views[v] || views.feed)();
   } catch (e) { console.error(e); app.innerHTML = `<div class="empty">📡 ${esc(T("offline"))}<br><br><button class="ob" onclick="location.reload()">Повторить</button></div>`; }
-  if (!o.keep && (!["post"].includes(v) || parts[2] != "c")) window.scrollTo(0, 0);
+  const rk = location.hash || "#/feed"; if (!o.keep && rk != S.lastRoute && (!["post"].includes(v) || parts[2] != "c")) window.scrollTo(0, 0); S.lastRoute = rk; // не дёргаем наверх при повторной перерисовке того же экрана (после входа/данных)
   $("#tg")?.addEventListener("click", () => { const d = document.body.classList.toggle("dark"); localStorage.miaTheme = d ? "dark" : "light"; render(); });
   $$("[data-open]").forEach(b => b.onclick = e => { e.preventDefault(); openModal({ t: b.dataset.open }); });
   $$("[data-sub]").forEach(b => b.onclick = e => { e.preventDefault(); e.stopPropagation(); const p = S.posts.find(x => x.id == b.dataset.sub); subscribe(p.tier_rank, p.id); });
