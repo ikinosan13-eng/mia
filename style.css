@@ -349,10 +349,9 @@ body.dark .fcap{background:#2a1f24;border-color:#7a3b55;color:#f3e8ea}body.dark 
 .hero video.hv.on{opacity:1}
 /* ---------- вход на главную (v38) ---------- */
 html.iwait #app,html.ibye #app{opacity:0}
-html.iwait body:after,html.ibye body:after{content:"мур… 🐾";position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);color:var(--mu,#999);font-size:16px;letter-spacing:.04em;animation:iaPurr 2.2s ease-in-out infinite;pointer-events:none}
-html.ibye body:after{animation:iaBye .45s ease-out both}
-@keyframes iaPurr{0%,100%{opacity:.3}50%{opacity:.85}}
-@keyframes iaBye{from{opacity:.7}to{opacity:0}}
+#iaCat{display:none}html.iwait #iaCat,html.ibye #iaCat{display:block;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:50}#iaCat img{display:block;width:112px;height:112px;image-rendering:pixelated}
+html.ibye #iaCat{animation:iaBye .45s ease-out both}
+@keyframes iaBye{from{opacity:1}to{opacity:0}}
 html.igo .bar{animation:iaFade .9s cubic-bezier(.22,.61,.36,1) both;animation-delay:var(--el,0ms)}
 html.igo .hero .cv{animation:iaFade 1.1s cubic-bezier(.22,.61,.36,1) both;animation-delay:var(--el,0ms)}
 html.igo .hero .cv img,html.igo .hero .cv video{animation:iaSettle 1.6s cubic-bezier(.22,.61,.36,1) both;animation-delay:var(--el,0ms)}
@@ -371,4 +370,4 @@ html.iquick #app{animation:iaFade .5s ease-out both}
 .glow{position:relative}
 .glow:after{content:"";position:absolute;inset:-3px;border-radius:inherit;box-shadow:0 0 16px 4px var(--ac,#f26430);opacity:0;pointer-events:none;animation:iaGlow 1.6s ease-in-out 2}
 @keyframes iaGlow{0%,100%{opacity:0;scale:.97}50%{opacity:.8;scale:1.04}}
-@media (prefers-reduced-motion:reduce){html.iwait #app,html.ibye #app{opacity:1!important}html.iwait body:after,html.ibye body:after{display:none}.post.rv{opacity:1;translate:none;transition:none}.glow:after{animation:none}}
+@media (prefers-reduced-motion:reduce){html.iwait #app,html.ibye #app{opacity:1!important}#iaCat{display:none!important}.post.rv{opacity:1;translate:none;transition:none}.glow:after{animation:none}}
