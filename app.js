@@ -178,7 +178,7 @@ function card(p, k = 9) {
   ${p.body && !locked ? `<div class="body">${esc(p.body.length > 300 ? p.body.slice(0, 300) + "…" : p.body)}</div>` : ""}${ACT(p)}</div>`;
 }
 function levelsHtml() {
-  return (S.user?.admin ? `<div class="lvadm"><button class="gb sm" id="lvMon" type="button"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg> «/ мес»: ${S.lv?.show_month ? "показано" : "скрыто"}, мур</button></div>` : "") + `<div class="levels">${S.tiers.map(t => `<div class="lv"><b>${esc(t.name)}</b><div class="pr">${t.price_rub ? `${t.price_rub} ₽${S.lv?.show_month ? ` <small class="mu">/ мес</small>` : ""}` : "Бесплатно"}</div><div class="perks">${(t.perks || []).map(x => "✔ " + esc(x)).join("<br>")}</div>
+  return (S.user?.admin ? `<div class="lvadm"><button class="gb sm" id="lvMon" type="button"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg> «/ мес»: ${S.lv?.show_month ? "показано" : "скрыто"}, мур</button></div>` : "") + `<div class="levels">${S.tiers.map(t => `<div class="lv"><b>${esc(t.name)}</b><div class="pr">${t.price_rub ? `${window.MIA_DISC && t.rank > 0 ? `<s class="pold">${t.price_rub} ₽</s> ${Math.round(t.price_rub * (100 - window.MIA_DISC) / 100)} ₽ <span class="pdisc">−${window.MIA_DISC}%</span>` : `${t.price_rub} ₽`}${S.lv?.show_month ? ` <small class="mu">/ мес</small>` : ""}` : "Бесплатно"}</div><div class="perks">${(t.perks || []).map(x => "✔ " + esc(x)).join("<br>")}</div>
   ${t.rank == 0 ? `<span class="gb full">${S.rank == 0 ? "Вы здесь" : "Входит"}</span>` : S.rank >= t.rank ? `<span class="gb full">✓ Открыто</span>` : `<button class="ob full" data-subt="${t.rank}">${esc(T("btn_subscribe"))}</button>`}</div>`).join("")}
   <div class="lv pick"><b>🎁 1 пак на выбор 🐾</b><div class="pr">Любая сумма <small class="mu">мур, один раз · на этот аккаунт</small></div><div class="perks">✔ Выбери любой закрытый пак — он станет твоим навсегда 💕<br>✔ Плати сколько хочешь — получишь код, мяу<br>✔ Всего 1 пак, один раз, только на этот аккаунт</div>
   ${S.pick.credit ? `<span class="gb full">🐾 У тебя есть 1 пак на выбор</span>` : S.pick.unlocked.size ? `<span class="gb full">✓ Твой пак уже выбран 💕</span>` : `<button class="ob full" data-pickcode>Хочу код, мур 🐾</button>`}</div></div>`;
@@ -205,8 +205,8 @@ function subscribe(rank, postId, o = {}) {
 function drawModal() {
   $("#modal")?.remove(); const m = S.modal; if (!m) return;
   const d = document.createElement("div"); d.className = "ov"; d.id = "modal"; let h = "";
-  if (m.t == "signup") h = `<h2>${esc(T("signup_title"))}</h2><form id="af"><label>Имя</label><input type="text" id="au" autocomplete="username" maxlength="24"><div class="mu small">2–24 символа: буквы, цифры, _ · будет видно в комментариях</div>
-    <label>Пароль</label><input type="password" id="ap" autocomplete="new-password"><div class="mu small">Минимум 8 символов</div><label>Повторите пароль</label><input type="password" id="ap2" autocomplete="new-password"><input class="hp" id="hp" tabindex="-1" autocomplete="off">
+  if (m.t == "signup") h = `<h2>${esc(T("signup_title"))}</h2><form id="af"><label>Ник</label><input type="text" id="au" autocomplete="username" maxlength="24" autocapitalize="off" spellcheck="false"><div class="mu small gnick" id="anick">2–24 символа: буквы, цифры, _ · будет виден в комментариях</div>
+    <label>Пароль</label><input type="text" id="ap" autocomplete="new-password" spellcheck="false" autocapitalize="off"><div class="mu small">Минимум 4 символа, мур</div><input class="hp" id="hp" tabindex="-1" autocomplete="off">
     <div class="err" id="ae"></div><button class="ob full" type="submit">${esc(T("signup_title"))}</button></form><p style="text-align:center;margin-top:14px" class="mu">Уже есть аккаунт? <a class="lnk" data-sw="login">Войти</a></p>`;
   else if (m.t == "login") h = `<h2>${esc(T("login_title"))}</h2><form id="lf"><label>Имя</label><input type="text" id="lu" autocomplete="username"><label>Пароль</label><input type="password" id="lp" autocomplete="current-password"><div class="err" id="le"></div><button class="ob full" type="submit">${esc(T("btn_login"))}</button></form>
     <p style="text-align:center;margin-top:14px" class="mu">Нет аккаунта? <a class="lnk" data-sw="signup">Создать</a><br><span class="small">${S.profile.links?.vk ? `<a class="lnk" href="${esc(S.profile.links.vk)}" target="_blank">${esc(T("forgot"))}</a>` : esc(T("forgot"))}</span></p>`;
@@ -231,10 +231,17 @@ async function signin(username, password) {
   await sb.auth.setSession({ access_token: r.data.access_token, refresh_token: r.data.refresh_token }); await loadUser();
   return S.user ? "" : "Этот аккаунт нельзя использовать";
 }
+// m49: живая проверка ника (profiles_public.username, только чтение anon)
+const NICK = { t: 0, taken: "" };
+function nickCheck() { const i = $("#au"), o = $("#anick"); if (!i || !o) return; clearTimeout(NICK.t); const u = i.value.trim();
+  o.className = "mu small gnick"; if (!u) { o.textContent = "2–24 символа: буквы, цифры, _ · будет виден в комментариях"; return; }
+  if (!/^[A-Za-z0-9_\u0400-\u04FF]{2,24}$/.test(u)) { o.textContent = "Только буквы, цифры и _, от 2 до 24 символов"; o.classList.add("bad"); return; }
+  o.textContent = "Мур, проверяю ник…"; NICK.t = setTimeout(async () => { try { const r = await api(`profiles_public?select=username&username=ilike.${encodeURIComponent(u.replace(/[%_\\]/g, m => "\\" + m))}&limit=1`);
+    if (i.value.trim() !== u) return; const busy = r.length > 0; NICK.taken = busy ? u.toLowerCase() : ""; o.textContent = busy ? "Этот ник уже занят, мяу 😿" : "Свободен, мур ✓"; o.classList.add(busy ? "bad" : "ok"); } catch { o.textContent = "Не получилось проверить ник, мяу"; } }, 450); }
 async function signup(e) {
   e.preventDefault(); const u = $("#au").value.trim(), p = $("#ap").value, ae = $("#ae");
   if (!/^[A-Za-z0-9_\u0400-\u04FF]{2,24}$/.test(u)) return ae.textContent = "Имя: 2–24 символа, буквы, цифры или _";
-  if (p.length < 8) return ae.textContent = "Пароль: минимум 8 символов"; if (p !== $("#ap2").value) return ae.textContent = "Пароли не совпадают";
+  if (p.length < 4) return ae.textContent = "Пароль: минимум 4 символа, мур"; if (NICK.taken === u.toLowerCase()) return ae.textContent = "Этот ник уже занят, мяу";
   ae.textContent = "Создаю аккаунт…";
   const r = await fn("register", { username: u, password: p, website: $("#hp").value });
   if (r.status != 200) return ae.textContent = r.status == 409 ? T("name_taken") : r.status == 0 ? T("offline") : r.data.message || "Ошибка регистрации";
@@ -250,7 +257,7 @@ function gatePass() { const H = document.documentElement; if (!H.classList.conta
   H.classList.add("gout"); setTimeout(() => { H.classList.remove("gate", "gout"); H.classList.add("ient", "iwait"); window.__ls = performance.now();
     const im = $("#iaCat img"), so = $("#iaCat source"); if (so) so.srcset = so.srcset.split("?")[0] + "?r=" + Date.now(); if (im) im.src = im.src.split("?")[0] + "?r=" + Date.now();
     INTRO.st = 0; render(); }, 480); return true; }
-(() => { const g = $("#gate"); if (!g) return; $("#gate #lf").addEventListener("submit", login); $("#gate #af").addEventListener("submit", signup); g.addEventListener("pointerdown", e => { const b = e.target.closest(".gf .ob"); if (!b) return; const r = b.getBoundingClientRect(), s = document.createElementNS("http://www.w3.org/2000/svg", "svg"); s.setAttribute("class", "gstamp"); s.innerHTML = '<use href="#gpaw"/>'; s.style.left = e.clientX - r.left + "px"; s.style.top = e.clientY - r.top + "px"; b.append(s); setTimeout(() => s.remove(), 650); }); g.addEventListener("click", e => { const t = e.target.dataset.g; if (!t) return; g.classList.add("gsw"); g.classList.toggle("gate-s", t == "signup"); $$("#gate .gtabs a").forEach(a => a.classList.toggle("on", a.dataset.g == t)); }); })();
+(() => { const g = $("#gate"); if (!g) return; $("#gate #lf").addEventListener("submit", login); $("#gate #af").addEventListener("submit", signup); $("#gate #au").addEventListener("input", nickCheck); g.addEventListener("click", e => { const b = e.target.closest("[data-eye]"); if (!b) return; const i = $("#" + b.dataset.eye); i.type = i.type == "password" ? "text" : "password"; b.classList.toggle("off", i.type == "password"); }); g.addEventListener("pointerdown", e => { const b = e.target.closest(".gf .ob"); if (!b) return; const r = b.getBoundingClientRect(), s = document.createElementNS("http://www.w3.org/2000/svg", "svg"); s.setAttribute("class", "gstamp"); s.innerHTML = '<use href="#gpaw"/>'; s.style.left = e.clientX - r.left + "px"; s.style.top = e.clientY - r.top + "px"; b.append(s); setTimeout(() => s.remove(), 650); }); g.addEventListener("click", e => { const t = e.target.dataset.g; if (!t) return; g.classList.add("gsw"); g.classList.toggle("gate-s", t == "signup"); $$("#gate .gtabs a").forEach(a => a.classList.toggle("on", a.dataset.g == t)); }); })();
 function afterAuth() { try { localStorage.miaWasIn = "1"; } catch {} if (gatePass()) return;
   const ret = S.modal?.rank != null ? { rank: S.modal.rank, post: S.modal.post } : null;
   if (ret && S.rank < ret.rank) { S.modal = { t: "pay", ...ret }; drawModal(); render(); } else { closeModal(); render(); }

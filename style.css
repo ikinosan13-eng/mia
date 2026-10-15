@@ -439,10 +439,22 @@ body.dark .hero .prof>.mu.small{color:#d9b8cc}
 .gcap svg{width:17px;height:17px;vertical-align:-2px;margin-left:3px;color:#e0609a;animation:gcapP 1.2s 1.7s ease-out both}
 @keyframes gcapP{0%{opacity:0;transform:scale(.4) rotate(-25deg)}60%{opacity:1;transform:scale(1.15) rotate(6deg)}100%{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.gcap,.gcap svg{animation:none}}
-/* m49: кино-режим — плавный выезд ленты после загрузки */
-.vstrip div{transition:opacity 1.05s cubic-bezier(.22,1,.36,1),transform 1.05s cubic-bezier(.22,1,.36,1),box-shadow .3s,filter .3s}
-.vstrip.on:not(.rdy) div{opacity:0!important;transform:translateY(22px)!important;transition:none!important}
-@media (prefers-reduced-motion:reduce){.vstrip div{transition:none!important}}
+/* m49: кино-режим — ждём загрузки всего пака, потом плавный выезд снизу */
+.viewer.cwait .vstage,.viewer.cwait .vchrome.bot,.viewer.cwait .pstrip{opacity:0!important;transform:translateY(80px)!important;transition:none!important;animation:none!important;pointer-events:none}
+.viewer.cwait .vload{display:none!important}
+.viewer .cvld{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:30;display:flex;flex-direction:column;align-items:center;gap:10px;color:#f3a6c1;opacity:0;pointer-events:none;transition:opacity .5s ease}
+.viewer.cwait.ui .cvld{opacity:1}
+.cvld svg{width:96px;height:48px}.cvld .e1{transform-origin:34px 40px;animation:cvEar 2.4s ease-in-out infinite}.cvld .e2{transform-origin:86px 40px;animation:cvEar 2.4s 1.2s ease-in-out infinite}
+.cvld .cvd{display:flex;gap:7px}.cvld .cvd i{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.3;animation:cvDot 1.4s ease-in-out infinite}.cvld .cvd i:nth-child(2){animation-delay:.2s}.cvld .cvd i:nth-child(3){animation-delay:.4s}
+.cvld p{margin:0;font-family:Nunito,sans-serif;font-weight:800;font-size:14px;color:rgba(255,255,255,.75)}
+@keyframes cvEar{0%,70%,100%{transform:none}80%{transform:rotate(-9deg)}90%{transform:rotate(5deg)}}
+@keyframes cvDot{0%,100%{opacity:.25;transform:none}50%{opacity:1;transform:translateY(-4px)}}
+.viewer.cgo .vstage{animation:cvUp 1.4s cubic-bezier(.33,1,.68,1) backwards!important}
+.viewer.cgo .vchrome.bot{animation:cvUp 1.4s .16s cubic-bezier(.33,1,.68,1) backwards!important}
+.viewer.cgo .pstrip{animation:cvUp 1.4s .3s cubic-bezier(.33,1,.68,1) backwards!important}
+.viewer.cgo .vstrip>div{animation:cvUp 1.3s calc(.3s + var(--ck,0) * 70ms) cubic-bezier(.33,1,.68,1) backwards!important}
+@keyframes cvUp{from{opacity:0;transform:translateY(90px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.viewer.cgo *{animation:none!important}.cvld .e1,.cvld .e2,.cvld .cvd i{animation:none}}
 .lvadm{display:flex;justify-content:flex-end;padding:10px 14px 0}.lvadm .gb{display:inline-flex;align-items:center;gap:6px}
 /* m49 макет: подарок новичку */
 .fpk-b{display:flex;align-items:center;gap:12px;margin:10px 14px 4px;padding:12px 14px;border:1.5px dashed #f3a6c1;border-radius:16px;background:var(--bg);animation:fpkIn .9s .3s cubic-bezier(.22,1,.36,1) both}
@@ -462,3 +474,17 @@ body.dark .hero .prof>.mu.small{color:#d9b8cc}
 .fpk-busted{text-align:center;padding:14px 4px 6px}.fpk-busted h3{font-family:Pacifico,cursive;font-weight:400;color:#8a4fd6;margin:8px 0}
 .fpk-eye{font-size:46px;animation:fpkEye 1.8s .3s ease-in-out both}@keyframes fpkEye{0%{opacity:0;transform:scale(.6)}30%{opacity:1;transform:scale(1.1)}45%{transform:none}60%,80%{transform:translateX(-4px)}70%,90%{transform:translateX(4px)}100%{transform:none}}
 @media (prefers-reduced-motion:reduce){.fpk-b,.fpk-bi,.fpk-it,.fpk-eye{animation:none!important;opacity:1}.fpk-sh,.fpk-ov{transition:none}}
+
+.fpk-av{position:relative;width:78px;height:78px;margin:6px auto 4px;border-radius:50%;background:#fde3ee center/cover;border:3px solid var(--bg);box-shadow:0 4px 14px rgba(194,24,91,.18);animation:fpkIn .8s .1s cubic-bezier(.22,1,.36,1) both}
+.fpk-ears{position:absolute;left:-1px;top:-20px;width:80px;height:30px}
+.fpk-busted p{margin:6px 6px;line-height:1.45;animation:fpkIn .8s .35s cubic-bezier(.22,1,.36,1) both}.fpk-busted p+p{animation-delay:.5s}
+.fpk-busted h3{animation:fpkIn .8s .2s cubic-bezier(.22,1,.36,1) both}
+.fpk-disc{margin-top:12px;display:flex;align-items:center;justify-content:center;gap:6px;animation:ceBtn .7s .75s cubic-bezier(.3,1.5,.5,1) both}
+.fpk-sign{font-family:Pacifico,cursive;color:#e0609a;text-align:right;margin:6px 10px 0!important}
+.pold{opacity:.5;font-weight:700;font-size:.75em;margin-right:4px}.pdisc{display:inline-block;font-size:12px;font-weight:900;color:#fff;background:linear-gradient(90deg,#e0609a,#8a4fd6);border-radius:999px;padding:2px 8px;vertical-align:4px}
+
+/* m49: ник + короткий пароль */
+.gpw{position:relative}.gpw input{padding-right:44px}
+.geye{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:0;color:var(--mu,#888);padding:6px;cursor:pointer;display:flex}
+.geye .gx{opacity:0;transition:opacity .25s}.geye.off .gx{opacity:1}
+.gnick{transition:color .3s}.gnick.ok{color:#2e9e6a}.gnick.bad{color:#d0436f}
