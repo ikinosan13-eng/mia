@@ -126,6 +126,37 @@ const tzOff = () => matchMedia("(prefers-reduced-motion: reduce)").matches || na
 const tzTag = (p, locked) => { const v = S.pv?.[p.id], t = !locked && v?.feed_video_path || v?.teaser_path; return t && !tzOff() ? `<video class="tz" data-src="${pub(t)}" muted loop playsinline preload="none" disablepictureinpicture aria-hidden="true"></video>` : ""; };
 let tzIO = null;
 // живой аватар/шапка: только после полной загрузки страницы (LCP — картинка), без звука, по кругу; reduced-motion / экономия трафика → только картинка
+// ---------- вход на главную (1 раз за сессию; reduced-motion — без анимации) ----------
+// ждём, пока шапка, аватар и арты первого экрана загрузятся и декодируются (до этого — «мур…»), потом: шапка оседает, аватар выезжает,
+// плитки собираются по очереди, кнопка подписки мягко подсвечивается. Предохранитель 3,5 с — показать всё быстрым проявлением.
+const INTRO = { st: 0 }; const RMo = matchMedia("(prefers-reduced-motion: reduce)");
+function introRun(v) {
+  const H = document.documentElement; parallax();
+  if (!H.classList.contains("intro")) return;
+  if (v && v != "feed") return introDone();
+  if (INTRO.go) { H.style.setProperty("--el", `${-Math.round(performance.now() - INTRO.go)}ms`); introTag(); return; }
+  if (INTRO.st) return; INTRO.st = performance.now();
+  const imgs = [$(".hero .cv img"), ...$$(".post .cov img").filter(im => im.getBoundingClientRect().top < innerHeight)].filter(Boolean);
+  const ava = ($(".hero .prof .ava")?.style.backgroundImage || "").match(/url\(["']?([^"')]+)/)?.[1];
+  const dec = im => (im.complete && im.naturalWidth ? Promise.resolve() : new Promise(r => { im.addEventListener("load", r, { once: true }); im.addEventListener("error", r, { once: true }); })).then(() => im.decode?.().catch(() => {}));
+  if (ava) { const a = new Image(); a.src = ava; imgs.push(a); }
+  const t = setTimeout(() => introGo(false), Math.max(0, 3500 - performance.now())); // 3,5 с от начала загрузки страницы
+  Promise.all(imgs.map(dec)).then(() => { clearTimeout(t); introGo(true); });
+}
+function introGo(staged) {
+  if (INTRO.go) return; const H = document.documentElement; INTRO.go = performance.now(); window.__iaStart = { t: Math.round(INTRO.go), staged };
+  try { sessionStorage.miaIntro = 1; } catch {}
+  H.classList.remove("iwait"); H.classList.add("ibye"); // «мур…» мягко гаснет, потом сцена
+  setTimeout(() => { H.style.setProperty("--el", "0ms"); H.classList.remove("ibye"); H.classList.add(staged ? "igo" : "iquick");
+    introTag(); if (staged) setTimeout(introGlow, 2300); setTimeout(introDone, staged ? 6000 : 700); }, 450);
+}
+function introTag() { let k = 0; const H = innerHeight, io = INTRO.io || (INTRO.io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add("in"); INTRO.io.unobserve(e.target); } }), { rootMargin: "0px 0px -8% 0px" }));
+  $$(".post").forEach(p => { if (p.getBoundingClientRect().top < H) { p.classList.add("ia"); if (k == 0) p.classList.add("ia0"); p.style.setProperty("--i", k++); } else { p.classList.add("rv"); io.observe(p); } }); }
+function introGlow() { const b = $$(".cov.lk .frost .ob").find(x => { const r = x.getBoundingClientRect(); return r.top > 0 && r.bottom < innerHeight; }) || $('.tabs a[href="#/levels"]'); if (!b) return; b.classList.add("glow"); setTimeout(() => b.classList.remove("glow"), 3300); }
+function introDone() { const H = document.documentElement; H.classList.remove("intro", "iwait", "igo", "iquick"); }
+// лёгкий параллакс шапки при прокрутке (translate — отдельное от анимации scale свойство)
+function parallax() { if (INTRO.px || RMo.matches) return; INTRO.px = 1; let q = 0;
+  addEventListener("scroll", () => { if (q) return; q = requestAnimationFrame(() => { q = 0; const y = Math.min(scrollY, 400); $$(".hero .cv img,.hero .cv video").forEach(e => e.style.translate = `0 ${(y * .3).toFixed(1)}px`); }); }, { passive: true }); }
 function heroVid() { const p = S.profile; if (tzOff() || !(p.avatar_video || p.cover_video)) return;
   const go = () => [[".hero .cv", p.cover_video], [".hero .prof .ava", p.avatar_video]].forEach(([sel, path]) => { const box = $(sel); if (!box || !path || box.querySelector("video")) return;
     const v = document.createElement("video"); Object.assign(v, { muted: true, loop: true, playsInline: true, autoplay: true, preload: "auto" }); v.className = "hv"; v.setAttribute("aria-hidden", "true");
@@ -464,7 +495,7 @@ async function render(o = {}) {
   $$("[data-like]").forEach(b => b.onclick = e => { e.preventDefault(); toggleLike(b.dataset.like); });
   $$("[data-cm]").forEach(a => a.onclick = e => { e.preventDefault(); e.stopPropagation(); openComments(a.dataset.cm); });
   if (v == "media") bindMedia();
-  $$("[data-view]").forEach(a => a.onclick = e => { e.preventDefault(); openViewer(a.dataset.view, 0, false); }); tzBind(); heroVid();
+  $$("[data-view]").forEach(a => a.onclick = e => { e.preventDefault(); openViewer(a.dataset.view, 0, false); }); tzBind(); heroVid(); introRun(v);
   $$("[data-vi]").forEach(im => im.onclick = () => openViewer(id, +im.dataset.vi, true));
   if (parts[2] == "c") setTimeout(() => $("#cmts")?.scrollIntoView({ behavior: "smooth" }), 100);
   if ($("#vw")) { $("#fsb").onclick = fullscreen; $("#vw").onclick = e => { if (e.target.tagName == "IMG") go(S.idx + 1); }; swipe($("#vw")); }
