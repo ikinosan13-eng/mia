@@ -145,7 +145,6 @@ function introRun(v) {
   Promise.all(imgs.map(dec)).then(() => { clearTimeout(t); introGo(true); });
 }
 function introGo(staged) {
-  const MIN = (window.__ls || 0) + 6300 - performance.now(); if (MIN > 0) return setTimeout(() => introGo(staged), MIN); // Мия успевает проснуться и улыбнуться
   if (INTRO.go) return; const H = document.documentElement; INTRO.go = performance.now(); window.__iaStart = { t: Math.round(INTRO.go), staged };
   try { sessionStorage.miaIntro = 1; } catch {}
   H.classList.remove("iwait"); H.classList.add("ibye"); // «мур…» мягко гаснет, потом сцена
@@ -513,7 +512,7 @@ async function render(o = {}) {
 window.Mia = { cntText, cntHtml, sbPub, imgSrc, bgSrc, vOf, freeOf, freeFn, freePlate, isLocked, pickOpen, pickBtn, openComments, closeComments, loadImgs, subscribe, openViewer, toggleLike, sb, S, $, $$, esc, pub, fmt, toast, T, DEF, fn, load, render, B, plural, setTexts: t => TX = t };
 window.addEventListener("hashchange", () => { if (window.MiaViewer?.isOpen()) window.MiaViewer.close(); if (S.modal) { S.modal = null; $("#modal")?.remove(); } closeComments(true); render(); });
 $("#app").innerHTML = `<div style="padding:14px"><div class="sk" style="height:120px"></div><div class="sk" style="height:300px;margin-top:14px"></div><div class="sk" style="height:16px;margin-top:10px;width:60%"></div></div>`;
-fetch("version.txt?" + Date.now(), { cache: "no-store" }).then(r => r.text()).then(v => { v = v.trim(); if (v && v != window.MIA_VERSION && !sessionStorage.miaReloaded) { sessionStorage.miaReloaded = 1; location.reload(); } }).catch(() => {});
+fetch("version.txt?" + Date.now(), { cache: "no-store" }).then(r => r.text()).then(v => { v = v.trim(); if (v && v != window.MIA_VERSION && sessionStorage.miaReloaded != v) { sessionStorage.miaReloaded = v; location.reload(); } }).catch(() => {});
 const hasAuth = () => { try { return !!(S.token || localStorage.getItem("mia-visitor")); } catch { return true; } };
 // гость: сразу рисуем из кэша (если свежий, < 24 ч), потом свежие данные; перерисовка — только если что-то изменилось
 const sigNow = () => JSON.stringify([S.posts, S.media, S.tiers, S.profile, S.viewer, TX, S.free, S.imgv]);
