@@ -62,7 +62,7 @@ begin
   end if;
 
   -- только опубликованные паки по подписке
-  if not exists (select 1 from posts where id = p_post and tier_rank > 0 and status = 'published') then
+  if not exists (select 1 from posts where id = p_post and status = 'published' and exists (select 1 from tiers t where t.id = posts.tier_id and t.rank > 0)) then
     return jsonb_build_object('ok', false, 'error', 'no_post');
   end if;
 
