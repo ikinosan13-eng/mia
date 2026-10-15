@@ -1,0 +1,27 @@
+/* v48 mockup: котик-компаньон */
+#catpal{position:absolute;left:0;top:0;width:50px;height:50px;z-index:5;pointer-events:none;opacity:0;transition:opacity .4s ease;will-change:transform}
+#catpal.on{opacity:1}#catpal.off{opacity:0}
+#catpal .cpi{width:100%;height:100%;transform-origin:50% 100%;filter:drop-shadow(0 2px 3px rgba(80,20,60,.35))}
+#catpal svg{width:100%;height:100%;display:block;overflow:visible}
+#catpal.fl svg{transform:scaleX(-1)}
+#catpal.pop .cpi{animation:cpPop .6s cubic-bezier(.3,1.6,.5,1) both}
+#catpal.jmp .cpi{animation:cpJump .35s ease-out both}
+#catpal.land .cpi{animation:cpLand .45s cubic-bezier(.3,1.6,.5,1) both}
+@keyframes cpPop{from{opacity:0;transform:translateY(10px) scale(.5)}to{opacity:1;transform:none}}
+@keyframes cpJump{0%{transform:scale(1.15,.8)}40%{transform:scale(.88,1.15)}100%{transform:scale(.95,1.05) rotate(-6deg)}}
+@keyframes cpLand{0%{transform:scale(1.25,.72)}45%{transform:scale(.92,1.08)}75%{transform:scale(1.04,.97)}100%{transform:none}}
+/* лижет лапку */
+#catpal .chd{transform-origin:26px 32px;animation:cpHead 3.6s ease-in-out infinite}
+#catpal .cpw{transform-origin:21px 51px;animation:cpPaw 3.6s ease-in-out infinite}
+#catpal .ctg{opacity:0;transform-origin:26px 28px;animation:cpTg 3.6s linear infinite}
+#catpal .ec{opacity:0;animation:cpEc 3.6s step-end infinite}#catpal .eo{animation:cpEo 3.6s step-end infinite}
+#catpal .ct{transform-origin:42px 50px;animation:cpTail 5.4s ease-in-out infinite}
+#catpal.jmp .chd,#catpal.jmp .cpw,#catpal.jmp .ctg,#catpal.jmp .ec,#catpal.jmp .eo{animation:none}
+#catpal.pz *{animation-play-state:paused!important}
+@keyframes cpHead{0%,8%{transform:none}18%,62%{transform:rotate(-12deg) translateY(2px)}24%,36%,48%{transform:rotate(-14deg) translateY(3px)}30%,42%,54%{transform:rotate(-10deg) translateY(1px)}72%,100%{transform:none}}
+@keyframes cpPaw{0%,8%{transform:none}18%,62%{transform:translate(1px,-19px) rotate(-20deg)}24%,36%,48%{transform:translate(1px,-20px) rotate(-26deg)}30%,42%,54%{transform:translate(1px,-18px) rotate(-14deg)}72%,100%{transform:none}}
+@keyframes cpTg{0%,20%{opacity:0;transform:none}24%,36%,48%{opacity:1;transform:translateY(1px) scaleY(1.2)}28%,40%,52%{opacity:0}30%,42%,54%{opacity:1;transform:none}58%,100%{opacity:0}}
+@keyframes cpEc{0%{opacity:0}16%{opacity:1}66%{opacity:0}86%{opacity:1}89%{opacity:0}}
+@keyframes cpEo{0%{opacity:1}16%{opacity:0}66%{opacity:1}86%{opacity:0}89%{opacity:1}}
+@keyframes cpTail{0%,60%,100%{transform:none}70%{transform:rotate(14deg)}80%{transform:rotate(-8deg)}90%{transform:rotate(5deg)}}
+@media (prefers-reduced-motion:reduce){#catpal{display:none!important}}
