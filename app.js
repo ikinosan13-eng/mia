@@ -113,7 +113,8 @@ function hero() {
 const tabs = on => `<div class="tabs mt">${[["ЛЕНТА", "feed"], ["МЕДИА", "media"], ["УРОВНИ", "levels"], ["ОБ АВТОРЕ", "about"]].map(([n, h]) => `<a href="#/${h}" class="${h == on ? "on" : ""}">${n}</a>`).join("")}</div>`;
 const heart = p => `${S.liked.has(p.id) ? "❤" : "♡"} ${p.like_count || 0}`;
 const ACT = p => `<div class="act"><a class="${S.liked.has(p.id) ? "on" : ""}" data-like="${p.id}">${heart(p)}</a><a href="#/post/${p.id}" data-cm="${p.id}">💬 ${p.comment_count || 0}</a><span class="sp"></span><a data-share="${p.id}" title="Поделиться">↗</a></div>`;
-const lockPanel = p => `<div class="frost"><span class="mu">${esc(T("locked_label"))}</span><b>${esc(p.tier_name)}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><button class="ob" data-sub="${p.id}">🔒 ${esc(T("btn_subscribe"))}</button>${pickBtn(p)}</div>`;
+const lockBtn = () => { const t = (TX.btn_subscribe || "").trim(); return t && !/подписаться/i.test(t) ? t : "Открыть полный пак 🐾"; }; // старый текст «🔒 Подписаться» из «Текстов сайта» на плашке не используем (БД не трогаем)
+const lockPanel = p => `<div class="frost"><span class="mu">${esc(T("locked_label"))}</span><b>${esc(p.tier_name)}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><button class="ob" data-sub="${p.id}">${esc(lockBtn())}</button>${pickBtn(p)}</div>`;
 const pickBtn = p => S.pick.credit ? `<button class="ob pko" data-pick="${p.id}">🎁 Мур, открыть этот пак</button><span class="pkb">Мяу! У тебя 1 пак на выбор 💕</span>` : "";
 // «Пробник»: бесплатные арты внутри закрытого пака
 const freeOf = id => (S.free || []).filter(f => f.post_id == id).map(f => f.position);
