@@ -9,7 +9,8 @@ html.igo .post.ia .cov:before,.post.rv.in .cov:before{animation:ceStamp 1.1s cal
 html.igo .tabs.mt a{animation:ceBtn .7s calc(1000ms + var(--k,0) * 90ms + var(--el,0ms)) cubic-bezier(.3,1.5,.5,1) both}
 .tabs.mt a:nth-child(2){--k:1}.tabs.mt a:nth-child(3){--k:2}.tabs.mt a:nth-child(4){--k:3}
 html.igo .bar .r>*{animation:ceBtn .7s calc(300ms + var(--el,0ms)) cubic-bezier(.3,1.5,.5,1) both}
-html.igo .post.ia .frost .ob,.post.rv.in .frost .ob{animation:ceBtn .7s var(--bd,2000ms) cubic-bezier(.3,1.5,.5,1) both,ceTail 2.6s calc(var(--bd,2000ms) + 900ms) ease-in-out 1}
+.post.tin .frost .ob{animation:ceBtn .7s calc(var(--b,0ms) + var(--bd,2000ms)) cubic-bezier(.3,1.5,.5,1) both,ceTail 2.6s calc(var(--b,0ms) + var(--bd,2000ms) + 900ms) ease-in-out 1}
+.post:not(.tin) .cov.lk .frost .ob{opacity:0}
 @keyframes ceBtn{0%{opacity:0;transform:translateY(8px) scale(.8)}60%{opacity:1;transform:translateY(-2px) scale(1.06)}80%{transform:rotate(-2deg)}100%{opacity:1;transform:none}}
 @keyframes ceTail{0%,100%{transform:none}20%{transform:rotate(-3deg)}40%{transform:rotate(2.5deg)}60%{transform:rotate(-1.5deg)}80%{transform:rotate(.8deg)}}
 html.iquick .post .cov,html.iquick .tabs.mt a{animation:none}
