@@ -1,0 +1,69 @@
+/* v47 mockup: МЕДИА / УРОВНИ */
+.mgrid a.tt{opacity:0}
+.mgrid a.tt.tn{animation:tbFd .8s var(--td,0ms) cubic-bezier(.22,1,.36,1) both}
+@keyframes tbFd{from{opacity:0}to{opacity:1}}
+.mgrid a.tq{animation:none!important;opacity:1;transform:none}
+@keyframes tbIn{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:none}}
+.mgrid .tpw{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px;z-index:3;opacity:0;pointer-events:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M12 12.2c-2.9 0-5.3 2.3-5.3 4.6 0 1.6 1.3 2.4 2.7 2.4 1 0 1.7-.5 2.6-.5s1.6.5 2.6.5c1.4 0 2.7-.8 2.7-2.4 0-2.3-2.4-4.6-5.3-4.6z'/%3E%3Cellipse cx='6' cy='9' rx='1.9' ry='2.4'/%3E%3Cellipse cx='9.6' cy='5.6' rx='1.9' ry='2.5'/%3E%3Cellipse cx='14.4' cy='5.6' rx='1.9' ry='2.5'/%3E%3Cellipse cx='18' cy='9' rx='1.9' ry='2.4'/%3E%3C/svg%3E") center/contain no-repeat;filter:drop-shadow(0 1px 3px #0006)}
+.mgrid a.tn .tpw{animation:tbPaw 1.3s calc(var(--td,0ms) + 450ms) ease-out both}
+@keyframes tbPaw{0%{opacity:0;transform:scale(.85) rotate(-8deg)}35%{opacity:.75;transform:none}70%{opacity:.75}100%{opacity:0;transform:none}}
+/* закрытые плитки: чёрный градиент, без блюра */
+.mgrid a.lk:before{display:block!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:linear-gradient(180deg,rgba(0,0,0,0) 35%,rgba(0,0,0,.72))!important}
+.mgrid a.tw{background-image:none!important;background-color:var(--bg)!important;overflow:hidden}
+.mgrid a.tw{opacity:1!important;transform:none!important;animation:none!important}
+.mgrid a.tw>:not(.tsh){opacity:0}
+/* уровни */
+.levels{perspective:900px}
+.levels .lv{position:relative;opacity:0}
+.levels.tgo .lv{animation:lvDeal 1s var(--lb,0ms) cubic-bezier(.22,1,.36,1) both}
+@keyframes lvDeal{0%{opacity:0;transform:translateY(60px) rotateX(28deg) rotateZ(var(--rz)) scale(.9)}60%{opacity:1;transform:translateY(-4px) rotateX(-4deg) rotateZ(calc(var(--rz) * -.3))}100%{opacity:1;transform:none}}
+.levels .lc{display:inline-block;white-space:pre;opacity:0;transform-origin:50% 100%}
+.levels.tgo .lc{animation:lvStep .5s calc(var(--d,0ms) + var(--i) * 30ms) cubic-bezier(.34,1.4,.5,1) both}
+.levels.tgo .lc.wg{animation:lvStep .5s calc(var(--d,0ms) + var(--i) * 30ms) cubic-bezier(.34,1.4,.5,1) both,lvWg .6s calc(var(--d,0ms) + var(--i) * 30ms + 650ms) ease-in-out 1}
+@keyframes lvStep{0%{opacity:0;transform:translate(-5px,9px) rotate(-14deg) scale(.6)}50%{opacity:1;transform:translate(-1px,-5px) rotate(6deg) scale(1.06)}75%{transform:translate(0,1px) rotate(-2deg) scale(1.02,.96)}100%{opacity:1;transform:none}}
+@keyframes lvWg{0%,100%{transform:none}25%{transform:rotate(-10deg) translateY(-2px)}50%{transform:rotate(8deg)}75%{transform:rotate(-4deg)}}
+.levels.tgo .lc.hop{animation:lvStep .5s calc(var(--d,0ms) + var(--i) * 30ms) cubic-bezier(.3,1.6,.5,1) both,lvHop .9s calc(var(--d,0ms) + var(--i) * 30ms + 600ms) ease-in-out 2}
+@keyframes lvCh{0%{opacity:0;transform:translateY(10px) scale(1.25,.55)}55%{opacity:1;transform:translateY(-3px) scale(.88,1.14)}78%{transform:translateY(0) scale(1.05,.95)}100%{opacity:1;transform:none}}
+@keyframes lvHop{0%,100%{transform:none}25%{transform:translateY(0) scale(1.15,.85)}50%{transform:translateY(-9px) scale(.92,1.1)}75%{transform:translateY(0) scale(1.08,.92)}}
+.levels .num{display:inline-block;opacity:0;font-variant-numeric:tabular-nums}
+.levels.tgo .num{animation:lvPk .4s var(--d,0ms) ease-out both}
+.levels .pk{display:flex;gap:6px;align-items:flex-start;opacity:0;transform:translateX(-14px)}
+.levels .pb{flex:none;width:15px;height:15px;margin-top:2px;color:#e0609a;opacity:0}
+.levels .pk{opacity:1;transform:none}
+.levels.tgo .pb{animation:lvSt .55s var(--pd,0ms) cubic-bezier(.3,1.6,.5,1) both}
+@keyframes lvPk{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
+@keyframes lvSt{0%{opacity:0;transform:scale(2) rotate(-25deg)}60%{opacity:1;transform:scale(.85) rotate(6deg)}100%{opacity:1;transform:none}}
+.levels .lv>.ob,.levels .lv>.gb{opacity:0}
+.levels.tgo .lv>.ob,.levels.tgo .lv>.gb{animation:ceBtn .7s var(--bd,1500ms) cubic-bezier(.3,1.5,.5,1) both,ceTail 2.6s calc(var(--bd,1500ms) + 800ms) ease-in-out 1}
+.levels .brst{position:relative;display:block;height:0;pointer-events:none}
+.levels .brst i{position:absolute;left:50%;top:-22px;font-style:normal;font-size:15px;opacity:0}
+.levels.tgo .brst i{animation:lvB 1s calc(var(--bd,1500ms) + 450ms) ease-out both}
+@keyframes lvB{0%{opacity:0;transform:translate(-50%,0) rotate(var(--a)) translateY(0) scale(.4)}25%{opacity:1}100%{opacity:0;transform:translate(-50%,0) rotate(var(--a)) translateY(-46px) scale(1)}}
+.levels .lcat{position:absolute;left:50%;top:-31px;width:84px;margin-left:-42px;opacity:0;transform:translateY(22px);pointer-events:none}
+.levels .ltop{margin-top:22px;overflow:visible}
+.levels.tgo .lcat{animation:lvPeek .9s calc(var(--lb,0ms) + 900ms) cubic-bezier(.22,1,.36,1) both}
+.levels .lcat .e1{transform-origin:34px 26px}.levels .lcat .e2{transform-origin:86px 26px}
+.levels.tgo .lcat .e1,.levels.tgo .lcat .e2{animation:lvEar 1.6s calc(var(--lb,0ms) + 1700ms) ease-in-out 3}
+.levels.tgo .lcat .eyes{transform-origin:60px 37px;animation:lvBl 3.2s calc(var(--lb,0ms) + 2000ms) 2}
+@keyframes lvPeek{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+@keyframes lvEar{0%,100%{transform:none}15%{transform:rotate(-12deg)}30%{transform:rotate(6deg)}45%{transform:none}}
+@keyframes lvBl{0%,46%,54%,100%{transform:none}50%{transform:scaleY(.1)}}
+.levels.tq .lv,.levels.tq .lc,.levels.tq .pk,.levels.tq .pb,.levels.tq .num,.levels.tq .lcat,.levels.tq .lv>.ob,.levels.tq .lv>.gb{animation:none!important;opacity:1;transform:none}.levels.tq .brst{display:none}
+@media (prefers-reduced-motion:reduce){.mgrid a.tt,.levels .lv,.levels .lc,.levels .pk,.levels .pb,.levels .num,.levels .lcat,.levels .lv>.ob,.levels .lv>.gb{animation:none!important;opacity:1!important;transform:none!important}.mgrid .tpw,.mgrid .tsh,.levels .brst{display:none}}
+
+/* лапка по центру на обложках ленты (как в МЕДИА) */
+.post .cov:before{inset:auto!important;left:50%!important;top:50%!important;right:auto!important;bottom:auto!important;width:26px!important;height:26px!important;margin:-13px;opacity:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M12 12.2c-2.9 0-5.3 2.3-5.3 4.6 0 1.6 1.3 2.4 2.7 2.4 1 0 1.7-.5 2.6-.5s1.6.5 2.6.5c1.4 0 2.7-.8 2.7-2.4 0-2.3-2.4-4.6-5.3-4.6z'/%3E%3Cellipse cx='6' cy='9' rx='1.9' ry='2.4'/%3E%3Cellipse cx='9.6' cy='5.6' rx='1.9' ry='2.5'/%3E%3Cellipse cx='14.4' cy='5.6' rx='1.9' ry='2.5'/%3E%3Cellipse cx='18' cy='9' rx='1.9' ry='2.4'/%3E%3C/svg%3E") center/contain no-repeat;filter:drop-shadow(0 1px 3px #0006)!important}
+html.igo .post.ia .cov:before,.post.rv.in .cov:before{animation:tbPaw 1.3s calc(1600ms + var(--i,0) * 160ms + var(--el,0ms)) ease-out both!important}
+.post.rv.in .cov:before{animation-delay:.55s!important}
+@media (prefers-reduced-motion:reduce){.post .cov:before{display:none!important}}
+/* ходячая лапка-курсор */
+.levels .lcw{position:relative}
+.levels .lcur{position:absolute;left:-2px;bottom:-3px;width:11px;height:11px;opacity:0;pointer-events:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='%23e0609a' stroke-width='2.4'%3E%3Cpath d='M12 12.2c-2.9 0-5.3 2.3-5.3 4.6 0 1.6 1.3 2.4 2.7 2.4 1 0 1.7-.5 2.6-.5s1.6.5 2.6.5c1.4 0 2.7-.8 2.7-2.4 0-2.3-2.4-4.6-5.3-4.6z'/%3E%3Ccircle cx='6' cy='9' r='1.8'/%3E%3Ccircle cx='9.6' cy='5.6' r='1.8'/%3E%3Ccircle cx='14.4' cy='5.6' r='1.8'/%3E%3Ccircle cx='18' cy='9' r='1.8'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat}
+.levels.tgo .lcur{animation:lvWalk calc(var(--n) * 30ms + 200ms) var(--d,0ms) linear both,lvTap .24s var(--d,0ms) ease-in-out infinite alternate}
+.levels.tgo .lcw>.lcur{animation-iteration-count:1,calc(var(--n) / 8 + 1)}
+@keyframes lvWalk{0%{opacity:0;translate:0 0}8%{opacity:1}88%{opacity:1}100%{opacity:0;translate:var(--w,100px) 0}}
+@keyframes lvTap{from{transform:rotate(-14deg) translateY(0)}to{transform:rotate(10deg) translateY(-3px)}}
+.levels .ob .lcur{bottom:4px}
+.levels.tq .lcur{display:none}
+@media (prefers-reduced-motion:reduce){.levels .lcur{display:none}.levels .lc{opacity:1!important;animation:none!important;transform:none!important}}
+.levels .lw{display:inline-block;white-space:nowrap}

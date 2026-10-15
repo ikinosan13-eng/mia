@@ -187,7 +187,7 @@ const views = {
   feed: () => bar() + hero() + tabs("feed") + (S.posts.map(card).join("") || `<div class="note">🎨 ${esc(T("empty_feed"))}</div>`),
   media: () => { const k = {}; return bar() + hero() + tabs("media") + `<div class="grid mgrid">${S.media.map(m => { const i = k[m.post_id] = (k[m.post_id] ?? -1) + 1, lk = m.tier_rank > S.rank && !S.pick.unlocked.has(m.post_id), p = S.posts.find(x => x.id == m.post_id);
     const vd = S.mv?.[m.id], vb = vd ? `<span class="cnt nv">${IV}${dur(vd.duration_sec)}</span>` : "";
-    return lk ? `<a href="#/post/${m.post_id}" class="lk${vd ? " vd" : ""}" style="background-image:url('${bgSrc(m.preview_path, 320)}')">${vb}</a>` : `<a href="#/post/${m.post_id}" data-mp="${m.post_id}" data-mi="${i}" class="${vd ? "vd" : ""}" style="background-image:url('${bgSrc(m.preview_path, 320)}')">${vb}${p ? `<span class="cb" data-cm="${p.id}">💬 ${p.comment_count || 0}</span>` : ""}</a>`; }).join("")}</div>` + (S.media.length ? "" : `<div class="note">🎨 ${esc(T("empty_feed"))}</div>`); },
+    return lk ? `<a href="#/post/${m.post_id}" class="lk${vd ? " vd" : ""}" style="background-image:url('${bgSrc(m.preview_path, 320)}')">${vb}</a>` : `<a href="#/post/${m.post_id}" data-mp="${m.post_id}" data-mi="${i}" class="${vd ? "vd" : ""}" style="background-image:url('${bgSrc(m.preview_path, 320)}')">${vb}</a>`; }).join("")}</div>` + (S.media.length ? "" : `<div class="note">🎨 ${esc(T("empty_feed"))}</div>`); },
   levels: () => bar() + hero() + tabs("levels") + levelsHtml(),
   about: () => bar() + hero() + tabs("about") + `<div class="body">${esc(S.profile.about || "Привет! Я Мия, рисую паки артов 💕🐾")}</div>`,
 };
