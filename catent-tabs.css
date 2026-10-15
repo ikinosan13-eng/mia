@@ -66,3 +66,4 @@ html.igo .post.ia .cov:before,.post.rv.in .cov:before{animation:tbPaw 1.3s calc(
 .levels .ob .lcur{bottom:4px}
 .levels.tq .lcur{display:none}
 @media (prefers-reduced-motion:reduce){.levels .lcur{display:none}.levels .lc{opacity:1!important;animation:none!important;transform:none!important}}
+.levels .lw{display:inline-block;white-space:nowrap}
