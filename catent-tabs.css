@@ -1,7 +1,7 @@
 /* v47 mockup: МЕДИА / УРОВНИ */
 .mgrid a.tt{opacity:0}
-.mgrid a.tt.tn{animation:tbFd .8s var(--td,0ms) cubic-bezier(.22,1,.36,1) both}
-@keyframes tbFd{from{opacity:0}to{opacity:1}}
+.mgrid a.tt.tn{animation:tbFd 1s cubic-bezier(.22,1,.36,1) both}
+@keyframes tbFd{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 .mgrid a.tq{animation:none!important;opacity:1;transform:none}
 @keyframes tbIn{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:none}}
 .mgrid .tpw{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px;z-index:3;opacity:0;pointer-events:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M12 12.2c-2.9 0-5.3 2.3-5.3 4.6 0 1.6 1.3 2.4 2.7 2.4 1 0 1.7-.5 2.6-.5s1.6.5 2.6.5c1.4 0 2.7-.8 2.7-2.4 0-2.3-2.4-4.6-5.3-4.6z'/%3E%3Cellipse cx='6' cy='9' rx='1.9' ry='2.4'/%3E%3Cellipse cx='9.6' cy='5.6' rx='1.9' ry='2.5'/%3E%3Cellipse cx='14.4' cy='5.6' rx='1.9' ry='2.5'/%3E%3Cellipse cx='18' cy='9' rx='1.9' ry='2.4'/%3E%3C/svg%3E") center/contain no-repeat;filter:drop-shadow(0 1px 3px #0006)}

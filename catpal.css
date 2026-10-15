@@ -1,0 +1,7 @@
+/* v49 mockup: котик-компаньон */
+#app{position:relative}
+#mcat{position:absolute;left:0;top:0;width:0;height:0;z-index:4;pointer-events:none;opacity:0;transition:opacity .5s ease;will-change:transform}
+#mcat.on{opacity:1}
+#mcat .mw{transform-origin:0 0;will-change:transform}
+#mcat .ms{position:absolute;left:0;top:0;background-repeat:no-repeat;will-change:background-position}
+@media (prefers-reduced-motion:reduce){#mcat{display:none!important}}

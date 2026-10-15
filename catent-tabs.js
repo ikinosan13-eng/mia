@@ -8,8 +8,10 @@ const url=a=>{const m=/url\(["']?(.*?)["']?\)/.exec(a.style.backgroundImage||get
 const load=a=>{if(a._p)return a._p;const u=url(a);a._p=new Promise(r=>{if(!u)return r();const im=new Image();im.decoding='async';im.onload=()=>(im.decode?im.decode().catch(()=>{}):Promise.resolve()).then(r);im.onerror=r;im.src=u;setTimeout(r,2500)});return a._p};
 const grid=g=>{const tiles=[...g.children];if(played.m){tiles.forEach(a=>a.classList.add('tn','tq'));return}played.m=1;
   tiles.forEach(a=>{a.classList.add('tt','tw');a.insertAdjacentHTML('beforeend',PAW)});
-  const run=async()=>{tiles.forEach(load);let last=0;for(const a of tiles){await load(a);const w=80-(performance.now()-last);if(w>0)await new Promise(r=>setTimeout(r,w));a.style.setProperty('--td','0ms');a.classList.remove('tw');a.classList.add('tn');last=performance.now()}};
-  const go=()=>busy()?setTimeout(go,120):run();go()};
+  const q=[];let running=false,last=0;
+  const pump=async()=>{if(running)return;running=true;while(q.length){q.sort((x,y)=>tiles.indexOf(x)-tiles.indexOf(y));const a=q.shift();await load(a);const w=520-(performance.now()-last);if(w>0)await new Promise(r=>setTimeout(r,w));a.classList.remove('tw');a.classList.add('tn');last=performance.now()}running=false};
+  const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){io.unobserve(e.target);load(e.target);q.push(e.target)}});pump()},{threshold:.05});
+  const go=()=>busy()?setTimeout(go,120):tiles.forEach(a=>io.observe(a));go()};
 const CAT='<svg class="lcat" viewBox="0 0 120 50" aria-hidden="true"><g fill="none" stroke="#e0609a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path class="e1" d="M30 40 L34 10 L50 26"/><path class="e2" d="M70 26 L86 10 L90 40"/><path d="M30 40 Q60 18 90 40"/><g class="eyes"><path d="M46 38 q4 -4 8 0"/><path d="M66 38 q4 -4 8 0"/></g><path d="M58 44 l2 2 l2 -2"/></g><g fill="#e0609a"><ellipse cx="34" cy="49" rx="7" ry="4"/><ellipse cx="86" cy="49" rx="7" ry="4"/></g></svg>';
 const PW='<svg class="pb" viewBox="0 0 24 24"><use href="#gpaw"/></svg>';
 const count=(el,to,delay)=>{if(!el||!to)return;const t0=performance.now()+delay,D=900;el.textContent='0';const f=n=>{const k=Math.min(1,Math.max(0,(n-t0)/D));el.textContent=Math.round(to*(1-Math.pow(1-k,3)));k<1&&requestAnimationFrame(f)};requestAnimationFrame(f)};
