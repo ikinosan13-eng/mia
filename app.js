@@ -145,12 +145,14 @@ function introRun(v) {
 }
 function introGo(staged) {
   if (INTRO.go) return; const H = document.documentElement; INTRO.go = performance.now(); window.__iaStart = { t: Math.round(INTRO.go), staged };
-  H.style.setProperty("--el", "0ms"); H.classList.remove("iwait"); H.classList.add(staged ? "igo" : "iquick"); try { sessionStorage.miaIntro = 1; } catch {}
-  introTag(); if (staged) setTimeout(introGlow, 1250); setTimeout(introDone, staged ? 2600 : 600);
+  try { sessionStorage.miaIntro = 1; } catch {}
+  H.classList.remove("iwait"); H.classList.add("ibye"); // «мур…» мягко гаснет, потом сцена
+  setTimeout(() => { H.style.setProperty("--el", "0ms"); H.classList.remove("ibye"); H.classList.add(staged ? "igo" : "iquick");
+    introTag(); if (staged) setTimeout(introGlow, 2300); setTimeout(introDone, staged ? 6000 : 700); }, 450);
 }
 function introTag() { let k = 0; const H = innerHeight, io = INTRO.io || (INTRO.io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add("in"); INTRO.io.unobserve(e.target); } }), { rootMargin: "0px 0px -8% 0px" }));
   $$(".post").forEach(p => { if (p.getBoundingClientRect().top < H) { p.classList.add("ia"); if (k == 0) p.classList.add("ia0"); p.style.setProperty("--i", k++); } else { p.classList.add("rv"); io.observe(p); } }); }
-function introGlow() { const b = $$(".cov.lk .frost .ob").find(x => { const r = x.getBoundingClientRect(); return r.top > 0 && r.bottom < innerHeight; }) || $('.tabs a[href="#/levels"]'); if (!b) return; b.classList.add("glow"); setTimeout(() => b.classList.remove("glow"), 2600); }
+function introGlow() { const b = $$(".cov.lk .frost .ob").find(x => { const r = x.getBoundingClientRect(); return r.top > 0 && r.bottom < innerHeight; }) || $('.tabs a[href="#/levels"]'); if (!b) return; b.classList.add("glow"); setTimeout(() => b.classList.remove("glow"), 3300); }
 function introDone() { const H = document.documentElement; H.classList.remove("intro", "iwait", "igo", "iquick"); }
 // лёгкий параллакс шапки при прокрутке (translate — отдельное от анимации scale свойство)
 function parallax() { if (INTRO.px || RMo.matches) return; INTRO.px = 1; let q = 0;
