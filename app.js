@@ -141,7 +141,7 @@ function introRun(v) {
   const ava = ($(".hero .prof .ava")?.style.backgroundImage || "").match(/url\(["']?([^"')]+)/)?.[1];
   const dec = im => (im.complete && im.naturalWidth ? Promise.resolve() : new Promise(r => { im.addEventListener("load", r, { once: true }); im.addEventListener("error", r, { once: true }); })).then(() => im.decode?.().catch(() => {}));
   if (ava) { const a = new Image(); a.src = ava; imgs.push(a); }
-  const L0 = window.__ls || 0, t = setTimeout(() => introGo(false), Math.max(0, L0 + 3500 - performance.now())); // 3,5 с от начала «мур…»
+  const L0 = window.__ls || 0, t = setTimeout(() => introGo(true), Math.max(0, L0 + 3500 - performance.now())); // 3,5 с от начала «мур…»: дальше не ждём, но всё равно играем полную анимацию (картинки догрузятся внутри неё)
   Promise.all(imgs.map(dec)).then(() => { clearTimeout(t); introGo(true); });
 }
 function introGo(staged) {
