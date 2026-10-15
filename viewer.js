@@ -85,7 +85,7 @@ let tz = null;
 // превью арта пака строго по порядку в паке (position): арт №1 и №2, без случайности
 const packPv = p => window.Mia.S.media.filter(m => m.post_id == p.id && m.preview_path).sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
 // плашка «Подписаться» поверх арта — как на карточке закрытого пака (подпись уровня + цена)
-function plate(p) { const M = window.Mia; return `<div class="tzp"><span class="mu">${M.esc(M.T("locked_label"))}</span><b>${M.esc(p.tier_name || "")}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><span class="ob">🔒 ${M.esc(M.T("btn_subscribe"))}</span></div>`; }
+function plate(p) { const M = window.Mia; return `<div class="tzp"><span class="mu">${M.esc(M.T("locked_label"))}</span><b>${M.esc(p.tier_name || "")}${p.price_rub ? ` · ${M.money(p.price_rub)}` : ""}</b><span class="ob">🔒 ${M.esc(M.T("btn_subscribe"))}</span></div>`; }
 function teaser(p) {
   if (tz) return tz.done();
   const M = window.Mia, list = packPv(p).slice(0, 2).map(m => M.pub(m.preview_path));
@@ -127,7 +127,7 @@ function lockCard(p) {
   el("strip").innerHTML = Array.from({ length: Math.min(n, 12) }, (_, k) => `<div class="tzt${isF(k) ? " fr" : ""}" data-k="${k}"><i${pv[k] ? ` style="background-image:url('${M.pub(pv[k].preview_path)}')"` : ""}></i></div>`).join(""); el("strip").classList.add("on");
   el("strip").querySelectorAll(".tzt").forEach(d => d.onclick = e => { e.stopPropagation(); const k = +d.dataset.k; if (isF(k)) return freeShow(p, fr.indexOf(pv[k].position)); teaser(p); });
   el("lc").innerHTML = `<div class="lfull"><img src="${M.pub(p.cover_path)}" alt=""><i class="lfz"></i><button class="llock" id="v-llk" title="${M.esc(M.T("btn_subscribe"))}"></button><h3>${M.esc(p.title)}</h3><span class="lcnt${M.S.pv?.[p.id]?.video_count ? " nv" : ""}">${M.cntHtml ? M.cntHtml(p, `${n} ${M.plural(n, "арт", "арта", "артов")}`) : M.esc(`${n} ${M.plural(n, "арт", "арта", "артов")}`)}</span>
-    <div class="frost lpan"><span class="mu">${M.esc(M.T("locked_label"))}</span><b>${M.esc(p.tier_name || "")}${p.price_rub ? ` · ${p.price_rub} ₽/мес` : ""}</b><button class="ob" id="v-buy">🔒 ${M.esc(M.T("btn_subscribe"))}</button>${M.pickBtn(p)}${fr.length ? `<button class="gb" id="v-free">🐾 Посмотреть ${fr.length} ${M.plural(fr.length, "арт", "арта", "артов")} бесплатно</button>` : ""}</div></div>`;
+    <div class="frost lpan"><span class="mu">${M.esc(M.T("locked_label"))}</span><b>${M.esc(p.tier_name || "")}${p.price_rub ? ` · ${M.money(p.price_rub)}` : ""}</b><button class="ob" id="v-buy">🔒 ${M.esc(M.T("btn_subscribe"))}</button>${M.pickBtn(p)}${fr.length ? `<button class="gb" id="v-free">🐾 Посмотреть ${fr.length} ${M.plural(fr.length, "арт", "арта", "артов")} бесплатно</button>` : ""}</div></div>`;
   el("buy").onclick = e => { e.stopPropagation(); sub(p); };
   if (el("free")) el("free").onclick = e => { e.stopPropagation(); freeShow(p, 0); };
   // тап по замку / обложке → превью → «Подписаться»; плашку не закрывает
