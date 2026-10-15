@@ -349,7 +349,7 @@ body.dark .fcap{background:#2a1f24;border-color:#7a3b55;color:#f3e8ea}body.dark 
 .hero video.hv.on{opacity:1}
 /* ---------- вход на главную (v38) ---------- */
 html.iwait #app,html.ibye #app{opacity:0}
-#iaCat{display:none}html.iwait #iaCat,html.ibye #iaCat{display:block;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:50}#iaCat{text-align:center}#iaCat img{display:block;width:63px;height:210px;margin:0 auto}
+#iaCat{display:none}html.iwait #iaCat,html.ibye #iaCat{display:block;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:50}#iaCat{text-align:center}
 html.ibye #iaCat{animation:iaBye .45s ease-out both}
 @keyframes iaBye{from{opacity:1}to{opacity:0}}
 html.igo .bar{animation:iaFade .9s cubic-bezier(.22,.61,.36,1) both;animation-delay:var(--el,0ms)}
