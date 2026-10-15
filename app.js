@@ -250,7 +250,6 @@ function gatePass() { const H = document.documentElement; if (!H.classList.conta
   H.classList.add("gout"); setTimeout(() => { H.classList.remove("gate", "gout"); H.classList.add("intro", "iwait"); window.__ls = performance.now();
     const im = $("#iaCat img"), so = $("#iaCat source"); if (so) so.srcset = so.srcset.split("?")[0] + "?r=" + Date.now(); if (im) im.src = im.src.split("?")[0] + "?r=" + Date.now();
     INTRO.st = 0; render(); }, 480); return true; }
-window.__gatePass = gatePass; // макет: проверка перехода без настоящего входа
 (() => { const g = $("#gate"); if (!g) return; $("#gate #lf").addEventListener("submit", login); $("#gate #af").addEventListener("submit", signup); g.addEventListener("pointerdown", e => { const b = e.target.closest(".gf .ob"); if (!b) return; const r = b.getBoundingClientRect(), s = document.createElementNS("http://www.w3.org/2000/svg", "svg"); s.setAttribute("class", "gstamp"); s.innerHTML = '<use href="#gpaw"/>'; s.style.left = e.clientX - r.left + "px"; s.style.top = e.clientY - r.top + "px"; b.append(s); setTimeout(() => s.remove(), 650); }); g.addEventListener("click", e => { const t = e.target.dataset.g; if (!t) return; g.classList.add("gsw"); g.classList.toggle("gate-s", t == "signup"); $$("#gate .gtabs a").forEach(a => a.classList.toggle("on", a.dataset.g == t)); }); })();
 function afterAuth() { if (gatePass()) return;
   const ret = S.modal?.rank != null ? { rank: S.modal.rank, post: S.modal.post } : null;
