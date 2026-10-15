@@ -1,6 +1,7 @@
 // v49: баннер выключен флагом window.MIA_FREEPACK (по умолчанию нет). Демо: ?freedemo / ?freeseen.
 // m49 МАКЕТ: «1 пак в подарок новичку». Ничего не выдаёт — только интерфейс (заглушка). Боевой вызов: rpc/claim_welcome_pack (см. free-pack.sql)
-(()=>{const demo=/freedemo/.test(location.search),seen=/freeseen/.test(location.search);
+window.MIA_FREEPACK=true; // v50: боевая выдача через rpc claim_welcome_pack
+(()=>{let WP=null,WPu=null;const demo=/freedemo/.test(location.search),seen=/freeseen/.test(location.search);
 const PAW='<svg viewBox="0 0 24 24" width="16" height="16"><use href="#gpaw"/></svg>';
 const GIFT='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="9" width="17" height="11" rx="2.5"/><path d="M2.5 9h19M12 9v11M12 9c-2-4-6-4-6-1.5S10 9 12 9c2 0 6-.5 6-1.5S14 5 12 9"/></svg>';
 const sheet=h=>{const d=document.createElement('div');d.className='fpk-ov';d.innerHTML=`<div class="fpk-sh"><button class="fpk-x" aria-label="Закрыть"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>${h}</div>`;document.body.append(d);requestAnimationFrame(()=>d.classList.add('on'));const close=()=>{d.classList.remove('on');setTimeout(()=>d.remove(),450)};d.onclick=e=>{if(e.target===d||e.target.closest('.fpk-x'))close()};return {d,close}};
@@ -20,10 +21,10 @@ const choose=()=>{const M=window.Mia,S=M.S;const ps=S.posts.filter(p=>p.tier_ran
     const fp=[navigator.userAgent,screen.width+'x'+screen.height,Intl.DateTimeFormat().resolvedOptions().timeZone,navigator.language].join('|'),h=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(fp)))).map(x=>x.toString(16).padStart(2,'0')).join('').slice(0,24);
     const {data:r,error}=await M.sb.rpc('claim_welcome_pack',{p_post:sel,p_device:h+':'+dev});close();
     if(error)return M.toast('Мяу, не получилось: '+error.message);try{localStorage.miaGift='1'}catch(e){}
-    if(r&&r.ok){M.S.pick.unlocked.add(sel);M.toast('Мур-р! Пак твой навсегда 💕');return M.render()}
-    if(r&&r.error=='busted')return setTimeout(busted,450);return M.toast(r&&r.error=='used'?'Подарок уже у тебя, мур 💕':'Мяу, пак недоступен')}
+    if(r&&(r.ok||r.error=='used'||r.error=='busted')){WP='claimed';document.querySelector('.fpk-b')?.remove()}if(r&&r.ok){M.S.pick.unlocked.add(sel);M.toast('Мур-р! Пак твой навсегда 💕');return M.render()}
+    if(r&&r.error=='busted')return setTimeout(busted,450);if(r&&r.error=='login')return M.toast('Мур, сначала войди в аккаунт 🐾');return M.toast(r&&r.error=='used'?'Подарок уже у тебя, мур 💕':'Мяу, пак недоступен')}
   close();let had=false;try{had=!!localStorage.getItem('miaGift')}catch(e){}if(seen||had)return setTimeout(busted,450);try{if(!localStorage.miaDev)localStorage.miaDev=crypto.randomUUID();localStorage.miaGift='demo'}catch(e){}window.Mia.toast('Мур! (макет) Пак выбран 💕 — в боевой версии он откроется навсегда')}};
 const banner=()=>`<div class="fpk-b"><div class="fpk-bi">${GIFT}</div><div class="fpk-bt"><b>Подарок новичку, мур</b><span class="mu small">1 пак на выбор — бесплатно и навсегда</span></div><button class="ob fpk-go" type="button">Выбрать ${PAW}</button></div>`;
-const tick=()=>{const S=window.Mia&&window.Mia.S;if(!S)return;if(!(demo||seen||(window.MIA_FREEPACK&&S.user&&!S.user.admin)))return; /* выключено до одобрения БД (free-pack.sql) */ if(/^#\/(?!feed)/.test(location.hash))return;const app=document.getElementById('app'),f=app&&app.querySelector('.post');if(!demo&&!seen){try{if(localStorage.miaGift)return}catch(e){}}if(!f||app.querySelector('.fpk-b'))return;
+const tick=()=>{const S=window.Mia&&window.Mia.S;if(!S)return;if(!(demo||seen||(window.MIA_FREEPACK&&S.user&&!S.user.admin)))return; /* v50: включено */ if(/^#\/(?!feed)/.test(location.hash))return;const app=document.getElementById('app'),f=app&&app.querySelector('.post');if(!demo&&!seen){if(WPu!==S.user.id){WPu=S.user.id;WP='wait';window.Mia.sb.rpc('my_welcome_pack').then(({data,error})=>{WP=error?'err':(data&&data.claimed?'claimed':'free');tick()},()=>{WP='err'})}if(WP!=='free')return}if(!f||app.querySelector('.fpk-b'))return;
   f.insertAdjacentHTML('beforebegin',banner());app.querySelector('.fpk-go').onclick=choose};
 const go=()=>{const a=document.getElementById('app');if(!a)return setTimeout(go,60);new MutationObserver(()=>setTimeout(tick,30)).observe(a,{childList:true});tick()};go();})();
