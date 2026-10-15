@@ -348,7 +348,7 @@ body.dark .fcap{background:#2a1f24;border-color:#7a3b55;color:#f3e8ea}body.dark 
 .hero video.hv{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:inherit;opacity:0;transition:opacity .5s;pointer-events:none}
 .hero video.hv.on{opacity:1}
 /* ---------- вход на главную (v38) ---------- */
-html.iwait #app,html.ibye #app{opacity:0}
+html.iwait #app,html.ibye #app{visibility:hidden}
 #iaCat{display:none}html.iwait #iaCat,html.ibye #iaCat{display:block;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:50}#iaCat{text-align:center}
 html.ibye #iaCat{animation:iaBye .45s ease-out both}
 @keyframes iaBye{from{opacity:1}to{opacity:0}}
@@ -370,7 +370,7 @@ html.iquick #app{animation:iaFade .5s ease-out both}
 .glow{position:relative}
 .glow:after{content:"";position:absolute;inset:-3px;border-radius:inherit;box-shadow:0 0 16px 4px var(--ac,#f26430);opacity:0;pointer-events:none;animation:iaGlow 1.6s ease-in-out 2}
 @keyframes iaGlow{0%,100%{opacity:0;scale:.97}50%{opacity:.8;scale:1.04}}
-@media (prefers-reduced-motion:reduce){html.iwait #app,html.ibye #app{opacity:1!important}#iaCat{display:none!important}.post.rv{opacity:1;translate:none;transition:none}.glow:after{animation:none}}
+@media (prefers-reduced-motion:reduce){html.iwait #app,html.ibye #app{visibility:visible!important}#iaCat{display:none!important}.post.rv{opacity:1;translate:none;transition:none}.glow:after{animation:none}}
 
 /* вход-ворота: гость без аккаунта видит только их */
 #gate{display:none}html.gate #gate{pointer-events:auto;display:flex;position:fixed;inset:0;z-index:60;align-items:center;justify-content:center;padding:18px;background:linear-gradient(160deg,#fff 0%,var(--pk) 100%);overflow:auto}
