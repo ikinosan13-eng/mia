@@ -8,16 +8,44 @@
 @keyframes tbPaw{0%{opacity:0;transform:scale(.85) rotate(-8deg)}35%{opacity:.75;transform:none}70%{opacity:.75}100%{opacity:0;transform:none}}
 /* закрытые плитки: чёрный градиент, без блюра */
 .mgrid a.lk:before{display:block!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:linear-gradient(180deg,rgba(0,0,0,0) 35%,rgba(0,0,0,.72))!important}
+.mgrid a.tw{background-image:none!important;background-color:#fde3ee!important;overflow:hidden}
+.mgrid .tsh{position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.7) 50%,transparent 70%);transform:translateX(-100%);opacity:0}
+.mgrid a.tw .tsh{opacity:1;animation:tbSh 1.3s linear infinite}
+.mgrid a.tw{opacity:1!important;transform:none!important;animation:none!important}
+.mgrid a.tw>:not(.tsh){opacity:0}
+@keyframes tbSh{to{transform:translateX(100%)}}
 /* уровни */
-.levels .lv{opacity:0;transform:translateY(20px) scale(.98)}
-.levels.tgo .lv{animation:tbIn .85s var(--lb,0ms) cubic-bezier(.22,1,.36,1) both}
+.levels{perspective:900px}
+.levels .lv{position:relative;opacity:0}
+.levels.tgo .lv{animation:lvDeal 1s var(--lb,0ms) cubic-bezier(.22,1,.36,1) both}
+@keyframes lvDeal{0%{opacity:0;transform:translateY(60px) rotateX(28deg) rotateZ(var(--rz)) scale(.9)}60%{opacity:1;transform:translateY(-4px) rotateX(-4deg) rotateZ(calc(var(--rz) * -.3))}100%{opacity:1;transform:none}}
 .levels .lc{display:inline-block;white-space:pre;opacity:0;transform-origin:50% 100%}
 .levels.tgo .lc{animation:lvCh .6s calc(var(--d,0ms) + var(--i) * 34ms) cubic-bezier(.3,1.6,.5,1) both}
+.levels.tgo .lc.hop{animation:lvCh .6s calc(var(--d,0ms) + var(--i) * 34ms) cubic-bezier(.3,1.6,.5,1) both,lvHop .9s calc(var(--d,0ms) + var(--i) * 34ms + 700ms) ease-in-out 2}
 @keyframes lvCh{0%{opacity:0;transform:translateY(10px) scale(1.25,.55)}55%{opacity:1;transform:translateY(-3px) scale(.88,1.14)}78%{transform:translateY(0) scale(1.05,.95)}100%{opacity:1;transform:none}}
-.levels .pk{display:block;opacity:0;transform:translateX(-14px)}
+@keyframes lvHop{0%,100%{transform:none}25%{transform:translateY(0) scale(1.15,.85)}50%{transform:translateY(-9px) scale(.92,1.1)}75%{transform:translateY(0) scale(1.08,.92)}}
+.levels .num{display:inline-block;opacity:0;font-variant-numeric:tabular-nums}
+.levels.tgo .num{animation:lvPk .4s var(--d,0ms) ease-out both}
+.levels .pk{display:flex;gap:6px;align-items:flex-start;opacity:0;transform:translateX(-14px)}
+.levels .pb{flex:none;width:15px;height:15px;margin-top:2px;color:#e0609a;opacity:0}
 .levels.tgo .pk{animation:lvPk .6s var(--pd,0ms) cubic-bezier(.22,1,.36,1) both}
+.levels.tgo .pb{animation:lvSt .55s calc(var(--pd,0ms) + 120ms) cubic-bezier(.3,1.6,.5,1) both}
 @keyframes lvPk{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
+@keyframes lvSt{0%{opacity:0;transform:scale(2) rotate(-25deg)}60%{opacity:1;transform:scale(.85) rotate(6deg)}100%{opacity:1;transform:none}}
 .levels .lv>.ob,.levels .lv>.gb{opacity:0}
 .levels.tgo .lv>.ob,.levels.tgo .lv>.gb{animation:ceBtn .7s var(--bd,1500ms) cubic-bezier(.3,1.5,.5,1) both,ceTail 2.6s calc(var(--bd,1500ms) + 800ms) ease-in-out 1}
-.levels.tq .lv,.levels.tq .lc,.levels.tq .pk,.levels.tq .lv>.ob,.levels.tq .lv>.gb{animation:none!important;opacity:1;transform:none}
-@media (prefers-reduced-motion:reduce){.mgrid a.tt,.levels .lv,.levels .lc,.levels .pk,.levels .lv>.ob,.levels .lv>.gb{animation:none!important;opacity:1!important;transform:none!important}.mgrid .tpw{display:none}}
+.levels .brst{position:relative;display:block;height:0;pointer-events:none}
+.levels .brst i{position:absolute;left:50%;top:-22px;font-style:normal;font-size:15px;opacity:0}
+.levels.tgo .brst i{animation:lvB 1s calc(var(--bd,1500ms) + 450ms) ease-out both}
+@keyframes lvB{0%{opacity:0;transform:translate(-50%,0) rotate(var(--a)) translateY(0) scale(.4)}25%{opacity:1}100%{opacity:0;transform:translate(-50%,0) rotate(var(--a)) translateY(-46px) scale(1)}}
+.levels .lcat{position:absolute;left:50%;top:-31px;width:84px;margin-left:-42px;opacity:0;transform:translateY(22px);pointer-events:none}
+.levels .ltop{margin-top:22px;overflow:visible}
+.levels.tgo .lcat{animation:lvPeek .9s calc(var(--lb,0ms) + 900ms) cubic-bezier(.22,1,.36,1) both}
+.levels .lcat .e1{transform-origin:34px 26px}.levels .lcat .e2{transform-origin:86px 26px}
+.levels.tgo .lcat .e1,.levels.tgo .lcat .e2{animation:lvEar 1.6s calc(var(--lb,0ms) + 1700ms) ease-in-out 3}
+.levels.tgo .lcat .eyes{transform-origin:60px 37px;animation:lvBl 3.2s calc(var(--lb,0ms) + 2000ms) 2}
+@keyframes lvPeek{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+@keyframes lvEar{0%,100%{transform:none}15%{transform:rotate(-12deg)}30%{transform:rotate(6deg)}45%{transform:none}}
+@keyframes lvBl{0%,46%,54%,100%{transform:none}50%{transform:scaleY(.1)}}
+.levels.tq .lv,.levels.tq .lc,.levels.tq .pk,.levels.tq .pb,.levels.tq .num,.levels.tq .lcat,.levels.tq .lv>.ob,.levels.tq .lv>.gb{animation:none!important;opacity:1;transform:none}.levels.tq .brst{display:none}
+@media (prefers-reduced-motion:reduce){.mgrid a.tt,.levels .lv,.levels .lc,.levels .pk,.levels .pb,.levels .num,.levels .lcat,.levels .lv>.ob,.levels .lv>.gb{animation:none!important;opacity:1!important;transform:none!important}.mgrid .tpw,.mgrid .tsh,.levels .brst{display:none}}
