@@ -1,7 +1,7 @@
 // v49 mockup: котик-компаньон (спрайты) сидит на заголовке пака и прыгает между паками
 (()=>{if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;const H=document.documentElement;
 const K=(innerWidth>700?70:60)/180; // сидит ~60px на телефоне, ~70px на десктопе
-const CL={lick:{src:'cat/cat-down.webp',n:40,w:155,h:338,fps:5,loop:[32,33,34,35,36,37,38,39,38,37,36,35,34,33]},down:{src:'cat/cat-down.webp',n:40,w:155,h:338},up:{src:'cat/cat-up.webp',n:35,w:210,h:276}};
+const CL={lick:{src:'cat/cat-lick.webp',n:60,w:188,h:180,fps:10,loop:[...Array(60).keys()]},down:{src:'cat/cat-down.webp',n:40,w:197,h:300,r:[10,36]},up:{src:'cat/cat-up.webp',n:40,w:189,h:224,r:[14,32]}};
 const el=document.createElement('div');el.id='mcat';el.innerHTML='<div class="mw"><div class="ms"></div></div>';const sp=el.querySelector('.ms'),mw=el.querySelector('.mw');
 let ready=false,clip=null,frame=-1,pos=null,curP=null,busy=false,want=null,stable=0,raf=0,t0=0,flip=1,app=null;
 const setClip=c=>{if(clip===c)return;clip=c;const C=CL[c],k=K;const w=C.w*k,h=C.h*k;
@@ -22,7 +22,7 @@ async function hop(to){busy=true;const a=pos,b=spot(to);if(!b){busy=false;return
   await tween(200,k=>{mw.style.transform=`scaleX(${flip*(1+.12*k)}) scaleY(${1-.16*k})`});
   setClip(down?'down':'up');const C=CL[clip];const top=Math.min(a.y,b.y)-(down?70:110),D=Math.min(950,700+Math.abs(b.y-a.y)*.15);
   await tween(D,k=>{const e=ease(k),bb=spot(to)||b,x=a.x+(bb.x-a.x)*e,cy=2*top-(a.y+bb.y)/2,y=(1-e)*(1-e)*a.y+2*(1-e)*e*cy+e*e*bb.y;put(x,y);pos={x,y};
-    setFrame(Math.min(C.n-1,Math.floor((down?k:(.25+k*.75))*C.n)));const sq=k<.15?1+.1*(1-k/.15):1;mw.style.transform=`scaleX(${flip/sq}) scaleY(${sq})`});
+    {let f=Math.min(C.r[1],C.r[0]+Math.floor(k*(C.r[1]-C.r[0]+1)));if(clip=="up"&&f==20)f=21;setFrame(f)};const sq=k<.15?1+.1*(1-k/.15):1;mw.style.transform=`scaleX(${flip/sq}) scaleY(${sq})`});
   setClip('lick');setFrame(CL.lick.loop[0]);pos=spot(to)||b;put(pos.x,pos.y);curP=to;
   const cv=to.querySelector('.cov');cv&&cv.animate([{transform:'none'},{transform:'translateY(3px)'},{transform:'none'}],{duration:380,easing:'ease-out'});
   await tween(320,k=>{const s=Math.sin(k*Math.PI)*(1-k*.4);mw.style.transform=`scaleX(${flip*(1+.18*s)}) scaleY(${1-.2*s})`});mw.style.transform=`scaleX(${flip})`;t0=performance.now();busy=false};
