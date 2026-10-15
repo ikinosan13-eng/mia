@@ -1,8 +1,8 @@
 .tl .ch{display:inline-block;opacity:0;transform-origin:50% 100%;white-space:pre}
-.tin .tl .ch{animation:tlIn .55s calc(var(--d,0ms) + var(--i) * 38ms) cubic-bezier(.3,1.6,.5,1) both}
+.tin .tl .ch{animation:tlIn .55s calc(var(--b,0ms) + var(--d,0ms) + var(--i) * 34ms) cubic-bezier(.3,1.6,.5,1) both}
 @keyframes tlIn{0%{opacity:0;transform:translateY(8px) scale(.6)}60%{opacity:1;transform:translateY(-2px) scale(1.08,.92)}100%{opacity:1;transform:none}}
 .tpaw{display:inline-block;width:14px;height:14px;margin-left:5px;vertical-align:-1px;opacity:0;color:#e0609a}
-.tin .tpaw{animation:tlPaw .9s var(--pd,800ms) ease-out both}
+.tin .tpaw{animation:tlPaw .9s calc(var(--b,0ms) + var(--pd,800ms)) ease-out both}
 @keyframes tlPaw{0%{opacity:0;transform:translate(-6px,4px) rotate(-20deg) scale(.5)}50%{opacity:1;transform:translate(0,-2px) rotate(8deg) scale(1.1)}100%{opacity:1;transform:none}}
 
 @keyframes tlBtn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
