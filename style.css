@@ -433,3 +433,32 @@ body.dark .hero .prof>.mu.small{color:#d9b8cc}
 @media (max-width:440px){.tabs.mt{gap:5px;padding:10px 8px}.tabs.mt a{flex:1 1 auto;text-align:center;font-size:12px;padding:7px 6px;letter-spacing:-.01em}}
 @media (max-width:340px){.tabs.mt a{font-size:11px;padding:6px 4px}}
 .post .cov h3{font-family:Nunito,sans-serif;font-weight:900;font-size:19px;letter-spacing:.01em;text-shadow:0 2px 12px rgba(120,20,80,.5)}
+
+/* m49: подпись в форме входа */
+.gcap{text-align:center;font-family:Pacifico,cursive;font-size:19px;color:#e0609a;margin:-6px 0 12px;animation:gIn .7s 1.12s ease-out both}
+.gcap svg{width:17px;height:17px;vertical-align:-2px;margin-left:3px;color:#e0609a;animation:gcapP 1.2s 1.7s ease-out both}
+@keyframes gcapP{0%{opacity:0;transform:scale(.4) rotate(-25deg)}60%{opacity:1;transform:scale(1.15) rotate(6deg)}100%{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.gcap,.gcap svg{animation:none}}
+/* m49: кино-режим — плавный выезд ленты после загрузки */
+.vstrip div{transition:opacity 1.05s cubic-bezier(.22,1,.36,1),transform 1.05s cubic-bezier(.22,1,.36,1),box-shadow .3s,filter .3s}
+.vstrip.on:not(.rdy) div{opacity:0!important;transform:translateY(22px)!important;transition:none!important}
+@media (prefers-reduced-motion:reduce){.vstrip div{transition:none!important}}
+.lvadm{display:flex;justify-content:flex-end;padding:10px 14px 0}.lvadm .gb{display:inline-flex;align-items:center;gap:6px}
+/* m49 макет: подарок новичку */
+.fpk-b{display:flex;align-items:center;gap:12px;margin:10px 14px 4px;padding:12px 14px;border:1.5px dashed #f3a6c1;border-radius:16px;background:var(--bg);animation:fpkIn .9s .3s cubic-bezier(.22,1,.36,1) both}
+.fpk-bi{color:#e0609a;flex:none;animation:fpkHop 2.6s 1.4s ease-in-out 2}.fpk-bt{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}.fpk-bt b{font-family:Nunito,sans-serif;font-weight:900}
+.fpk-go{white-space:nowrap;display:inline-flex;align-items:center;gap:5px}.fpk-go svg,.fpk-ok svg{color:currentColor}
+@keyframes fpkIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes fpkHop{0%,100%{transform:none}20%{transform:translateY(-5px) rotate(-6deg)}40%{transform:none}55%{transform:translateY(-2px) rotate(4deg)}70%{transform:none}}
+.fpk-ov{position:fixed;inset:0;z-index:60;background:rgba(20,10,20,.45);display:flex;align-items:flex-end;justify-content:center;opacity:0;transition:opacity .45s ease}
+.fpk-ov.on{opacity:1}.fpk-sh{position:relative;width:min(560px,100%);max-height:86vh;overflow:auto;background:var(--bg);border-radius:22px 22px 0 0;padding:20px 16px 22px;transform:translateY(40px);transition:transform .7s cubic-bezier(.22,1,.36,1)}
+.fpk-ov.on .fpk-sh{transform:none}@media(min-width:700px){.fpk-ov{align-items:center}.fpk-sh{border-radius:22px}}
+.fpk-x{position:absolute;right:12px;top:12px;background:none;border:0;color:inherit;opacity:.6;cursor:pointer}
+.fpk-h{display:flex;align-items:center;gap:8px;font-family:Pacifico,cursive;font-weight:400;color:#e0609a;margin:0 0 4px}
+.fpk-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0}
+.fpk-it{min-width:0;background:none;border:2px solid transparent;border-radius:14px;padding:0;color:inherit;text-align:left;cursor:pointer;opacity:0;animation:fpkIn .8s calc(.25s + var(--k) * 80ms) cubic-bezier(.22,1,.36,1) both;transition:border-color .3s}
+.fpk-it i{display:block;aspect-ratio:3/4;border-radius:12px;background:#eee center/cover}.fpk-it span{display:block;font-size:12px;padding:4px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fpk-it.on{border-color:#e0609a}.fpk-ok{display:flex;align-items:center;justify-content:center;gap:6px}.fpk-ok[disabled]{opacity:.45}.fpk-note{text-align:center;margin-top:8px}
+.fpk-busted{text-align:center;padding:14px 4px 6px}.fpk-busted h3{font-family:Pacifico,cursive;font-weight:400;color:#8a4fd6;margin:8px 0}
+.fpk-eye{font-size:46px;animation:fpkEye 1.8s .3s ease-in-out both}@keyframes fpkEye{0%{opacity:0;transform:scale(.6)}30%{opacity:1;transform:scale(1.1)}45%{transform:none}60%,80%{transform:translateX(-4px)}70%,90%{transform:translateX(4px)}100%{transform:none}}
+@media (prefers-reduced-motion:reduce){.fpk-b,.fpk-bi,.fpk-it,.fpk-eye{animation:none!important;opacity:1}.fpk-sh,.fpk-ov{transition:none}}

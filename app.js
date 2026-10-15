@@ -57,17 +57,17 @@ const cntText = (p, n) => { const v = S.pv?.[p.id]; if (!v || !v.video_count) re
 const IV = `<i class="ic v"></i>`, IA = `<i class="ic a"></i>`;
 const cntHtml = (p, n) => { const v = S.pv?.[p.id]; if (!v || !v.video_count) return esc(n); if (v.kind == "video") return IV + (v.video_count > 1 ? v.video_count : dur(v.duration_sec)); const a = (p.image_count || 0) - v.video_count; return a > 0 ? `${IV}${v.video_count} · ${IA}${a}` : IV + v.video_count; };
 const vPlay = `<span class="ib vplay">▶</span>`;
-function fromCache(c) { setVid(c.pv, c.mv); Object.assign(S, { tiers: c.tiers, posts: c.posts, media: c.media, profile: c.st.profile || {}, viewer: c.st.viewer || {}, free: c.free || S.free || [], imgv: c.imgv || S.imgv || {} }); TX = c.st.texts || {}; }
+function fromCache(c) { setVid(c.pv, c.mv); Object.assign(S, { tiers: c.tiers, posts: c.posts, media: c.media, profile: c.st.profile || {}, viewer: c.st.viewer || {}, lv: c.st.levels || {}, free: c.free || S.free || [], imgv: c.imgv || S.imgv || {} }); TX = c.st.texts || {}; }
 async function load(o = {}) {
   try {
-    const [tiers, posts, media, settings, free] = await Promise.all([api("tiers_public?order=rank"), api("feed_public?order=publish_at.desc"), api("media_public?order=publish_at.desc,position"), api("settings?key=in.(profile,texts,viewer,imgv)"), api("free_images_public?select=post_id,position&order=position").catch(() => [])]);
+    const [tiers, posts, media, settings, free] = await Promise.all([api("tiers_public?order=rank"), api("feed_public?order=publish_at.desc"), api("media_public?order=publish_at.desc,position"), api("settings?key=in.(profile,texts,viewer,imgv,levels)"), api("free_images_public?select=post_id,position&order=position").catch(() => [])]);
     S.free = free || [];
     // видео (после sql/video.sql); до миграции view нет → пустые списки, сайт работает как раньше
     const [pv, mv, subs] = await Promise.all([api("post_video_public?select=post_id,kind,video_count,duration_sec,teaser_path,feed_video_path").catch(() => api("post_video_public?select=post_id,kind,video_count,duration_sec")).catch(() => []), api("media_video_public?select=id,post_id,position,duration_sec,poster_path").catch(() => []), api("rpc/subscriber_count").catch(() => null)]);
     S.subs = typeof subs == "number" ? subs : null; // только число, без личных данных; до SQL функции нет → не показываем
     setVid(pv, mv);
     const st = Object.fromEntries(settings.map(x => [x.key, x.value]));
-    Object.assign(S, { tiers, posts, media, profile: st.profile || {}, viewer: st.viewer || {}, imgv: st.imgv?.paths || {}, offline: false }); TX = st.texts || {};
+    Object.assign(S, { tiers, posts, media, profile: st.profile || {}, viewer: st.viewer || {}, imgv: st.imgv?.paths || {}, lv: st.levels || {}, offline: false }); TX = st.texts || {};
     try { localStorage.miaCache = JSON.stringify({ tiers, posts, media, st, free: S.free, imgv: S.imgv, pv: S.pvList, mv: S.mvList, at: Date.now() }); } catch {}
   } catch (e) {
     const c = JSON.parse(localStorage.miaCache || "null"); S.offline = true;
@@ -178,7 +178,7 @@ function card(p, k = 9) {
   ${p.body && !locked ? `<div class="body">${esc(p.body.length > 300 ? p.body.slice(0, 300) + "…" : p.body)}</div>` : ""}${ACT(p)}</div>`;
 }
 function levelsHtml() {
-  return `<div class="levels">${S.tiers.map(t => `<div class="lv"><b>${esc(t.name)}</b><div class="pr">${t.price_rub ? `${t.price_rub} ₽ <small class="mu">/ мес</small>` : "Бесплатно"}</div><div class="perks">${(t.perks || []).map(x => "✔ " + esc(x)).join("<br>")}</div>
+  return (S.user?.admin ? `<div class="lvadm"><button class="gb sm" id="lvMon" type="button"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg> «/ мес»: ${S.lv?.show_month ? "показано" : "скрыто"}, мур</button></div>` : "") + `<div class="levels">${S.tiers.map(t => `<div class="lv"><b>${esc(t.name)}</b><div class="pr">${t.price_rub ? `${t.price_rub} ₽${S.lv?.show_month ? ` <small class="mu">/ мес</small>` : ""}` : "Бесплатно"}</div><div class="perks">${(t.perks || []).map(x => "✔ " + esc(x)).join("<br>")}</div>
   ${t.rank == 0 ? `<span class="gb full">${S.rank == 0 ? "Вы здесь" : "Входит"}</span>` : S.rank >= t.rank ? `<span class="gb full">✓ Открыто</span>` : `<button class="ob full" data-subt="${t.rank}">${esc(T("btn_subscribe"))}</button>`}</div>`).join("")}
   <div class="lv pick"><b>🎁 1 пак на выбор 🐾</b><div class="pr">Любая сумма <small class="mu">мур, один раз · на этот аккаунт</small></div><div class="perks">✔ Выбери любой закрытый пак — он станет твоим навсегда 💕<br>✔ Плати сколько хочешь — получишь код, мяу<br>✔ Всего 1 пак, один раз, только на этот аккаунт</div>
   ${S.pick.credit ? `<span class="gb full">🐾 У тебя есть 1 пак на выбор</span>` : S.pick.unlocked.size ? `<span class="gb full">✓ Твой пак уже выбран 💕</span>` : `<button class="ob full" data-pickcode>Хочу код, мур 🐾</button>`}</div></div>`;
@@ -251,7 +251,7 @@ function gatePass() { const H = document.documentElement; if (!H.classList.conta
     const im = $("#iaCat img"), so = $("#iaCat source"); if (so) so.srcset = so.srcset.split("?")[0] + "?r=" + Date.now(); if (im) im.src = im.src.split("?")[0] + "?r=" + Date.now();
     INTRO.st = 0; render(); }, 480); return true; }
 (() => { const g = $("#gate"); if (!g) return; $("#gate #lf").addEventListener("submit", login); $("#gate #af").addEventListener("submit", signup); g.addEventListener("pointerdown", e => { const b = e.target.closest(".gf .ob"); if (!b) return; const r = b.getBoundingClientRect(), s = document.createElementNS("http://www.w3.org/2000/svg", "svg"); s.setAttribute("class", "gstamp"); s.innerHTML = '<use href="#gpaw"/>'; s.style.left = e.clientX - r.left + "px"; s.style.top = e.clientY - r.top + "px"; b.append(s); setTimeout(() => s.remove(), 650); }); g.addEventListener("click", e => { const t = e.target.dataset.g; if (!t) return; g.classList.add("gsw"); g.classList.toggle("gate-s", t == "signup"); $$("#gate .gtabs a").forEach(a => a.classList.toggle("on", a.dataset.g == t)); }); })();
-function afterAuth() { if (gatePass()) return;
+function afterAuth() { try { localStorage.miaWasIn = "1"; } catch {} if (gatePass()) return;
   const ret = S.modal?.rank != null ? { rank: S.modal.rank, post: S.modal.post } : null;
   if (ret && S.rank < ret.rank) { S.modal = { t: "pay", ...ret }; drawModal(); render(); } else { closeModal(); render(); }
 }
@@ -502,6 +502,10 @@ async function render(o = {}) {
   $$("[data-like]").forEach(b => b.onclick = e => { e.preventDefault(); toggleLike(b.dataset.like); });
   $$("[data-cm]").forEach(a => a.onclick = e => { e.preventDefault(); e.stopPropagation(); openComments(a.dataset.cm); });
   if (v == "media") bindMedia();
+  if (v == "levels") { const b = $("#lvMon"); if (b) b.onclick = async () => { const nv = { ...(S.lv || {}), show_month: !S.lv?.show_month };
+    // МАКЕТ: запись выключена (LV_LIVE=false). Для боевого режима: таблица settings уже есть и админ может в неё писать (как texts/viewer).
+    if (window.LV_LIVE) { const { error } = await sb.from("settings").upsert({ key: "levels", value: nv }); if (error) return toast("Ошибка: " + error.message); }
+    S.lv = nv; render(); toast(nv.show_month ? "«/ мес» показано, мур" : "«/ мес» скрыто, мур"); }; }
   $$("[data-view]").forEach(a => a.onclick = e => { e.preventDefault(); openViewer(a.dataset.view, 0, false); }); tzBind(); heroVid(); introRun(v);
   $$("[data-vi]").forEach(im => im.onclick = () => openViewer(id, +im.dataset.vi, true));
   if (parts[2] == "c") setTimeout(() => $("#cmts")?.scrollIntoView({ behavior: "smooth" }), 100);
