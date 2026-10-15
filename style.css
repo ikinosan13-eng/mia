@@ -398,14 +398,21 @@ html.gout #gate{animation:gOut .5s ease-in both}@keyframes gOut{to{opacity:0;tra
 @keyframes gStamp{0%{opacity:.9;scale:.4}100%{opacity:0;scale:1.8}}
 @media (prefers-reduced-motion:reduce){.gcard,.gava,.gtabs,.gf>*,.gears,.gears path,.gtail{animation:none}.gtrail{display:none}}
 
-/* индикатор под Мией: ушки-линии качаются по очереди, под ними шагают три лапки */
-#iaCat .iaT{display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:10px}
-.iaEars{width:46px;height:20px;overflow:visible;opacity:0;animation:iaFade .6s .3s ease-out forwards}
-.iaL,.iaR{transform-box:fill-box;transform-origin:50% 100%;animation:iaWig 2.4s 1s ease-in-out infinite}.iaR{animation-delay:2.2s}
-@keyframes iaWig{0%,55%,100%{rotate:0deg}65%{rotate:-8deg}78%{rotate:5deg}88%{rotate:-2deg}}
-@keyframes iaFade{to{opacity:1}}
-.iaP{display:flex;gap:6px}
-.iaP svg{width:12px;height:12px;color:#e0609a;opacity:.15;animation:iaStep 1.8s calc(.8s + var(--j) * .3s) ease-in-out infinite}
-.iaP svg:nth-child(2){translate:0 -2px;color:#c95fb6}.iaP svg:nth-child(3){color:#b65bd6}
-@keyframes iaStep{0%,100%{opacity:.15;scale:.75}25%{opacity:1;scale:1}55%{opacity:.6;scale:.95}}
-@media (prefers-reduced-motion:reduce){.iaEars,.iaL,.iaR,.iaP svg{animation:none!important;opacity:1!important}}
+/* «мур» под Мией: Pacifico (только 3 буквы), ушки над «м», лапки-многоточие (слово по центру) */
+@font-face{font-family:MurB;src:url(fonts/Pacifico-mur.woff2) format("woff2");font-display:block;unicode-range:U+043C,U+0443,U+0440}
+#iaCat .iaT{display:flex;justify-content:center;margin-top:8px;min-height:44px;padding-bottom:4px}
+.iaW{position:relative;display:inline-flex;font:400 30px/1 MurB,cursive;letter-spacing:.02em}
+.iaW b{display:inline-block;padding:.12em .02em .32em;margin-bottom:-.32em;background:linear-gradient(180deg,#ff9ec4 0%,#e0609a 55%,#b65bd6 100%);-webkit-background-clip:text;background-clip:text;color:transparent;opacity:0;transform-origin:50% 100%;
+ animation:murIn .7s calc(.25s + var(--i) * .22s) cubic-bezier(.3,1.6,.5,1) both,murPurr 2.4s calc(1.4s + var(--i) * .18s) ease-in-out infinite}
+@keyframes murIn{0%{opacity:0;transform:translateY(10px) scale(.6,.6)}60%{opacity:1;transform:translateY(-3px) scale(1.06,.94)}100%{opacity:1;transform:none}}
+@keyframes murPurr{0%,100%{transform:none}25%{transform:translateY(-2px) scale(1.03,.97)}50%{transform:none}}
+@keyframes murFade{to{opacity:.85}}
+.iaE{position:absolute;left:9px;top:-1px;width:22px;height:9px;opacity:0;transform-origin:50% 100%;animation:murFade .6s 1s ease-out forwards,murEar 3s 1.6s ease-in-out infinite}
+.iaE:before,.iaE:after{content:"";position:absolute;bottom:0;border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:8px solid #f08cb6}
+.iaE:before{left:1px;rotate:-14deg}.iaE:after{right:1px;rotate:14deg}
+@keyframes murEar{0%,80%,100%{rotate:0deg}86%{rotate:-6deg}92%{rotate:4deg}}
+.iaP{position:absolute;left:100%;bottom:9px;margin-left:5px;display:inline-flex;gap:3px}
+.iaP svg{width:11px;height:11px;color:#e0609a;opacity:0;animation:murStep 1.8s calc(1s + var(--j) * .3s) ease-in-out infinite}
+.iaP svg:nth-child(2){translate:0 -3px}.iaP svg:nth-child(3){translate:0 -6px}
+@keyframes murStep{0%{opacity:0;scale:.5}20%{opacity:1;scale:1}65%{opacity:.85}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.iaW b,.iaP svg,.iaE{animation:none!important;opacity:1!important}}
