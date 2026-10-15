@@ -409,17 +409,32 @@ async function publish(app) {
 
 // ---------- «1 пак на выбор»: выпуск одноразовых кодов и кто какой пак открыл ----------
 async function pickTab(app) {
-  const { sb, esc, toast } = M(); const { data, error } = await sb.rpc("admin_pick_code");
+  const { sb, esc, toast } = M();
+  const [{ data, error }, { data: profRows }] = await Promise.all([sb.rpc("admin_pick_code"), sb.from("settings").select("value").eq("key", "profile")]);
+  const pickUrl = profRows?.[0]?.value?.pick_url || "";
   if (error) { app.innerHTML = shell("pick", `<h2>🎁 1 пак на выбор</h2><div class="note">Функции ещё не установлены в базе (нужна миграция supabase/migrations/20261014_universal_code.sql). ${esc(error.message)}</div>`); return; }
   const g = data || {}, d = t => t ? new Date(t).toLocaleString("ru-RU") : "";
   app.innerHTML = shell("pick", `<h2>🎁 1 пак на выбор</h2><div class="card"><b>Общий код</b><div class="mu small" style="margin-top:4px">Один код для всех 🐾 Любой аккаунт может ввести его <b>один раз</b> и получить 1 пак на выбор. Код можно сменить в любой момент — кто уже активировал, сохранит свой пак.</div>
     <div class="r" style="margin-top:10px;flex-wrap:wrap"><input type="text" id="pcode" value="${esc(g.code || "")}" placeholder="Например: MUR-MEOW-2026" maxlength="64" style="flex:1;min-width:180px;text-transform:uppercase;font-family:monospace"><button class="ob" id="psave">Сохранить код</button></div>
     <div class="mu small" style="margin-top:8px">${g.code ? `Сейчас действует: <code>${esc(g.code)}</code> · изменён ${d(g.updated_at)}` : "Код не задан — ввести пока нечего, мяу"}</div></div>
+    <div class="card"><b>Ссылка на оплату</b><div class="mu small" style="margin-top:4px">Куда ведёт кнопка «Купить код, мяу ↗» в окне «1 пак на выбор». Пустое поле — снова откроется Boosty.</div>
+    <div class="r" style="margin-top:10px;flex-wrap:wrap"><input type="url" id="purl" value="${esc(pickUrl)}" placeholder="https://" style="flex:1;min-width:180px"><button class="ob" id="purlsave">Сохранить ссылку</button></div>
+    <div class="mu small" style="margin-top:8px">${pickUrl ? `Сейчас: <a href="${esc(pickUrl)}" target="_blank" rel="noopener">${esc(pickUrl)}</a>` : "Ссылка не задана — откроется Boosty"}</div></div>
     <div class="card"><b>Активации</b><div class="r" style="margin-top:8px;gap:24px"><div><div style="font-size:28px;font-weight:700">${g.redeemed || 0}</div><div class="mu small">аккаунтов ввели код</div></div><div><div style="font-size:28px;font-weight:700">${g.used || 0}</div><div class="mu small">уже выбрали пак</div></div></div></div>`);
   app.querySelector("#psave").onclick = async e => { const v = app.querySelector("#pcode").value.trim();
     if (v && (v.length < 4 || v.length > 64)) return toast("Код: от 4 до 64 символов");
     e.target.disabled = true; const { error } = await sb.rpc("admin_set_pick_code", { p_code: v }); e.target.disabled = false; if (error) return toast("Ошибка: " + error.message);
     ev(v ? "Общий код «1 пак на выбор» изменён" : "Общий код «1 пак на выбор» выключен"); toast(v ? "Код сохранён 🐾" : "Код выключен"); await pickTab(app); };
+  app.querySelector("#purlsave").onclick = async e => { const u = app.querySelector("#purl").value.trim();
+    if (u && !/^https:\/\//i.test(u)) return toast("Ссылка должна начинаться с https://");
+    e.target.disabled = true;
+    const { data: rows, error: re } = await sb.from("settings").select("value").eq("key", "profile");
+    if (re) { e.target.disabled = false; return toast("Ошибка: " + re.message); }
+    const p = { ...(rows?.[0]?.value || {}) }; if (u) p.pick_url = u; else delete p.pick_url;
+    const { error: ue } = await sb.from("settings").upsert({ key: "profile", value: p });
+    e.target.disabled = false; if (ue) return toast("Ошибка: " + ue.message);
+    ev(u ? "Ссылка «1 пак на выбор» изменена" : "Ссылка «1 пак на выбор» сброшена на Boosty");
+    toast(u ? "Ссылка сохранена 🐾" : "Ссылка сброшена, откроется Boosty"); await M().load(); await pickTab(app); };
 }
 
 // ---------- tiers ----------
