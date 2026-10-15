@@ -73,6 +73,7 @@ async function load(o = {}) {
     const c = JSON.parse(localStorage.miaCache || "null"); S.offline = true;
     if (!c) throw e; fromCache(c);
   }
+  { const g = $(".gava"); if (g && S.profile.avatar) g.style.backgroundImage = `url('${bgSrc(S.profile.avatar, 192)}')`; }
   if (!S.offline && !o.bgUser) await loadUser();
 }
 async function loadUser() {
@@ -132,7 +133,7 @@ let tzIO = null;
 const INTRO = { st: 0 }; const RMo = matchMedia("(prefers-reduced-motion: reduce)");
 function introRun(v) {
   const H = document.documentElement; parallax();
-  if (!H.classList.contains("intro")) return;
+  if (!H.classList.contains("intro")) return; if (H.classList.contains("gate")) return;
   if (v && v != "feed") return introDone();
   if (INTRO.go) { H.style.setProperty("--el", `${-Math.round(performance.now() - INTRO.go)}ms`); introTag(); return; }
   if (INTRO.st) return; INTRO.st = performance.now();
@@ -140,10 +141,11 @@ function introRun(v) {
   const ava = ($(".hero .prof .ava")?.style.backgroundImage || "").match(/url\(["']?([^"')]+)/)?.[1];
   const dec = im => (im.complete && im.naturalWidth ? Promise.resolve() : new Promise(r => { im.addEventListener("load", r, { once: true }); im.addEventListener("error", r, { once: true }); })).then(() => im.decode?.().catch(() => {}));
   if (ava) { const a = new Image(); a.src = ava; imgs.push(a); }
-  const t = setTimeout(() => introGo(false), Math.max(0, 3500 - performance.now())); // 3,5 с от начала загрузки страницы
+  const L0 = window.__ls || 0, t = setTimeout(() => introGo(false), Math.max(0, L0 + 3500 - performance.now())); // 3,5 с от начала «мур…»
   Promise.all(imgs.map(dec)).then(() => { clearTimeout(t); introGo(true); });
 }
 function introGo(staged) {
+  const MIN = (window.__ls || 0) + 5200 - performance.now(); if (MIN > 0 && !INTRO.hold) { INTRO.hold = 1; return setTimeout(() => introGo(staged), MIN); } // Мия успевает проснуться и улыбнуться
   if (INTRO.go) return; const H = document.documentElement; INTRO.go = performance.now(); window.__iaStart = { t: Math.round(INTRO.go), staged };
   try { sessionStorage.miaIntro = 1; } catch {}
   H.classList.remove("iwait"); H.classList.add("ibye"); // «мур…» мягко гаснет, потом сцена
@@ -244,7 +246,13 @@ async function login(e) {
   const err = await signin($("#lu").value.trim(), $("#lp").value); if (err) return $("#le").textContent = err;
   toast(S.user.admin ? "Вы вошли как владелец" : `Привет, ${S.user.username}!`); afterAuth();
 }
-function afterAuth() {
+function gatePass() { const H = document.documentElement; if (!H.classList.contains("gate")) return false;
+  H.classList.add("gout"); setTimeout(() => { H.classList.remove("gate", "gout"); H.classList.add("intro", "iwait"); window.__ls = performance.now();
+    const im = $("#iaCat img"), so = $("#iaCat source"); if (so) so.srcset = so.srcset.split("?")[0] + "?r=" + Date.now(); if (im) im.src = im.src.split("?")[0] + "?r=" + Date.now();
+    INTRO.st = 0; render(); }, 480); return true; }
+window.__gatePass = gatePass; // макет: проверка перехода без настоящего входа
+(() => { const g = $("#gate"); if (!g) return; $("#gate #lf").addEventListener("submit", login); $("#gate #af").addEventListener("submit", signup); g.addEventListener("click", e => { const t = e.target.dataset.g; if (!t) return; g.classList.toggle("gate-s", t == "signup"); $$("#gate .gtabs a").forEach(a => a.classList.toggle("on", a.dataset.g == t)); }); })();
+function afterAuth() { if (gatePass()) return;
   const ret = S.modal?.rank != null ? { rank: S.modal.rank, post: S.modal.post } : null;
   if (ret && S.rank < ret.rank) { S.modal = { t: "pay", ...ret }; drawModal(); render(); } else { closeModal(); render(); }
 }

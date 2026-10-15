@@ -349,7 +349,7 @@ body.dark .fcap{background:#2a1f24;border-color:#7a3b55;color:#f3e8ea}body.dark 
 .hero video.hv.on{opacity:1}
 /* ---------- вход на главную (v38) ---------- */
 html.iwait #app,html.ibye #app{opacity:0}
-#iaCat{display:none}html.iwait #iaCat,html.ibye #iaCat{display:block;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:50}#iaCat img{display:block;width:112px;height:112px;image-rendering:pixelated}
+#iaCat{display:none}html.iwait #iaCat,html.ibye #iaCat{display:block;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:50}#iaCat{text-align:center}#iaCat img{display:block;width:118px;height:210px;margin:0 auto}#iaCat .iaT{margin-top:6px;font-weight:700;font-size:15px;color:#c0679a;letter-spacing:.02em}
 html.ibye #iaCat{animation:iaBye .45s ease-out both}
 @keyframes iaBye{from{opacity:1}to{opacity:0}}
 html.igo .bar{animation:iaFade .9s cubic-bezier(.22,.61,.36,1) both;animation-delay:var(--el,0ms)}
@@ -371,3 +371,18 @@ html.iquick #app{animation:iaFade .5s ease-out both}
 .glow:after{content:"";position:absolute;inset:-3px;border-radius:inherit;box-shadow:0 0 16px 4px var(--ac,#f26430);opacity:0;pointer-events:none;animation:iaGlow 1.6s ease-in-out 2}
 @keyframes iaGlow{0%,100%{opacity:0;scale:.97}50%{opacity:.8;scale:1.04}}
 @media (prefers-reduced-motion:reduce){html.iwait #app,html.ibye #app{opacity:1!important}#iaCat{display:none!important}.post.rv{opacity:1;translate:none;transition:none}.glow:after{animation:none}}
+
+/* вход-ворота: гость без аккаунта видит только их */
+#gate{display:none}html.gate #gate{pointer-events:auto;display:flex;position:fixed;inset:0;z-index:60;align-items:center;justify-content:center;padding:18px;background:linear-gradient(160deg,#fff 0%,var(--pk) 100%);overflow:auto}
+html.gate #app,html.gate #iaCat{display:none!important}
+html.gout #gate{animation:gOut .5s ease-in both}@keyframes gOut{to{opacity:0;transform:scale(1.03)}}
+.gcard{position:relative;width:100%;max-width:400px;background:var(--bg);border-radius:24px;padding:26px 22px 22px;box-shadow:0 18px 50px rgba(194,24,91,.14);animation:gIn .7s cubic-bezier(.2,.8,.2,1) both}
+@keyframes gIn{from{opacity:0;transform:translateY(24px) scale(.97)}}
+.gava{width:84px;height:84px;border-radius:50%;background-color:var(--pk);margin:-62px auto 10px;background:var(--pk) center/cover;border:4px solid var(--bg);box-shadow:0 6px 18px rgba(194,24,91,.2);animation:gIn .7s .12s both}
+.gh{text-align:center;font-size:24px;animation:gIn .7s .2s both}.gsub{text-align:center;color:var(--mu);margin:6px 0 16px;animation:gIn .7s .28s both}
+.gtabs{display:flex;background:var(--card);border-radius:14px;padding:4px;margin-bottom:6px;animation:gIn .7s .36s both}.gtabs a{flex:1;text-align:center;padding:10px 4px;border-radius:11px;font-weight:700;color:var(--mu);transition:background .25s,color .25s}.gtabs a.on{background:var(--bg);color:var(--fg);box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.gf{display:none;animation:gIn .45s both}.gate-s .gs,#gate:not(.gate-s) .gl{display:block}.gf .ob{margin-top:14px}.gfx{text-align:center;margin-top:12px}
+.gpaws i{position:absolute;bottom:-40px;font-style:normal;font-size:22px;opacity:0;animation:gPaw 9s linear infinite}
+.gpaws i:nth-child(1){left:8%}.gpaws i:nth-child(2){left:24%;animation-delay:1.5s;font-size:16px}.gpaws i:nth-child(3){left:46%;animation-delay:3s}.gpaws i:nth-child(4){left:64%;animation-delay:4.5s;font-size:18px}.gpaws i:nth-child(5){left:82%;animation-delay:6s}.gpaws i:nth-child(6){left:92%;animation-delay:7.5s;font-size:15px}
+@keyframes gPaw{10%{opacity:.35}90%{opacity:.35}to{transform:translateY(-110vh) rotate(25deg);opacity:0}}
+@media (prefers-reduced-motion:reduce){.gcard,.gava,.gh,.gsub,.gtabs,.gf{animation:none}.gpaws{display:none}}
