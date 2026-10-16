@@ -70,7 +70,7 @@ const locked = p => window.Mia.isLocked(p);
 function center(box, c, behavior) { if (!c) return; const b = box.getBoundingClientRect(), r = c.getBoundingClientRect(); box.scrollTo({ left: box.scrollLeft + r.left - b.left - (b.width - r.width) / 2, behavior: behavior || "auto" }); }
 function drawPacks() {
   const M = window.Mia, ps = el("ps");
-  ps.innerHTML = M.S.posts.map(p => `<div data-p="${p.id}" class="p${p.id == st.post.id ? " cur" : ""}${locked(p) ? " lk" : ""}" title="${M.esc(p.title)}" style="background-image:url('${M.pub(p.cover_path)}')"></div>`).join("");
+  ps.innerHTML = M.S.posts.map(p => { const u = M.pub(p.cover_path), lk = locked(p); return `<div data-p="${p.id}" class="p${p.id == st.post.id ? " cur" : ""}${lk ? " lk" : ""}" title="${M.esc(p.title)}"${lk ? "" : ` style="background-image:url('${u}')"`}>${lk ? `<i class="pg" style="background-image:url('${u}')"></i>` : ""}</div>`; }).join("");
   center(ps, ps.querySelector(".cur"));
 }
 // стрелки паков: по кругу, закрытые паки не пропускаем — показываем карточку с замком

@@ -293,7 +293,7 @@ html.v-open #modal{z-index:95}
 .viewer.lkd .vstage:before,.viewer.lkd .vstage:after{display:none}
 /* исключение: полоса артов закрытого пака под названием — размыто, только замок */
 .vstrip .tzt{position:relative;overflow:hidden;background:#2a2a30;cursor:pointer;filter:none!important}
-.vstrip .tzt i{position:absolute;inset:-8px;background:center/cover;filter:blur(8px) saturate(.85)}
+.vstrip .tzt i{position:absolute;inset:-8px;background:center/cover;filter:blur(9px) saturate(.92)}
 .vstrip .tzt:after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:999px;background:rgba(20,20,24,.45) var(--lock-svg) center/12px no-repeat;border:1px solid rgba(255,255,255,.18);box-sizing:border-box;z-index:2}
 /* «Медиа»: закрытые плитки снова размыты (значок замка остаётся сверху) */
 .mgrid a.lk:before{display:block;background:none;box-shadow:none;backdrop-filter:blur(12px) saturate(.9);-webkit-backdrop-filter:blur(12px) saturate(.9)}
@@ -327,6 +327,10 @@ body.dark .fcap{background:#2a1f24;border-color:#7a3b55;color:#f3e8ea}body.dark 
 .viewer.frm .vfc{width:min(340px,calc(100% - 40px))}.viewer.frm .vfc .fcap{padding:8px 10px}.viewer.frm .vfc .fcap b{font-size:14px}.viewer.frm .vfc .fcap span{font-size:12px}.viewer.frm .vfc .fcap button{margin-top:6px;padding:6px 14px;font-size:13px}
 /* v54: лёгкое стекло на закрытом паке — лента и большой кадр в просмотре. Кнопка и цена не размываются */
 .cov.lk img,.lfull img,.tzw .im{filter:blur(9px) saturate(.92);transform:scale(1.08)}
+/* v55: то же лёгкое стекло на миниатюрах паков в просмотре и на плитках «Медиа». Замок не размывается */
+.pstrip .p.lk:before{display:none!important}
+.pstrip .p.lk .pg,.mgrid a.lk .mf{position:absolute;inset:-8px;background:center/cover;filter:blur(9px) saturate(.92);transform:scale(1.08);pointer-events:none;z-index:0}
+.mgrid a.lk .cnt{z-index:2}
 
 /* видео: тот же слой арта, та же посадка; на телефоне — как арты (cover) */
 .art video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center}

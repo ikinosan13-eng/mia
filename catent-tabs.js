@@ -4,7 +4,7 @@ const busy=()=>H.classList.contains('iwait')||H.classList.contains('ibye');let p
 const split=(el,d,keep)=>{if(!el)return 0;let n=0;[...el.childNodes].forEach(t=>{if(t.nodeType!=3||!t.textContent.trim())return;const f=document.createDocumentFragment();[...t.textContent].forEach(c=>{const s=document.createElement('span');s.className='lc';s.style.setProperty('--i',n++);s.textContent=c;f.append(s)});t.replaceWith(f)});el.style.setProperty('--d',d+'ms');return n};
 const PAW='<i class="tpw"></i>';
 let io;const ready=new Set();
-const url=a=>{const m=/url\(["']?(.*?)["']?\)/.exec(a.style.backgroundImage||getComputedStyle(a).backgroundImage);return m&&m[1]};
+const url=a=>{const el=a.querySelector('.mf')||a;const m=/url\(["']?(.*?)["']?\)/.exec(el.style.backgroundImage||getComputedStyle(el).backgroundImage);return m&&m[1]};
 const load=a=>{if(a._p)return a._p;const u=url(a);a._p=new Promise(r=>{if(!u)return r();const im=new Image();im.decoding='async';im.onload=()=>(im.decode?im.decode().catch(()=>{}):Promise.resolve()).then(r);im.onerror=r;im.src=u;setTimeout(r,2500)});return a._p};
 const grid=g=>{const tiles=[...g.children];if(played.m){tiles.forEach(a=>a.classList.add('tn','tq'));return}played.m=1;
   tiles.forEach(a=>{a.classList.add('tt','tw');a.insertAdjacentHTML('beforeend',PAW)});
