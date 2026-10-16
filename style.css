@@ -325,6 +325,8 @@ body.dark .fcap{background:#2a1f24;border-color:#7a3b55;color:#f3e8ea}body.dark 
 .pstrip .p.lk:before{display:block}
 .fcap{gap:2px;padding:10px 12px}.fcap b{font-size:15px}.fcap span{font-size:13px}.fcap button{margin:8px auto 0;padding:8px 18px;font-size:14px}
 .viewer.frm .vfc{width:min(340px,calc(100% - 40px))}.viewer.frm .vfc .fcap{padding:8px 10px}.viewer.frm .vfc .fcap b{font-size:14px}.viewer.frm .vfc .fcap span{font-size:12px}.viewer.frm .vfc .fcap button{margin-top:6px;padding:6px 14px;font-size:13px}
+/* v54: лёгкое стекло на закрытом паке — лента и большой кадр в просмотре. Кнопка и цена не размываются */
+.cov.lk img,.lfull img,.tzw .im{filter:blur(9px) saturate(.92);transform:scale(1.08)}
 
 /* видео: тот же слой арта, та же посадка; на телефоне — как арты (cover) */
 .art video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center}
