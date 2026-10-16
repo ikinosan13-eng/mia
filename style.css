@@ -327,6 +327,20 @@ body.dark .fcap{background:#2a1f24;border-color:#7a3b55;color:#f3e8ea}body.dark 
 .viewer.frm .vfc{width:min(340px,calc(100% - 40px))}.viewer.frm .vfc .fcap{padding:8px 10px}.viewer.frm .vfc .fcap b{font-size:14px}.viewer.frm .vfc .fcap span{font-size:12px}.viewer.frm .vfc .fcap button{margin-top:6px;padding:6px 14px;font-size:13px}
 /* v54: лёгкое стекло на закрытом паке — лента и большой кадр в просмотре. Кнопка и цена не размываются */
 .cov.lk img,.lfull img,.tzw .im{filter:blur(9px) saturate(.92);transform:scale(1.08)}
+/* v58: после последнего бесплатного арта — колонки остальных, название пака, фиолетовая кнопка */
+.viewer.frm .art{transition:opacity .45s ease,transform .45s ease}
+.viewer.tail .art.show{opacity:0;transform:translateX(-8%);transition:opacity .4s ease,transform .45s ease}
+.viewer.tail .vfc{opacity:0;pointer-events:none}
+.viewer.tail .vlc{display:flex;z-index:6;align-items:center;justify-content:center;padding:58px 14px calc(var(--ps) + 150px);pointer-events:none}
+.viewer.tail .vnav{z-index:7}
+.vtail{pointer-events:auto;width:min(100%,420px);max-height:100%;display:flex;flex-direction:column;align-items:center;gap:12px}
+.vtail h2{margin:0;max-width:100%;color:#fff;font-family:Nunito,sans-serif;font-weight:800;font-size:26px;line-height:1.15;text-align:center;text-shadow:0 2px 10px #000;background:rgba(20,20,24,.72);border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:8px 16px}
+.vtg{width:100%;min-height:0;overflow:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.vtc{position:relative;aspect-ratio:1;border-radius:14px;overflow:hidden;background:#2a2a30;animation:vtCol .55s cubic-bezier(.22,1,.36,1) both;animation-delay:calc(var(--c) * 90ms)}
+.vtc i{position:absolute;inset:-8px;background:center/cover;filter:blur(9px) saturate(.92);transform:scale(1.08)}
+.vtc:after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:28px;height:28px;border-radius:999px;background:rgba(20,20,24,.45) var(--lock-svg) center/14px no-repeat;border:1px solid rgba(255,255,255,.18)}
+.vtail .ob{flex:none;border:0;color:#fff;font-weight:800;background:linear-gradient(135deg,#ff9ec4,#c46fd8);box-shadow:0 6px 18px rgba(196,111,216,.45);padding:12px 22px;border-radius:999px}
+@keyframes vtCol{from{opacity:0;transform:translateY(36px)}to{opacity:1;transform:none}}
 /* v55: то же лёгкое стекло на миниатюрах паков в просмотре и на плитках «Медиа». Замок не размывается */
 .pstrip .p.lk:before{display:none!important}
 .pstrip .p.lk .pg,.mgrid a.lk .mf{position:absolute;inset:-8px;background:center/cover;filter:blur(9px) saturate(.92);transform:scale(1.08);pointer-events:none;z-index:0}
