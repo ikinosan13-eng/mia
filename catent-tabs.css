@@ -69,5 +69,5 @@ html.igo .post.ia .cov:before,.post.rv.in .cov:before{animation:tbPaw 1.3s calc(
 .levels .lw{display:inline-block;white-space:nowrap}
 
 /* v51: закрытые арты в «Медиа» не загружаются и не показываются — только заглушка */
-.mgrid a.lk.lkph{background:linear-gradient(135deg,#f6dbe8,#e9dcf5)!important;background-image:linear-gradient(135deg,#f6dbe8,#e9dcf5)!important}
-.mgrid a.lk.lkph:before{background:none!important}
+.mgrid a.lk.lkph{background:#f6dbe8!important}
+.mgrid a.lk.lkph:before{display:none!important;background:none!important}
