@@ -19,7 +19,7 @@ function build() {
   el("x").onclick = close; el("skip").onclick = finish; // боковые зоны больше не листают: тап открывает нижнюю плашку с артами (как тап внизу)
   // кнопка ‹ › — листает (без перескока через край); остальная боковая зона — открывает плашку
   // ‹ › — листают по кругу (как свайп и стрелки клавиатуры); остальная боковая зона — открывает плашку
-  const side = d => e => { e.stopPropagation(); if (e.target.closest("span") && !V.classList.contains("lkd")) { step(d); hideBar(); wake(); } else togBar(); };
+  const side = d => e => { e.stopPropagation(); if (!V.classList.contains("lkd")) { step(d); hideBar(); wake(); } else togBar(); };
   el("nx").onclick = side(1); el("pv").onclick = side(-1);
   el("fs").onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.().catch(() => {});
   el("mu").onclick = () => toggleMute();
@@ -34,7 +34,7 @@ function build() {
     if (e.key == "ArrowRight" || e.key == "ArrowLeft") { const d = e.key == "ArrowRight" ? 1 : -1; e.shiftKey ? pack(d) : step(d); wake(); }
     if (e.key == "Escape") close(); });
   // арт: свайп листает; нижнюю плашку не трогает
-  let sx = null; el("stage").addEventListener("pointerdown", e => sx = e.clientX);
+  let sx = null; el("stage").addEventListener("pointerdown", e => { sx = e.clientX; try { el("stage").setPointerCapture(e.pointerId); } catch {} });
   el("stage").addEventListener("pointerup", e => { if (sx === null) return; const d = e.clientX - sx; sx = null; if (Math.abs(d) > 40) step(d < 0 ? 1 : -1);
     // тап по центру арта (не боковые зоны/кнопки, не панель закрытого пака) закрывает открытую нижнюю плашку
     else if (Math.abs(d) < 10 && !e.target.closest(".vnav,.lfull,button")) togBar();
@@ -153,7 +153,7 @@ function freeShow(p, k = 0) {
     if (!list.length) return lockCard(p);
     st.imgs = list.map(x => x.url);
     list.forEach((x, m) => { const d = document.createElement("div"); d.className = "fr"; thumbBg(d, x.url, p, m, x.position); d.onclick = () => { show(m); hideBar(); }; el("strip").append(d); });
-    const lk = document.createElement("div"); lk.className = "tzt"; lk.innerHTML = `<i style="background-image:url('${M.pub(p.cover_path)}')"></i>`; lk.onclick = e => { e.stopPropagation(); lockCard(p); }; el("strip").append(lk);
+    const lk = document.createElement("div"); lk.className = "tzt"; lk.innerHTML = `<i style="background-image:url('${M.pub(p.cover_path)}')"></i>`; lk.onclick = e => { e.stopPropagation(); showTail(); }; el("strip").append(lk);
     el("strip").classList.add("on"); show(Math.min(k, list.length - 1));
   }).catch(() => { if (st.post !== p) return; el("load").textContent = "Мяу, бесплатные арты не загрузились 🐾 Попробуй ещё раз"; el("load").classList.add("on", "err"); });
   wake();
@@ -210,15 +210,18 @@ function vidUi(v) {
   const upd = () => { if (curVid() !== v) return; const d = v.duration || 0; el("vb").firstChild.style.width = d ? (v.currentTime / d * 100) + "%" : "0"; el("vt").textContent = `${fmtT(v.currentTime)} / ${fmtT(d)}`; el("vp").textContent = v.paused ? "▶" : "❚❚"; };
   ["timeupdate", "play", "pause", "durationchange"].forEach(t => v.addEventListener(t, upd)); el("vm").textContent = vMuted ? "🔇" : "🔊"; upd();
 }
-function hideTail() { st.tail = 0; V.classList.remove("tail"); el("lc").innerHTML = ""; [...el("strip").children].forEach((d, m) => d.classList.toggle("cur", m == st.i)); }
+function hideTail() { st.tail = 0; V.classList.remove("tail"); V.querySelector(":scope > .vtail")?.remove(); [...el("strip").children].forEach((d, m) => d.classList.toggle("cur", m == st.i)); }
 function showTail() {
   const p = st.post, M = window.Mia; if (!p || !V.classList.contains("frm")) return;
-  st.tail = 1; loadTok++; curVid()?.pause(); vidUi(null);
+  st.tail = 1; loadTok++; try { curVid()?.pause(); vidUi(null); } catch {}
+  V.classList.add("tail");
   const free = new Set(M.freeOf(p.id));
   const paid = packPv(p).filter(m => m.preview_path && !free.has(m.position));
-  el("lc").innerHTML = `<div class="vtail"><h2>${M.esc(p.title)}</h2><div class="vtg">${paid.map((m, i) => `<div class="vtc" style="--c:${i % 3}"><i style="background-image:url('${M.pub(m.preview_path)}')"></i></div>`).join("")}</div><button class="ob" id="v-tailbuy">Открыть полный пак 🐾</button></div>`;
-  el("tailbuy").onclick = e => { e.stopPropagation(); sub(p); };
-  V.classList.add("tail"); el("cnt").textContent = ""; el("load").classList.remove("on");
+  let box = V.querySelector(":scope > .vtail");
+  if (!box) { box = document.createElement("div"); box.className = "vtail"; V.append(box); }
+  box.innerHTML = `<h2>${M.esc(p.title)}</h2><div class="vtg">${paid.map((m, i) => `<div class="vtc" style="--c:${i % 3}"><i style="background-image:url('${M.esc(M.pub(m.preview_path))}')"></i></div>`).join("")}</div><button class="ob" type="button">Открыть полный пак 🐾</button>`;
+  box.querySelector("button").onclick = e => { e.stopPropagation(); sub(p); };
+  el("cnt").textContent = ""; el("load").classList.remove("on");
   [...el("strip").children].forEach(d => d.classList.remove("cur"));
 }
 function show(k, slow) {
@@ -279,7 +282,7 @@ function open(post, imgsP, o = {}) {
   T(finish, D * 1.4);
 }
 function close() {
-  if (!V) return; stopTeaser(); curVid()?.pause(); setTimeout(() => { if (!V.classList.contains("on") || V.classList.contains("closing")) { killVid(el("a1")); killVid(el("a2")); vidUi(null); } }, 950); timers.forEach(clearTimeout); timers = []; stopMusic(); clearTimeout(hideT); clearTimeout(barT); window.Mia.closeComments?.(true); V.classList.add("closing"); V.classList.remove("ui", "idle", "bar");
+  if (!V) return; stopTeaser(); hideTail(); curVid()?.pause(); setTimeout(() => { if (!V.classList.contains("on") || V.classList.contains("closing")) { killVid(el("a1")); killVid(el("a2")); vidUi(null); } }, 950); timers.forEach(clearTimeout); timers = []; stopMusic(); clearTimeout(hideT); clearTimeout(barT); window.Mia.closeComments?.(true); V.classList.add("closing"); V.classList.remove("ui", "idle", "bar");
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   const g = ++vGen; setTimeout(() => { if (g != vGen) return; V.className = "viewer"; V.setAttribute("aria-hidden", "true"); document.documentElement.classList.remove("v-open"); st.post = null; }, 900);
 }
