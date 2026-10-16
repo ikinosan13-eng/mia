@@ -76,7 +76,16 @@ function drawPacks() {
 // стрелки паков: по кругу, закрытые паки не пропускаем — показываем карточку с замком
 function pack(d) { const P = window.Mia.S.posts, n = P.length; if (!n) return; const k = P.findIndex(p => p.id == st.post.id); goPack(P[(k + d + n) % n]); }
 // листание артов: одна функция для ‹ ›, свайпа и клавиатуры, по кругу
-function step(d) { if (st.imgs?.length) show(st.i + d); }
+function step(d) {
+  if (!st.imgs?.length) return;
+  if (V.classList.contains("frm")) {
+    const n = st.imgs.length;
+    if (st.tail) { if (d < 0) hideTail(); return; }
+    if (d > 0 && st.i >= n - 1) return showTail();
+    if (d < 0 && st.i <= 0) return;
+  }
+  show(st.i + d);
+}
 // подписка на закрытый пак (окно с кодом внутри кинорежима)
 function sub(p) { window.Mia.subscribe(p.tier_rank, p.id, { stay: () => { if (st.post !== p || locked(p)) return; goPack(p); } }); }
 // превью закрытого пака: 1–2 размытые миниатюры с водяным знаком и замком, затем «Подписаться».
@@ -105,7 +114,7 @@ function stopTeaser() { if (!tz) return; const t = tz; tz = null; t.done = () =>
 function goPack(p) {
   if (p.id == st.post.id && !V.classList.contains("lkd")) return;
   if (locked(p)) return lockCard(p);
-  stopTeaser(); V.classList.remove("lkd", "frm"); el("fc").innerHTML = ""; el("lc").innerHTML = "";
+  stopTeaser(); V.classList.remove("lkd", "frm", "tail"); el("fc").innerHTML = ""; el("lc").innerHTML = "";
   st.post = p; st.imgs = null; st.i = 0; st.start = 0; title(p); drawBot(); drawPacks();
   el("cnt").textContent = ""; el("strip").innerHTML = ""; st.front.classList.remove("show"); st.back.classList.remove("show"); el("load").textContent = "Загрузка…";
   fill(p, window.Mia.loadImgs(p.id), () => { el("load").classList.remove("on"); show(0); el("strip").classList.add("on"); });
@@ -121,7 +130,7 @@ addEventListener("resize", () => lkSize());
 function lockCard(p) {
   const M = window.Mia, n = p.image_count || 0; st.post = p; st.imgs = null; st.i = 0; st.pending = null;
   loadTok++; killVid(st.front); killVid(st.back); vidUi(null); title(p); drawBot(); drawPacks(); el("cnt").textContent = ""; st.front.classList.remove("show"); st.back.classList.remove("show"); el("load").classList.remove("on", "err");
-  V.classList.remove("frm"); el("fc").innerHTML = ""; V.classList.add("lkd"); lkSize(); V.style.setProperty("--lkbg", `url('${M.pub(p.cover_path)}')`);
+  V.classList.remove("frm", "tail"); el("fc").innerHTML = ""; V.classList.add("lkd"); lkSize(); V.style.setProperty("--lkbg", `url('${M.pub(p.cover_path)}')`);
   const pv = packPv(p);
   const fr = M.freeOf(p.id), isF = k => pv[k] && fr.includes(pv[k].position);
   el("strip").innerHTML = Array.from({ length: Math.min(n, 12) }, (_, k) => `<div class="tzt${isF(k) ? " fr" : ""}" data-k="${k}"><i${pv[k] ? ` style="background-image:url('${M.pub(pv[k].preview_path)}')"` : ""}></i></div>`).join(""); el("strip").classList.add("on");
@@ -136,8 +145,8 @@ function lockCard(p) {
 }
 // «Пробник»: показать бесплатные арты закрытого пака в полном качестве + плашка с подпиской/кодом
 function freeShow(p, k = 0) {
-  const M = window.Mia; stopTeaser(); st.post = p; st.imgs = null; st.pending = null; loadTok++; curVid()?.pause();
-  V.classList.remove("lkd"); V.classList.add("frm"); el("lc").innerHTML = ""; title(p); drawBot(); drawPacks();
+  const M = window.Mia; stopTeaser(); st.post = p; st.imgs = null; st.tail = 0; st.pending = null; loadTok++; curVid()?.pause();
+  V.classList.remove("lkd", "tail"); V.classList.add("frm"); el("lc").innerHTML = ""; title(p); drawBot(); drawPacks();
   el("cnt").textContent = ""; el("strip").innerHTML = ""; el("load").textContent = "Мур, загружаю бесплатные арты… 🐾"; el("load").classList.remove("err"); el("load").classList.add("on");
   el("fc").innerHTML = M.freePlate(p);
   Promise.race([M.freeFn(p.id), new Promise((_, r) => setTimeout(() => r(new Error("timeout")), 15000))]).then(list => { if (st.post !== p || !V.classList.contains("frm")) return;
@@ -201,7 +210,19 @@ function vidUi(v) {
   const upd = () => { if (curVid() !== v) return; const d = v.duration || 0; el("vb").firstChild.style.width = d ? (v.currentTime / d * 100) + "%" : "0"; el("vt").textContent = `${fmtT(v.currentTime)} / ${fmtT(d)}`; el("vp").textContent = v.paused ? "▶" : "❚❚"; };
   ["timeupdate", "play", "pause", "durationchange"].forEach(t => v.addEventListener(t, upd)); el("vm").textContent = vMuted ? "🔇" : "🔊"; upd();
 }
+function hideTail() { st.tail = 0; V.classList.remove("tail"); el("lc").innerHTML = ""; [...el("strip").children].forEach((d, m) => d.classList.toggle("cur", m == st.i)); }
+function showTail() {
+  const p = st.post, M = window.Mia; if (!p || !V.classList.contains("frm")) return;
+  st.tail = 1; loadTok++; curVid()?.pause(); vidUi(null);
+  const free = new Set(M.freeOf(p.id));
+  const paid = packPv(p).filter(m => m.preview_path && !free.has(m.position));
+  el("lc").innerHTML = `<div class="vtail"><h2>${M.esc(p.title)}</h2><div class="vtg">${paid.map((m, i) => `<div class="vtc" style="--c:${i % 3}"><i style="background-image:url('${M.pub(m.preview_path)}')"></i></div>`).join("")}</div><button class="ob" id="v-tailbuy">Открыть полный пак 🐾</button></div>`;
+  el("tailbuy").onclick = e => { e.stopPropagation(); sub(p); };
+  V.classList.add("tail"); el("cnt").textContent = ""; el("load").classList.remove("on");
+  [...el("strip").children].forEach(d => d.classList.remove("cur"));
+}
 function show(k, slow) {
+  if (st.tail) hideTail();
   if (!st.imgs?.length) return; const n = st.imgs.length; st.i = (k + n) % n;
   const i = st.i, url = st.imgs[i], tok = ++loadTok, post = st.post, vid = isVid(url);
   curVid()?.pause(); // листнули дальше — текущее видео на паузу
