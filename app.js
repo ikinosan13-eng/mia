@@ -207,7 +207,7 @@ function drawModal() {
   $("#modal")?.remove(); const m = S.modal; if (!m) return;
   const d = document.createElement("div"); d.className = "ov"; d.id = "modal"; let h = "";
   if (m.t == "signup") h = `<h2>${esc(T("signup_title"))}</h2><form id="af"><label>Ник</label><input type="text" id="au" autocomplete="username" maxlength="24" autocapitalize="off" spellcheck="false"><div class="mu small gnick" id="anick">2–24 символа: буквы, цифры, _ · будет виден в комментариях</div>
-    <label>Пароль</label><input type="text" id="ap" autocomplete="new-password" spellcheck="false" autocapitalize="off"><div class="mu small">Минимум 6 символов, мур</div><input class="hp" id="hp" tabindex="-1" autocomplete="off">
+    <label>Пароль</label><input type="text" id="ap" autocomplete="new-password" spellcheck="false" autocapitalize="off"><div class="mu small">Минимум 8 символов, мур</div><input class="hp" id="hp" tabindex="-1" autocomplete="off">
     <div class="err" id="ae"></div><button class="ob full" type="submit">${esc(T("signup_title"))}</button></form><p style="text-align:center;margin-top:14px" class="mu">Уже есть аккаунт? <a class="lnk" data-sw="login">Войти</a></p>`;
   else if (m.t == "login") h = `<h2>${esc(T("login_title"))}</h2><form id="lf"><label>Имя</label><input type="text" id="lu" autocomplete="username"><label>Пароль</label><input type="password" id="lp" autocomplete="current-password"><div class="err" id="le"></div><button class="ob full" type="submit">${esc(T("btn_login"))}</button></form>
     <p style="text-align:center;margin-top:14px" class="mu">Нет аккаунта? <a class="lnk" data-sw="signup">Создать</a><br><span class="small">${S.profile.links?.vk ? `<a class="lnk" href="${esc(S.profile.links.vk)}" target="_blank">${esc(T("forgot"))}</a>` : esc(T("forgot"))}</span></p>`;
@@ -242,7 +242,7 @@ function nickCheck(ev) { const F = ev && ev.target ? ev.target.closest("form") :
 async function signup(e) {
   e.preventDefault(); const F = e.currentTarget || e.target, q = s => F.querySelector(s), u = q("#au").value.trim(), p = q("#ap").value, ae = q("#ae");
   if (!/^[A-Za-z0-9_\u0400-\u04FF]{2,24}$/.test(u)) return ae.textContent = "Имя: 2–24 символа, буквы, цифры или _";
-  if (p.length < 6) return ae.textContent = "Пароль: минимум 6 символов, мур"; if (NICK.taken === u.toLowerCase()) return ae.textContent = "Этот ник уже занят, мяу";
+  if (p.length < 8) return ae.textContent = "Пароль: минимум 8 символов, мур"; if (NICK.taken === u.toLowerCase()) return ae.textContent = "Этот ник уже занят, мяу";
   ae.textContent = "Создаю аккаунт…";
   const r = await fn("register", { username: u, password: p, website: (q("#hp") || {}).value || "" });
   if (r.status != 200) return ae.textContent = r.status == 409 ? T("name_taken") : r.status == 0 ? T("offline") : r.data.message || "Ошибка регистрации";
