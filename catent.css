@@ -30,9 +30,9 @@ html.iquick .post .cov,html.iquick .tabs.mt a{animation:none}
   left:50%;right:auto;bottom:16px;transform:translateX(-50%);
   width:max-content;max-width:calc(100% - 28px);
   padding:12px 14px 14px;gap:2px;border-radius:18px;
-  background:rgba(255,255,255,.82);border:1px solid rgba(255,255,255,.92);
-  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
-  box-shadow:0 10px 26px rgba(30,10,24,.2);
+  background:rgba(255,255,255,.42);border:1px solid rgba(255,255,255,.55);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  box-shadow:0 8px 22px rgba(30,10,24,.12);
   color:#1c1c1e;text-shadow:none}
 .post .cov.lk .frost .mu,body.dark .post .cov.lk .frost .mu{color:#6d6d75;text-shadow:none;font-size:13px}
 .post .cov.lk .frost b,body.dark .post .cov.lk .frost b{color:#1c1c1e;text-shadow:none;font-size:17px}
