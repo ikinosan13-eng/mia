@@ -102,7 +102,7 @@ const tierBadge = r => r > 0 && r < 32767 ? `<span class="tier">${esc(tierName(r
 
 function bar() {
   const dark = document.body.classList.contains("dark"), u = S.user;
-  return `<div class="bar"><a class="logo" href="#/feed">MIA</a><div class="r"><a id="tg" title="Тема">${dark ? "☀️" : "🌙"}</a>${u ? (u.admin ? `<a class="gb sm" href="#/admin/posts">⚙ Админка</a>` : "") + `<a href="#/me" title="Профиль">${avatarHtml(u, 34)}</a>` : `<a class="gb" data-open="login">${esc(T("btn_login"))}</a>`}</div></div>`
+  return `<div class="bar"><a class="logo" href="#/feed">MIA</a><div class="r"><a id="tg" title="Тема">${dark ? "☀️" : "🌙"}</a>${u ? (u.admin ? `<a class="gb sm" href="#/admin/posts">⚙ Админка</a>` : "") + `<a href="#/me" title="Профиль">${avatarHtml(u, 34)}</a>` : `<a class="gb sm" data-gate="login">${esc(T("btn_login"))}</a><a class="gb sm" data-gate="signup">${esc(T("signup_title"))}</a>`}</div></div>`
     + (S.offline ? `<div class="note offline">📡 ${esc(T("offline"))} <a class="ob sm" onclick="location.reload()">Повторить</a><br><span class="small">Показана сохранённая лента</span></div>` : "");
 }
 function hero() {
@@ -199,9 +199,17 @@ function closeModal(back = true) { S.modal = null; $("#modal")?.remove(); if (ba
 window.addEventListener("popstate", () => { if (S.modal) { S.modal = null; $("#modal")?.remove(); } });
 // автофокус полей (и клавиатура) — только на компьютере с мышью; на тач-экранах — по тапу в поле
 const fineP = () => matchMedia("(pointer: fine)").matches && !matchMedia("(pointer: coarse)").matches;
+function showGate(mode, keepReturn) {
+  const g = $("#gate"); if (!g) return;
+  if (!keepReturn) { try { localStorage.removeItem("miaReturn"); } catch {} }
+  closeModal(false);
+  g.classList.add("gsw"); g.classList.toggle("gate-s", mode == "signup");
+  $$("#gate .gtabs a").forEach(el => el.classList.toggle("on", el.dataset.g == (mode == "signup" ? "signup" : "login")));
+  const H = document.documentElement; H.classList.remove("gout"); H.classList.add("gate");
+}
 function subscribe(rank, postId, o = {}) {
   S.stay = o.stay || null; const ret = { rank, post: postId || null }; localStorage.miaReturn = JSON.stringify(ret);
-  openModal(S.user ? { t: "pay", ...ret } : { t: "signup", ...ret });
+  if (S.user) openModal({ t: "pay", ...ret }); else showGate("signup", true);
 }
 function drawModal() {
   $("#modal")?.remove(); const m = S.modal; if (!m) return;
@@ -222,7 +230,7 @@ function drawModal() {
   else if (m.t == "picks") { const p = S.posts.find(x => x.id == m.post) || {}; h = `<div class="pkok">🎉</div><h2 style="text-align:center">Мур-р, пак «${esc(p.title)}» твой навсегда 🐾</h2><p class="mu" style="text-align:center">Он теперь живёт в твоём аккаунте — смотри когда захочешь, на любом устройстве 💕</p><button class="ob full" id="pkgo">Смотреть, мяу 🐾</button>`; }
   d.innerHTML = `<div class="sheet"><a class="x" data-close>✕</a>${h}</div>`; document.body.append(d);
   $("#pf")?.addEventListener("submit", enterPick); $("#pkyes") && ($("#pkyes").onclick = () => usePick(m.post)); $("#pkgo") && ($("#pkgo").onclick = () => { closeModal(false); goIntro(m.post); });
-  d.onclick = e => { if (e.target == d || e.target.dataset.close != null) closeModal(); const sw = e.target.dataset.sw; if (sw) { S.modal = { ...m, t: sw }; drawModal(); } };
+  d.onclick = e => { if (e.target == d || e.target.dataset.close != null) closeModal(); const sw = e.target.dataset.sw; if (sw == "signup") { closeModal(false); showGate("signup"); return; } if (sw) { S.modal = { ...m, t: sw }; drawModal(); } };
   $("#af")?.addEventListener("submit", signup); $("#modal #au")?.addEventListener("input", nickCheck); $("#lf")?.addEventListener("submit", login); $("#cf")?.addEventListener("submit", enterCode);
   if (fineP()) setTimeout(() => d.querySelector("input")?.focus(), 50); // на телефоне клавиатура только по тапу в поле
 }
@@ -250,18 +258,26 @@ async function signup(e) {
   toast(`Добро пожаловать, ${S.user.username}!`); afterAuth();
 }
 async function login(e) {
-  e.preventDefault(); $("#le").textContent = "Вход…";
-  const err = await signin($("#lu").value.trim(), $("#lp").value); if (err) return $("#le").textContent = err;
+  e.preventDefault(); const F = e.currentTarget || e.target, q = s => F.querySelector(s), le = q("#le");
+  if (le) le.textContent = "Вход…";
+  const err = await signin(q("#lu").value.trim(), q("#lp").value); if (err) { if (le) le.textContent = err; return; }
   toast(S.user.admin ? "Вы вошли как владелец" : `Привет, ${S.user.username}!`); afterAuth();
 }
 function gatePass() { const H = document.documentElement; if (!H.classList.contains("gate")) return false;
-  H.classList.add("gout"); setTimeout(() => { H.classList.remove("gate", "gout"); H.classList.add("ient", "iwait"); window.__ls = performance.now();
-    const im = $("#iaCat img"), so = $("#iaCat source"); if (so) so.srcset = so.srcset.split("?")[0] + "?r=" + Date.now(); if (im) im.src = im.src.split("?")[0] + "?r=" + Date.now();
-    INTRO.st = 0; render(); }, 480); return true; }
-(() => { const g = $("#gate"); if (!g) return; $("#gate #lf").addEventListener("submit", login); $("#gate #af").addEventListener("submit", signup); $("#gate #au").addEventListener("input", nickCheck); g.addEventListener("click", e => { const b = e.target.closest("[data-eye]"); if (!b) return; const i = $("#" + b.dataset.eye); i.type = i.type == "password" ? "text" : "password"; b.classList.toggle("off", i.type == "password"); }); g.addEventListener("pointerdown", e => { const b = e.target.closest(".gf .ob"); if (!b) return; const r = b.getBoundingClientRect(), s = document.createElementNS("http://www.w3.org/2000/svg", "svg"); s.setAttribute("class", "gstamp"); s.innerHTML = '<use href="#gpaw"/>'; s.style.left = e.clientX - r.left + "px"; s.style.top = e.clientY - r.top + "px"; b.append(s); setTimeout(() => s.remove(), 650); }); g.addEventListener("click", e => { const t = e.target.dataset.g; if (!t) return; g.classList.add("gsw"); g.classList.toggle("gate-s", t == "signup"); $$("#gate .gtabs a").forEach(a => a.classList.toggle("on", a.dataset.g == t)); }); })();
-function afterAuth() { try { localStorage.miaWasIn = "1"; } catch {} if (gatePass()) return;
-  const ret = S.modal?.rank != null ? { rank: S.modal.rank, post: S.modal.post } : null;
-  if (ret && S.rank < ret.rank) { S.modal = { t: "pay", ...ret }; drawModal(); render(); } else { closeModal(); render(); }
+  H.classList.add("gout"); const replay = !sessionStorage.miaIntro;
+  setTimeout(() => { H.classList.remove("gate", "gout");
+    if (replay) { H.classList.add("ient", "iwait"); window.__ls = performance.now();
+      const im = $("#iaCat img"), so = $("#iaCat source"); if (so) so.srcset = so.srcset.split("?")[0] + "?r=" + Date.now(); if (im) im.src = im.src.split("?")[0] + "?r=" + Date.now();
+      INTRO.st = 0; }
+    render(); }, 480); return true; }
+(() => { const g = $("#gate"); if (!g) return; $("#gate #lf").addEventListener("submit", login); $("#gate #af").addEventListener("submit", signup); $("#gate #au").addEventListener("input", nickCheck); g.addEventListener("click", e => { const b = e.target.closest("[data-eye]"); if (!b) return; const i = $("#" + b.dataset.eye); i.type = i.type == "password" ? "text" : "password"; b.classList.toggle("off", i.type == "password"); }); g.addEventListener("pointerdown", e => { const b = e.target.closest(".gf .ob"); if (!b) return; const r = b.getBoundingClientRect(), s = document.createElementNS("http://www.w3.org/2000/svg", "svg"); s.setAttribute("class", "gstamp"); s.innerHTML = '<use href="#gpaw"/>'; s.style.left = e.clientX - r.left + "px"; s.style.top = e.clientY - r.top + "px"; b.append(s); setTimeout(() => s.remove(), 650); }); g.addEventListener("click", e => { if (e.target.closest("[data-gate-x]")) { e.preventDefault(); document.documentElement.classList.remove("gate", "gout"); try { localStorage.removeItem("miaReturn"); } catch {} return; } const t = e.target.dataset.g; if (!t) return; g.classList.add("gsw"); g.classList.toggle("gate-s", t == "signup"); $$("#gate .gtabs a").forEach(a => a.classList.toggle("on", a.dataset.g == t)); }); })();
+function afterAuth() { try { localStorage.miaWasIn = "1"; } catch {}
+  let ret = S.modal?.rank != null ? { rank: S.modal.rank, post: S.modal.post || null } : null;
+  if (!ret) { try { ret = JSON.parse(localStorage.miaReturn || "null"); } catch {} }
+  const needPay = !!(ret && ret.rank != null && S.rank < ret.rank);
+  if (needPay) S.modal = { t: "pay", rank: ret.rank, post: ret.post || null };
+  if (gatePass()) return;
+  if (needPay) { drawModal(); render(); } else { try { localStorage.removeItem("miaReturn"); } catch {} closeModal(); render(); }
 }
 // ввод кода «1 пак на выбор»
 const PICK_SLOW = "Мяу, сервер долго молчит 🐾 Проверь интернет и попробуй ещё раз";
@@ -504,6 +520,7 @@ async function render(o = {}) {
   const rk = location.hash || "#/feed"; if (!o.keep && rk != S.lastRoute && (!["post"].includes(v) || parts[2] != "c")) window.scrollTo(0, 0); S.lastRoute = rk; // не дёргаем наверх при повторной перерисовке того же экрана (после входа/данных)
   $("#tg")?.addEventListener("click", () => { const d = document.body.classList.toggle("dark"); localStorage.miaTheme = d ? "dark" : "light"; render(); });
   $$("[data-open]").forEach(b => b.onclick = e => { e.preventDefault(); openModal({ t: b.dataset.open }); });
+  $$("[data-gate]").forEach(b => b.onclick = e => { e.preventDefault(); showGate(b.dataset.gate == "signup" ? "signup" : "login"); });
   $$("[data-sub]").forEach(b => b.onclick = e => { e.preventDefault(); e.stopPropagation(); const p = S.posts.find(x => x.id == b.dataset.sub); subscribe(p.tier_rank, p.id); });
   $$("[data-subt]").forEach(b => b.onclick = () => subscribe(+b.dataset.subt, null));
   $$("[data-share]").forEach(b => b.onclick = () => { const u = location.href.split("#")[0] + "#/post/" + b.dataset.share; navigator.share ? navigator.share({ url: u }).catch(() => {}) : navigator.clipboard.writeText(u).then(() => toast("Ссылка скопирована")); });
