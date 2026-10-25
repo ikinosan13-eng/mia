@@ -24,7 +24,7 @@ html.iquick .post .cov,html.iquick .tabs.mt a{animation:none}
 .cov.lk .frost .ob{margin-top:8px;background:linear-gradient(135deg,#ff9ec4,#c46fd8);font-family:Nunito,sans-serif;font-weight:800;box-shadow:0 6px 18px rgba(196,111,216,.45);text-shadow:none}
 .cov.lk .tpaw{color:#ffb3d1}
 /* лента: обложка закрытого пака без блюра, только карточки .post */
-.post .cov.lk img{filter:none;transform:none}
+html:not(.fbl) .post .cov.lk img{filter:none;transform:none}
 /* лента: белая полупрозрачная плашка строго под уровень и кнопку пака */
 .post .cov.lk .frost,body.dark .post .cov.lk .frost{
   left:50%;right:auto;bottom:16px;transform:translateX(-50%);

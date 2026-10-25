@@ -511,6 +511,7 @@ function bindPostCm(id) {
   $$("#pcmw [data-crep]").forEach(a => a.onclick = async () => { await sb.rpc("report_comment", { p_id: +a.dataset.crep }); toast("Жалоба отправлена"); });
 }
 async function render(o = {}) {
+  document.documentElement.classList.toggle("fbl", !!S.profile?.feed_blur);
   const parts = (location.hash || "#/feed").slice(2).split("/"), [v, id] = parts, app = $("#app");
   app.className = "app" + (v == "admin" ? " wide" : "");
   try {
