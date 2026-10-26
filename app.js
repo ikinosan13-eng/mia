@@ -364,10 +364,9 @@ async function enterCode(e) {
   try {
   const r = await fn("unlock", { code });
   if (r.status == 200) { if (r.data.token) { S.token = r.data.token; localStorage.miaToken = r.data.token; } S.rank = Math.max(S.rank, r.data.rank);
-    ce.className = "okm"; ce.textContent = "✔ " + T("code_ok"); toast(T("code_ok")); const ret = JSON.parse(localStorage.miaReturn || "{}"); localStorage.removeItem("miaReturn");
-    if (S.modal) S.modal.ok = true; S.stay = null; render(); const pid = ret.post || S.posts.find(p => p.tier_rank > 0 && p.tier_rank <= S.rank)?.id;
-    // открыть купленный пак и один раз показать вступление (и в ленте/посте/уровнях, и в кинорежиме)
-    setTimeout(() => { closeModal(false); if (pid) return goIntro(pid); location.hash = "#/feed"; render(); }, 700); }
+    ce.className = "okm"; ce.textContent = "✔ " + T("code_ok"); toast(T("code_ok")); localStorage.removeItem("miaReturn");
+    if (S.modal) S.modal.ok = true; S.stay = null; render();
+    setTimeout(() => { closeModal(false); if ((location.hash || "#/feed") != "#/feed") location.hash = "#/feed"; else render(); }, 700); }
   else if (r.status == 429 || r.status == 0) ce.textContent = r.status == 429 ? T("rate_limited") : T("offline");
   else if (!S.user) ce.textContent = T("code_bad");
   else { // не код уровня → может быть код «1 пак на выбор»
