@@ -36,4 +36,7 @@ html:not(.fbl) .post .cov.lk img{filter:none;transform:none}
   color:#1c1c1e;text-shadow:none}
 .post .cov.lk .frost .mu,body.dark .post .cov.lk .frost .mu{color:#6d6d75;text-shadow:none;font-size:13px}
 .post .cov.lk .frost b,body.dark .post .cov.lk .frost b{color:#1c1c1e;text-shadow:none;font-size:17px}
-.post .cov.lk .frost .ob{margin-top:10px;min-width:220px;text-shadow:none}
+html.paywait #app,html.paywait #iaCat,html.pwall #app,html.pwall #iaCat{visibility:hidden}
+html.gwall #gate .x{display:none}
+.ov.wall{background:linear-gradient(160deg,#fff 0%,var(--pk) 100%);align-items:center;z-index:70}
+.ov.wall .sheet{border-radius:20px;margin:18px}
