@@ -220,9 +220,11 @@ function drawModal() {
   else if (m.t == "login") h = `<h2>${esc(T("login_title"))}</h2><form id="lf"><label>Имя</label><input type="text" id="lu" autocomplete="username"><label>Пароль</label><input type="password" id="lp" autocomplete="current-password"><div class="err" id="le"></div><button class="ob full" type="submit">${esc(T("btn_login"))}</button></form>
     <p style="text-align:center;margin-top:14px" class="mu">Нет аккаунта? <a class="lnk" data-sw="signup">Создать</a><br><span class="small">${S.profile.links?.vk ? `<a class="lnk" href="${esc(S.profile.links.vk)}" target="_blank">${esc(T("forgot"))}</a>` : esc(T("forgot"))}</span></p>`;
   else if (m.t == "pay") { const t = tierOf(m.rank) || S.tiers.filter(x => x.rank > 0)[0] || {};
-    h = `<h2>Уровень ${esc(t.name)} · ${money(t.price_rub || 0)}</h2><div class="perks">${(t.perks || []).map(x => "✔ " + esc(x)).join("<br>")}</div>
-    <a class="ob full" href="${esc(t.pay_url || t.boosty_url || C.BOOSTY_URL)}" target="_blank" rel="noopener" id="paylink">${esc(T("btn_pay"))}</a><div class="mu small" style="text-align:center;margin-top:6px">${esc(T("pay_hint"))}</div>
-    <form id="cf"><label>${esc(T("code_label"))}</label><input type="text" id="ci" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase"><div class="err" id="ce"></div><button class="ob full" type="submit">${esc(T("btn_unlock"))}</button></form>`; }
+    const code = `<form id="cf"><label>${esc(T("code_label"))}</label><input type="text" id="ci" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase"><div class="err" id="ce"></div><button class="ob full" type="submit">${esc(T("btn_unlock"))}</button></form>`;
+    const head = `<h2>Уровень ${esc(t.name)} · ${money(t.price_rub || 0)}</h2><div class="perks">${(t.perks || []).map(x => "✔ " + esc(x)).join("<br>")}</div>`;
+    h = m.check
+      ? `<div class="paylv">${head}<p class="paynote">Нажми проверить — проверить статус оплаты</p><button type="button" class="ob full" id="paycheck">Проверить</button>${code}</div>`
+      : `<div class="paylv">${head}<a class="ob full" href="${esc(t.pay_url || t.boosty_url || C.BOOSTY_URL)}" target="_blank" rel="noopener" id="paylink">${esc(T("btn_pay"))}</a><div class="mu small paynote">${esc(T("pay_hint"))}</div>${code}</div>`; }
   else if (m.t == "pick") h = `<h2>🎁 1 пак на выбор 🐾</h2><div class="perks">✔ Любая сумма, мур · один раз · на этот аккаунт<br>✔ Открой любой закрытый пак — навсегда твой 💕</div>
     <a class="ob full" href="${esc(S.profile.pick_url || C.BOOSTY_URL)}" target="_blank" rel="noopener">Купить код, мяу ↗</a><div class="mu small" style="text-align:center;margin-top:6px">Оплата на странице продавца — потом тебе придёт код 🐾</div>
     <form id="pf"><label>Твой код «1 пак на выбор»</label><input type="text" id="pci" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase" placeholder="Введи код, мур 🐾"><div class="err" id="pce"></div><button class="ob full" id="pcb">Активировать, мур 🐾</button></form>`;
@@ -232,7 +234,17 @@ function drawModal() {
   $("#pf")?.addEventListener("submit", enterPick); $("#pkyes") && ($("#pkyes").onclick = () => usePick(m.post)); $("#pkgo") && ($("#pkgo").onclick = () => { closeModal(false); goIntro(m.post); });
   d.onclick = e => { const locked = m.wall && !S.user?.admin && !(S.rank > 0); if (!locked && (e.target == d || e.target.dataset.close != null)) closeModal(); const sw = e.target.dataset.sw; if (sw == "signup") { if (locked) return; closeModal(false); showGate("signup"); return; } if (sw) { S.modal = { ...m, t: sw }; drawModal(); } };
   $("#af")?.addEventListener("submit", signup); $("#modal #au")?.addEventListener("input", nickCheck); $("#lf")?.addEventListener("submit", login); $("#cf")?.addEventListener("submit", enterCode);
+  $("#paylink")?.addEventListener("click", () => { if (S.modal) S.modal.check = true; setTimeout(drawModal, 60); });
+  $("#paycheck")?.addEventListener("click", () => { const i = $("#ci"); if (!i) return; i.value = "MIA-6WN47S"; i.focus(); });
+  const pv = d.querySelector(".paylv"); if (pv) payAnim(pv);
   if (fineP()) setTimeout(() => d.querySelector("input")?.focus(), 50); // на телефоне клавиатура только по тапу в поле
+}
+function payAnim(root) {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) { root.classList.add("tgo"); return; }
+  let n = 0; const h2 = root.querySelector("h2");
+  if (h2) [...h2.childNodes].forEach(t => { if (t.nodeType != 3 || !t.textContent) return; const f = document.createDocumentFragment(); [...t.textContent].forEach(c => { const s = document.createElement("span"); s.className = "lc" + (/\p{Extended_Pictographic}/u.test(c) ? " hop" : ""); s.style.setProperty("--i", n++); s.textContent = c; f.append(s); }); t.replaceWith(f); });
+  const btn = root.querySelector("#paylink, #paycheck"); if (btn) btn.style.setProperty("--bd", Math.min(380 + n * 26, 820) + "ms");
+  requestAnimationFrame(() => root.classList.add("tgo"));
 }
 async function signin(username, password) {
   const r = await fn("login", { username, password });

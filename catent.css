@@ -36,7 +36,14 @@ html:not(.fbl) .post .cov.lk img{filter:none;transform:none}
   color:#1c1c1e;text-shadow:none}
 .post .cov.lk .frost .mu,body.dark .post .cov.lk .frost .mu{color:#6d6d75;text-shadow:none;font-size:13px}
 .post .cov.lk .frost b,body.dark .post .cov.lk .frost b{color:#1c1c1e;text-shadow:none;font-size:17px}
+.post .cov.lk .frost .ob{margin-top:10px;min-width:220px;text-shadow:none}
 html.paywait #app,html.paywait #iaCat,html.pwall #app,html.pwall #iaCat{visibility:hidden}
 html.gwall #gate .x{display:none}
 .ov.wall{background:linear-gradient(160deg,#fff 0%,var(--pk) 100%);align-items:center;z-index:70}
 .ov.wall .sheet{border-radius:20px;margin:18px}
+#modal .paylv .lc{display:inline-block;white-space:pre;opacity:0;transform-origin:50% 100%}
+#modal .paylv.tgo .lc{animation:lvStep .5s calc(var(--d,0ms) + var(--i) * 30ms) cubic-bezier(.34,1.4,.5,1) both}
+#modal .paylv.tgo .lc.hop{animation:lvStep .5s calc(var(--d,0ms) + var(--i) * 30ms) cubic-bezier(.3,1.6,.5,1) both,lvHop .9s calc(var(--d,0ms) + var(--i) * 30ms + 500ms) ease-in-out 2}
+#modal .paylv>.ob,#modal .paylv #paylink,#modal .paylv #paycheck{opacity:0}
+#modal .paylv.tgo>.ob,#modal .paylv.tgo #paylink,#modal .paylv.tgo #paycheck{animation:ceBtn .7s var(--bd,900ms) cubic-bezier(.3,1.5,.5,1) both}
+@media (prefers-reduced-motion:reduce){#modal .paylv .lc,#modal .paylv .ob,#modal .paylv #paylink,#modal .paylv #paycheck{opacity:1!important;animation:none!important;transform:none!important}}
