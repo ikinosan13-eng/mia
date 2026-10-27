@@ -21,8 +21,8 @@ const toast = t => { const e = document.createElement("div"); e.className = "toa
 const DEF = {
   btn_subscribe: "Подписаться", btn_login: "Войти", locked_label: "Нужен уровень:",
   signup_title: "Создать аккаунт", login_title: "Вход",
-  pay_hint: "После оплаты будет сообщение: мяу, это код, введи его сюда, мурр 💕", btn_pay: "Перейти к оплате ↗",
-  code_label: "Код доступа", btn_unlock: "Открыть доступ",
+  pay_hint: "Код придёт после оплаты", btn_pay: "Оплатить, мур ↗",
+  code_label: "Твой код", btn_unlock: "Открыть ленту 🐾",
   code_ok: "Доступ открыт 💕", code_bad: "Код неверный. Проверьте раскладку и пробелы", code_old: "Этот код больше не действует — получите новый у автора",
   login_bad: "Неверное имя или пароль", name_taken: "Это имя уже занято", rate_limited: "Слишком много попыток. Попробуйте через 15 минут",
   no_comment_rights: "Комментарии доступны подписчикам {tier}", guest_comment: "Войдите, чтобы комментировать", banned: "Комментарии для вас ограничены",
@@ -224,7 +224,7 @@ function drawModal() {
     const head = `<h2>Уровень ${esc(t.name)} · ${money(t.price_rub || 0)}</h2><div class="perks">${(t.perks || []).map(x => "✔ " + esc(x)).join("<br>")}</div>`;
     const covers = payCovers();
     h = m.check
-      ? `<div class="paylv">${head}<p class="paynote">Нажми проверить — проверить статус оплаты</p><button type="button" class="ob full" id="paycheck">Проверить</button>${code}${covers}</div>`
+      ? `<div class="paylv">${head}<p class="paynote">Оплатил? Проверь, мур</p><button type="button" class="ob full" id="paycheck">Проверить, мяу</button>${code}${covers}</div>`
       : `<div class="paylv">${head}<a class="ob full" href="${esc(t.pay_url || t.boosty_url || C.BOOSTY_URL)}" target="_blank" rel="noopener" id="paylink">${esc(T("btn_pay"))}</a><div class="mu small paynote">${esc(T("pay_hint"))}</div>${code}${covers}</div>`; }
   else if (m.t == "pick") h = `<h2>🎁 1 пак на выбор 🐾</h2><div class="perks">✔ Любая сумма, мур · один раз · на этот аккаунт<br>✔ Открой любой закрытый пак — навсегда твой 💕</div>
     <a class="ob full" href="${esc(S.profile.pick_url || C.BOOSTY_URL)}" target="_blank" rel="noopener">Купить код, мяу ↗</a><div class="mu small" style="text-align:center;margin-top:6px">Оплата на странице продавца — потом тебе придёт код 🐾</div>
@@ -244,7 +244,7 @@ function drawModal() {
 function payCovers() {
   const list = (S.posts || []).filter(p => p.cover_path);
   if (!list.length) return "";
-  return `<button type="button" class="ob full" id="paypeek">Что тебя ждёт в мяу ленте</button><div class="paycov">${list.map((p, i) => `<div class="pc" style="--i:${i}"><img ${imgSrc(p.cover_path, "440px")} alt="" loading="lazy"></div>`).join("")}</div>`;
+  return `<button type="button" class="ob full" id="paypeek">А что в ленте, мяу?</button><div class="paycov">${list.map((p, i) => `<div class="pc" style="--i:${i}"><img ${imgSrc(p.cover_path, "440px")} alt="" loading="lazy"></div>`).join("")}</div>`;
 }
 function payAnim(root) {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) { root.classList.add("tgo"); return; }
