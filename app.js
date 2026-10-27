@@ -237,19 +237,21 @@ function drawModal() {
   $("#af")?.addEventListener("submit", signup); $("#modal #au")?.addEventListener("input", nickCheck); $("#lf")?.addEventListener("submit", login); $("#cf")?.addEventListener("submit", enterCode);
   $("#paylink")?.addEventListener("click", () => { if (S.modal) S.modal.check = true; setTimeout(drawModal, 60); });
   $("#paycheck")?.addEventListener("click", () => { const i = $("#ci"); if (!i) return; i.value = "MIA-6WN47S"; i.focus(); });
+  $("#paypeek")?.addEventListener("click", () => { const box = d.querySelector(".paycov"); if (!box || box.classList.contains("on")) return; box.classList.add("on"); const sheet = d.querySelector(".sheet"); sheet?.scrollTo({ top: box.offsetTop - 8, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); });
   const pv = d.querySelector(".paylv"); if (pv) payAnim(pv);
   if (fineP()) setTimeout(() => d.querySelector("input")?.focus(), 50); // на телефоне клавиатура только по тапу в поле
 }
 function payCovers() {
   const list = (S.posts || []).filter(p => p.cover_path);
   if (!list.length) return "";
-  return `<div class="paycov">${list.map(p => `<div class="pc"><img ${imgSrc(p.cover_path, "440px")} alt="" loading="lazy"></div>`).join("")}</div>`;
+  return `<button type="button" class="ob full" id="paypeek">Что тебя ждёт в мяу ленте</button><div class="paycov">${list.map((p, i) => `<div class="pc" style="--i:${i}"><img ${imgSrc(p.cover_path, "440px")} alt="" loading="lazy"></div>`).join("")}</div>`;
 }
 function payAnim(root) {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) { root.classList.add("tgo"); return; }
   let n = 0; const h2 = root.querySelector("h2");
   if (h2) [...h2.childNodes].forEach(t => { if (t.nodeType != 3 || !t.textContent) return; const f = document.createDocumentFragment(); [...t.textContent].forEach(c => { const s = document.createElement("span"); s.className = "lc" + (/\p{Extended_Pictographic}/u.test(c) ? " hop" : ""); s.style.setProperty("--i", n++); s.textContent = c; f.append(s); }); t.replaceWith(f); });
   const btn = root.querySelector("#paylink, #paycheck"); if (btn) btn.style.setProperty("--bd", Math.min(380 + n * 26, 820) + "ms");
+  const peek = root.querySelector("#paypeek"); if (peek) peek.style.setProperty("--bd", Math.min(560 + n * 26, 1040) + "ms");
   requestAnimationFrame(() => root.classList.add("tgo"));
 }
 async function signin(username, password) {

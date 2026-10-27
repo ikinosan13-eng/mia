@@ -47,6 +47,11 @@ html.gwall #gate .x{display:none}
 #modal .paylv>.ob,#modal .paylv #paylink,#modal .paylv #paycheck{opacity:0}
 #modal .paylv.tgo>.ob,#modal .paylv.tgo #paylink,#modal .paylv.tgo #paycheck{animation:ceBtn .7s var(--bd,900ms) cubic-bezier(.3,1.5,.5,1) both}
 @media (prefers-reduced-motion:reduce){#modal .paylv .lc,#modal .paylv .ob,#modal .paylv #paylink,#modal .paylv #paycheck{opacity:1!important;animation:none!important;transform:none!important}}
-#modal .paycov{display:flex;flex-direction:column;gap:12px;margin-top:18px}
-#modal .paycov .pc{border-radius:16px;overflow:hidden;line-height:0}
+#modal .paycov{display:none;flex-direction:column;gap:12px;margin-top:14px}
+#modal .paycov.on{display:flex}
+#modal .paycov .pc{border-radius:16px;overflow:hidden;line-height:0;opacity:0}
+#modal .paycov.on .pc{animation:payRise .7s calc(var(--i) * 90ms) cubic-bezier(.22,1,.36,1) both}
+@keyframes payRise{0%{opacity:0;transform:translateY(42px) scale(.92)}100%{opacity:1;transform:none}}
 #modal .paycov img{width:100%;height:auto;display:block;filter:blur(9px) saturate(.92);transform:scale(1.08)}
+#modal #paypeek{margin-top:14px}
+@media (prefers-reduced-motion:reduce){#modal .paycov.on .pc{animation:none;opacity:1;transform:none}}
