@@ -50,8 +50,8 @@ html.gwall #gate .x{display:none}
 #modal .paycov{display:none;flex-direction:column;gap:12px;margin-top:14px}
 #modal .paycov.on{display:flex}
 #modal .paycov .pc{border-radius:16px;overflow:hidden;line-height:0;opacity:0}
-#modal .paycov.on .pc{animation:payRise .7s calc(var(--i) * 90ms) cubic-bezier(.22,1,.36,1) both}
-@keyframes payRise{0%{opacity:0;transform:translateY(42px) scale(.92)}100%{opacity:1;transform:none}}
-#modal .paycov img{width:100%;height:auto;display:block;filter:blur(9px) saturate(.92);transform:scale(1.08)}
+#modal .paycov.on .pc{animation:payRise 1.15s calc(var(--i) * 150ms) cubic-bezier(.16,1,.3,1) both}
+@keyframes payRise{0%{opacity:0;transform:translateY(18px)}100%{opacity:1;transform:none}}
+#modal .paycov img{width:100%;height:auto;display:block;filter:blur(22px) saturate(.85);transform:scale(1.18)}
 #modal #paypeek{margin-top:14px}
 @media (prefers-reduced-motion:reduce){#modal .paycov.on .pc{animation:none;opacity:1;transform:none}}
