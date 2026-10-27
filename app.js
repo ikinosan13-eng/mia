@@ -222,9 +222,10 @@ function drawModal() {
   else if (m.t == "pay") { const t = tierOf(m.rank) || S.tiers.filter(x => x.rank > 0)[0] || {};
     const code = `<form id="cf"><label>${esc(T("code_label"))}</label><input type="text" id="ci" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase"><div class="err" id="ce"></div><button class="ob full" type="submit">${esc(T("btn_unlock"))}</button></form>`;
     const head = `<h2>Уровень ${esc(t.name)} · ${money(t.price_rub || 0)}</h2><div class="perks">${(t.perks || []).map(x => "✔ " + esc(x)).join("<br>")}</div>`;
+    const covers = payCovers();
     h = m.check
-      ? `<div class="paylv">${head}<p class="paynote">Нажми проверить — проверить статус оплаты</p><button type="button" class="ob full" id="paycheck">Проверить</button>${code}</div>`
-      : `<div class="paylv">${head}<a class="ob full" href="${esc(t.pay_url || t.boosty_url || C.BOOSTY_URL)}" target="_blank" rel="noopener" id="paylink">${esc(T("btn_pay"))}</a><div class="mu small paynote">${esc(T("pay_hint"))}</div>${code}</div>`; }
+      ? `<div class="paylv">${head}<p class="paynote">Нажми проверить — проверить статус оплаты</p><button type="button" class="ob full" id="paycheck">Проверить</button>${code}${covers}</div>`
+      : `<div class="paylv">${head}<a class="ob full" href="${esc(t.pay_url || t.boosty_url || C.BOOSTY_URL)}" target="_blank" rel="noopener" id="paylink">${esc(T("btn_pay"))}</a><div class="mu small paynote">${esc(T("pay_hint"))}</div>${code}${covers}</div>`; }
   else if (m.t == "pick") h = `<h2>🎁 1 пак на выбор 🐾</h2><div class="perks">✔ Любая сумма, мур · один раз · на этот аккаунт<br>✔ Открой любой закрытый пак — навсегда твой 💕</div>
     <a class="ob full" href="${esc(S.profile.pick_url || C.BOOSTY_URL)}" target="_blank" rel="noopener">Купить код, мяу ↗</a><div class="mu small" style="text-align:center;margin-top:6px">Оплата на странице продавца — потом тебе придёт код 🐾</div>
     <form id="pf"><label>Твой код «1 пак на выбор»</label><input type="text" id="pci" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase" placeholder="Введи код, мур 🐾"><div class="err" id="pce"></div><button class="ob full" id="pcb">Активировать, мур 🐾</button></form>`;
@@ -238,6 +239,11 @@ function drawModal() {
   $("#paycheck")?.addEventListener("click", () => { const i = $("#ci"); if (!i) return; i.value = "MIA-6WN47S"; i.focus(); });
   const pv = d.querySelector(".paylv"); if (pv) payAnim(pv);
   if (fineP()) setTimeout(() => d.querySelector("input")?.focus(), 50); // на телефоне клавиатура только по тапу в поле
+}
+function payCovers() {
+  const list = (S.posts || []).filter(p => p.cover_path);
+  if (!list.length) return "";
+  return `<div class="paycov">${list.map(p => `<div class="pc"><img ${imgSrc(p.cover_path, "440px")} alt="" loading="lazy"></div>`).join("")}</div>`;
 }
 function payAnim(root) {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) { root.classList.add("tgo"); return; }
