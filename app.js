@@ -21,7 +21,7 @@ const toast = t => { const e = document.createElement("div"); e.className = "toa
 const DEF = {
   btn_subscribe: "Подписаться", btn_login: "Войти", locked_label: "Нужен уровень:",
   signup_title: "Создать аккаунт", login_title: "Вход",
-  pay_hint: "Код придёт после оплаты", btn_pay: "Оплатить, мур ↗",
+  pay_hint: "После оплаты открой Telegram. Там код — введи его тут.", btn_pay: "Оплатить, мур ↗",
   code_label: "Твой код", btn_unlock: "Открыть ленту 🐾",
   code_ok: "Доступ открыт 💕", code_bad: "Код неверный. Проверьте раскладку и пробелы", code_old: "Этот код больше не действует — получите новый у автора",
   login_bad: "Неверное имя или пароль", name_taken: "Это имя уже занято", rate_limited: "Слишком много попыток. Попробуйте через 15 минут",
@@ -222,10 +222,10 @@ function drawModal() {
   else if (m.t == "pay") { const t = tierOf(m.rank) || S.tiers.filter(x => x.rank > 0)[0] || {};
     const code = `<form id="cf"><label>${esc(T("code_label"))}</label><input type="text" id="ci" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase"><div class="err" id="ce"></div><button class="ob full" type="submit">${esc(T("btn_unlock"))}</button></form>`;
     const head = `<h2>Уровень ${esc(t.name)} · ${money(t.price_rub || 0)}</h2><div class="perks">${(t.perks || []).map(x => "✔ " + esc(x)).join("<br>")}</div>`;
+    const tg = S.profile?.links?.telegram || "https://t.me/+o00nzwRIRCAwZjQy";
+    const hint = `<div class="mu small paynote">После оплаты открой <a class="lnk" href="${esc(tg)}" target="_blank" rel="noopener">Telegram</a>. Там код — введи его тут.</div>`;
     const covers = payCovers();
-    h = m.check
-      ? `<div class="paylv">${head}<p class="paynote">Оплатил? Проверь, мур</p><button type="button" class="ob full" id="paycheck">Проверить, мяу</button>${code}${covers}</div>`
-      : `<div class="paylv">${head}<a class="ob full" href="${esc(t.pay_url || t.boosty_url || C.BOOSTY_URL)}" target="_blank" rel="noopener" id="paylink">${esc(T("btn_pay"))}</a><div class="mu small paynote">${esc(T("pay_hint"))}</div>${code}${covers}</div>`; }
+    h = `<div class="paylv">${head}<a class="ob full" href="${esc(t.pay_url || t.boosty_url || C.BOOSTY_URL)}" target="_blank" rel="noopener" id="paylink">${esc(T("btn_pay"))}</a>${hint}${code}${covers}</div>`; }
   else if (m.t == "pick") h = `<h2>🎁 1 пак на выбор 🐾</h2><div class="perks">✔ Любая сумма, мур · один раз · на этот аккаунт<br>✔ Открой любой закрытый пак — навсегда твой 💕</div>
     <a class="ob full" href="${esc(S.profile.pick_url || C.BOOSTY_URL)}" target="_blank" rel="noopener">Купить код, мяу ↗</a><div class="mu small" style="text-align:center;margin-top:6px">Оплата на странице продавца — потом тебе придёт код 🐾</div>
     <form id="pf"><label>Твой код «1 пак на выбор»</label><input type="text" id="pci" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase" placeholder="Введи код, мур 🐾"><div class="err" id="pce"></div><button class="ob full" id="pcb">Активировать, мур 🐾</button></form>`;
@@ -235,8 +235,6 @@ function drawModal() {
   $("#pf")?.addEventListener("submit", enterPick); $("#pkyes") && ($("#pkyes").onclick = () => usePick(m.post)); $("#pkgo") && ($("#pkgo").onclick = () => { closeModal(false); goIntro(m.post); });
   d.onclick = e => { const locked = m.wall && !S.user?.admin && !(S.rank > 0); if (!locked && (e.target == d || e.target.dataset.close != null)) closeModal(); const sw = e.target.dataset.sw; if (sw == "signup") { if (locked) return; closeModal(false); showGate("signup"); return; } if (sw) { S.modal = { ...m, t: sw }; drawModal(); } };
   $("#af")?.addEventListener("submit", signup); $("#modal #au")?.addEventListener("input", nickCheck); $("#lf")?.addEventListener("submit", login); $("#cf")?.addEventListener("submit", enterCode);
-  $("#paylink")?.addEventListener("click", () => { if (S.modal) S.modal.check = true; setTimeout(drawModal, 60); });
-  $("#paycheck")?.addEventListener("click", () => { const i = $("#ci"); if (!i) return; i.value = "MIA-6WN47S"; i.focus(); });
   $("#paypeek")?.addEventListener("click", () => { const box = d.querySelector(".paycov"); if (!box || box.classList.contains("on")) return; box.classList.add("on"); const sheet = d.querySelector(".sheet"); sheet?.scrollTo({ top: box.offsetTop - 8, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); });
   const pv = d.querySelector(".paylv"); if (pv) payAnim(pv);
   if (fineP()) setTimeout(() => d.querySelector("input")?.focus(), 50); // на телефоне клавиатура только по тапу в поле
