@@ -21,7 +21,7 @@ const toast = t => { const e = document.createElement("div"); e.className = "toa
 const DEF = {
   btn_subscribe: "Подписаться", btn_login: "Войти", locked_label: "Нужен уровень:",
   signup_title: "Создать аккаунт", login_title: "Вход",
-  pay_hint: "После оплаты открой Telegram. Там код — введи его тут.", btn_pay: "Оплатить, мур ↗",
+  pay_hint: "В сообщении после оплаты будет ссылка на Telegram. Код там, введи его сюда.", btn_pay: "Оплатить, мур ↗",
   code_label: "Твой код", btn_unlock: "Открыть ленту 🐾",
   code_ok: "Доступ открыт 💕", code_bad: "Код неверный. Проверьте раскладку и пробелы", code_old: "Этот код больше не действует — получите новый у автора",
   login_bad: "Неверное имя или пароль", name_taken: "Это имя уже занято", rate_limited: "Слишком много попыток. Попробуйте через 15 минут",
@@ -223,7 +223,7 @@ function drawModal() {
     const code = `<form id="cf"><label>${esc(T("code_label"))}</label><input type="text" id="ci" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase"><div class="err" id="ce"></div><button class="ob full" type="submit">${esc(T("btn_unlock"))}</button></form>`;
     const head = `<h2>Уровень ${esc(t.name)} · ${money(t.price_rub || 0)}</h2><div class="perks">${(t.perks || []).map(x => "✔ " + esc(x)).join("<br>")}</div>`;
     const tg = S.profile?.links?.telegram || "https://t.me/+o00nzwRIRCAwZjQy";
-    const hint = `<div class="mu small paynote">После оплаты открой <a class="lnk" href="${esc(tg)}" target="_blank" rel="noopener">Telegram</a>. Там код — введи его тут.</div>`;
+    const hint = `<div class="mu small paynote">В сообщении после оплаты будет ссылка на <a class="lnk" href="${esc(tg)}" target="_blank" rel="noopener">Telegram</a>. Код там, введи его сюда.</div>`;
     const covers = payCovers();
     h = `<div class="paylv">${head}<a class="ob full" href="${esc(t.pay_url || t.boosty_url || C.BOOSTY_URL)}" target="_blank" rel="noopener" id="paylink">${esc(T("btn_pay"))}</a>${hint}${code}${covers}</div>`; }
   else if (m.t == "pick") h = `<h2>🎁 1 пак на выбор 🐾</h2><div class="perks">✔ Любая сумма, мур · один раз · на этот аккаунт<br>✔ Открой любой закрытый пак — навсегда твой 💕</div>
