@@ -291,35 +291,16 @@ function gatePass() { const H = document.documentElement; if (!H.classList.conta
 (() => { const g = $("#gate"); if (!g) return; $("#gate #lf").addEventListener("submit", login); $("#gate #af").addEventListener("submit", signup); $("#gate #au").addEventListener("input", nickCheck); g.addEventListener("click", e => { const b = e.target.closest("[data-eye]"); if (!b) return; const i = $("#" + b.dataset.eye); i.type = i.type == "password" ? "text" : "password"; b.classList.toggle("off", i.type == "password"); }); g.addEventListener("pointerdown", e => { const b = e.target.closest(".gf .ob"); if (!b) return; const r = b.getBoundingClientRect(), s = document.createElementNS("http://www.w3.org/2000/svg", "svg"); s.setAttribute("class", "gstamp"); s.innerHTML = '<use href="#gpaw"/>'; s.style.left = e.clientX - r.left + "px"; s.style.top = e.clientY - r.top + "px"; b.append(s); setTimeout(() => s.remove(), 650); }); g.addEventListener("click", e => { if (e.target.closest("[data-gate-x]")) { e.preventDefault(); if (document.documentElement.classList.contains("gwall")) return; document.documentElement.classList.remove("gate", "gout"); try { localStorage.removeItem("miaReturn"); } catch {} return; } const t = e.target.dataset.g; if (!t) return; g.classList.add("gsw"); g.classList.toggle("gate-s", t == "signup"); $$("#gate .gtabs a").forEach(a => a.classList.toggle("on", a.dataset.g == t)); }); })();
 function firstPaid() { return (S.tiers || []).find(t => t.rank > 0); }
 function accessGate() {
-  const H = document.documentElement;
-  if (S.user?.admin || S.rank > 0) { H.classList.remove("gate", "gwall", "gout", "paywait", "pwall"); return; }
-  const tiers = S.tiers || [], t = firstPaid();
-  if (!tiers.length) return;
-  if (!t) { H.classList.remove("gate", "gwall", "paywait", "pwall"); return; }
-  H.classList.add("pwall");
-  if (!S.user) {
-    H.classList.remove("paywait");
-    const first = !H.classList.contains("gate");
-    H.classList.add("gate", "gwall");
-    if (first) { const g = $("#gate"); if (g) { g.classList.add("gsw", "gate-s"); $$("#gate .gtabs a").forEach(a => a.classList.toggle("on", a.dataset.g == "signup")); } }
-    if (S.modal?.wall) { S.modal = null; $("#modal")?.remove(); }
-    return;
-  }
-  H.classList.remove("gate", "gwall", "gout", "paywait");
-  if (S.modal?.ok) return;
-  if (!(S.modal && S.modal.t == "pay")) {
-    let rank = t.rank, post = null;
-    try { const r = JSON.parse(localStorage.miaReturn || "null"); if (r && r.rank > 0) { rank = r.rank; post = r.post || null; } } catch {}
-    S.modal = { t: "pay", rank, post, wall: true };
-  } else S.modal.wall = true;
+  document.documentElement.classList.remove("gwall", "paywait", "pwall");
 }
 function afterAuth() { try { localStorage.miaWasIn = "1"; } catch {}
-  let ret = S.modal?.rank != null ? { rank: S.modal.rank, post: S.modal.post || null } : null;
-  if (!ret) { try { ret = JSON.parse(localStorage.miaReturn || "null"); } catch {} }
-  const t = firstPaid(), needPay = !S.user?.admin && !(S.rank > 0) && !!t;
-  if (needPay) { const rank = ret && ret.rank > 0 ? ret.rank : t.rank, post = ret && ret.post || null; S.modal = { t: "pay", rank, post, wall: true }; try { localStorage.miaReturn = JSON.stringify({ rank, post }); } catch {} }
+  let ret = null; try { ret = JSON.parse(localStorage.miaReturn || "null"); } catch {}
+  const needPay = !!(ret && ret.rank > 0 && !S.user?.admin && !(S.rank > 0));
+  if (needPay) { S.modal = { t: "pay", rank: ret.rank, post: ret.post || null }; drawModal(); }
+  else closeModal();
+  try { localStorage.removeItem("miaReturn"); } catch {}
   if (gatePass()) return;
-  if (needPay) { drawModal(); render(); } else { try { localStorage.removeItem("miaReturn"); } catch {} closeModal(); render(); }
+  render();
 }
 // ввод кода «1 пак на выбор»
 const PICK_SLOW = "Мяу, сервер долго молчит 🐾 Проверь интернет и попробуй ещё раз";
